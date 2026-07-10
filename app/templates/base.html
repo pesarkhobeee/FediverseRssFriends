@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}rssRadar{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}">
+  <script src="https://unpkg.com/htmx.org@2.0.3" defer></script>
+</head>
+<body>
+  <header>
+    <a href="/" class="brand">rssRadar</a>
+    <nav>
+      {% if user %}
+        <a href="/dashboard">Dashboard</a>
+        <a href="/logout">Logout</a>
+      {% else %}
+        <a href="/#login">Login</a>
+      {% endif %}
+    </nav>
+  </header>
+  <main>{% block content %}{% endblock %}</main>
+</body>
+</html>
