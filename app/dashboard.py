@@ -71,7 +71,14 @@ def dashboard(
     user: User = Depends(login_required),
     db: Session = Depends(get_session),
 ):
-    return _partial(request, "dashboard.html", user=user, radar=_load_radar(db, user))
+    from .follow import pending_requests_count
+    return _partial(
+        request,
+        "dashboard.html",
+        user=user,
+        radar=_load_radar(db, user),
+        pending_requests=pending_requests_count(db, user.id),
+    )
 
 
 # ---------- Categories ----------

@@ -1,0 +1,18 @@
+{# Follow toggle. Expects `target` (User) + `state` in {none, pending, following, self}. #}
+{% if state == "self" %}
+  {# no button #}
+{% elif state == "following" %}
+  <button class="btn-ghost"
+          hx-delete="/u/{{ target.handle }}/follow"
+          hx-swap="outerHTML"
+          title="Unfollow @{{ target.handle }}">✓ Following</button>
+{% elif state == "pending" %}
+  <button class="btn-ghost"
+          hx-delete="/u/{{ target.handle }}/follow"
+          hx-swap="outerHTML"
+          title="Cancel follow request">⏳ Requested</button>
+{% else %}
+  <button class="btn"
+          hx-post="/u/{{ target.handle }}/follow"
+          hx-swap="outerHTML">➕ Follow</button>
+{% endif %}

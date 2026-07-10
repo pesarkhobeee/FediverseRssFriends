@@ -7,6 +7,9 @@
     <a class="btn-ghost" href="/u/{{ user.handle }}">🌐 View public page</a>
     <a class="btn-ghost" href="/u/{{ user.handle }}/favorites">⭐ My favorites</a>
     <a class="btn-ghost" href="/u/{{ user.handle }}.opml">📥 OPML</a>
+    <a class="btn-ghost" href="/follow-requests">
+      📮 Follow requests{% if pending_requests %} ({{ pending_requests }}){% endif %}
+    </a>
   </p>
   <form method="post" action="/settings/visibility" class="login-form" style="margin-top:.75rem">
     <label class="muted" for="vis">Visibility:</label>

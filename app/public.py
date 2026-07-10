@@ -17,7 +17,7 @@ from sqlmodel import Session, select
 
 from . import config
 from .auth import current_user, login_required
-from .db import Category, Favorite, Feed, FeedItem, Subscription, User, get_session
+from .db import Category, Favorite, Feed, FeedItem, Follow, Subscription, User, get_session
 from .importers import add_subscription_by_feed, fork_from
 from .utils import relative_time
 
@@ -32,10 +32,17 @@ router = APIRouter()
 RECENT_ITEMS_PER_FEED = 5
 
 
-def can_view(viewer: User | None, target: User) -> bool:
+def can_view(viewer: User | None, target: User, db: Session | None = None) -> bool:
     if target.visibility in ("public", "unlisted"):
         return True
-    return bool(viewer and viewer.id == target.id)
+    if viewer and viewer.id == target.id:
+        return True
+    # Private: an approved follower can view.
+    if viewer and db is not None:
+        row = db.get(Follow, (viewer.id, target.id))
+        if row and row.approved_at is not None:
+            return True
+    return False
 
 
 def _load_public_radar(
@@ -153,7 +160,7 @@ def user_opml(
     owner = db.exec(select(User).where(User.handle == handle)).first()
     if not owner:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "user not found")
-    if not can_view(viewer, owner):
+    if not can_view(viewer, owner, db=db):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "this radar is private")
 
     categories = db.exec(
@@ -208,12 +215,17 @@ def user_radar(
     owner = db.exec(select(User).where(User.handle == handle)).first()
     if not owner:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "user not found")
-    if not can_view(viewer, owner):
+    if not can_view(viewer, owner, db=db):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "this radar is private")
+
+    from .follow import follow_state, follower_count, following_count
 
     ctx = _load_public_radar(db, owner, cat, viewer=viewer)
     ctx["user"] = viewer
     ctx["is_owner"] = bool(viewer and viewer.id == owner.id)
+    ctx["follow_state"] = follow_state(db, viewer.id, owner.id) if viewer else "none"
+    ctx["followers_n"] = follower_count(db, owner.id)
+    ctx["following_n"] = following_count(db, owner.id)
     return templates.TemplateResponse(request, "user_radar.html", ctx)
 
 
@@ -245,7 +257,7 @@ def cherry_pick(
     """Subscribe the viewer to a feed shown on another user's radar. The
     category is copied from the owner's assignment."""
     owner = db.exec(select(User).where(User.handle == handle)).first()
-    if not owner or not can_view(viewer, owner):
+    if not owner or not can_view(viewer, owner, db=db):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "not found")
     if owner.id == viewer.id:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "that's your own feed")
@@ -278,7 +290,7 @@ def fork(
     db: Session = Depends(get_session),
 ):
     owner = db.exec(select(User).where(User.handle == handle)).first()
-    if not owner or not can_view(viewer, owner):
+    if not owner or not can_view(viewer, owner, db=db):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "not found")
     if owner.id == viewer.id:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "you can't fork yourself")

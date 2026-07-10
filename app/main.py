@@ -16,6 +16,7 @@ from .auth import consume_token, current_user, issue_magic_link
 from .dashboard import router as dashboard_router
 from .db import User, get_session, init_db
 from .favorites import router as favorites_router
+from .follow import router as follow_router
 from .public import router as public_router
 from .refresh import run_cycle
 
@@ -98,6 +99,7 @@ def logout(request: Request):
 app.include_router(dashboard_router)
 app.include_router(public_router)
 app.include_router(favorites_router)
+app.include_router(follow_router)
 
 
 @app.get("/healthz")

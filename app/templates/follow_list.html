@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}@{{ owner.handle }}'s {{ kind }}{% endblock %}
+{% block content %}
+<section class="hero stack">
+  <h1>@{{ owner.handle }}'s {{ kind }}</h1>
+  <p><a class="btn-ghost" href="/u/{{ owner.handle }}">← Back to radar</a></p>
+</section>
+
+{% if entries %}
+<ul class="fav-list">
+  {% for e in entries %}
+    <li class="fav-item">
+      <div class="fav-head">
+        <a class="title" href="/u/{{ e.other.handle }}">@{{ e.other.handle }}</a>
+        <span class="spacer"></span>
+        <span class="muted" style="font-size:.85rem">
+          {{ 'since' if kind == 'followers' else 'followed' }} {{ e.follow.approved_at|relative_time }}
+        </span>
+      </div>
+    </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="muted">
+  {% if kind == 'followers' %}Nobody follows @{{ owner.handle }} yet.
+  {% else %}@{{ owner.handle }} isn't following anyone yet.
+  {% endif %}
+</p>
+{% endif %}
+{% endblock %}

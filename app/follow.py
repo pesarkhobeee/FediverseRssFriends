@@ -1,0 +1,229 @@
+"""Follow graph: follow/unfollow, pending requests for private users,
+approve/reject inbox, followers + following lists.
+
+Approval rules (matches visibility semantics):
+  - target public   → auto-approve on follow.
+  - target unlisted → auto-approve on follow.
+  - target private  → row inserted with approved_at=NULL until owner acts.
+
+Approved followers of a private user gain view access via can_view().
+"""
+
+from pathlib import Path
+
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
+from sqlmodel import Session, func, select
+
+from .auth import current_user, login_required
+from .db import Follow, User, _now, get_session
+from .utils import relative_time
+
+APP_DIR = Path(__file__).resolve().parent
+templates = Jinja2Templates(directory=APP_DIR / "templates")
+templates.env.filters.setdefault("relative_time", relative_time)
+
+router = APIRouter()
+
+
+def is_approved_follower(db: Session, viewer_id: int, target_id: int) -> bool:
+    row = db.get(Follow, (viewer_id, target_id))
+    return bool(row and row.approved_at is not None)
+
+
+def follow_state(db: Session, viewer_id: int, target_id: int) -> str:
+    """Return 'self' | 'following' | 'pending' | 'none'."""
+    if viewer_id == target_id:
+        return "self"
+    row = db.get(Follow, (viewer_id, target_id))
+    if not row:
+        return "none"
+    return "following" if row.approved_at else "pending"
+
+
+def follower_count(db: Session, user_id: int) -> int:
+    return db.exec(
+        select(func.count(Follow.follower_id))
+        .where(Follow.followee_id == user_id)
+        .where(Follow.approved_at.is_not(None))
+    ).one()
+
+
+def following_count(db: Session, user_id: int) -> int:
+    return db.exec(
+        select(func.count(Follow.followee_id))
+        .where(Follow.follower_id == user_id)
+        .where(Follow.approved_at.is_not(None))
+    ).one()
+
+
+def pending_requests_count(db: Session, user_id: int) -> int:
+    return db.exec(
+        select(func.count(Follow.follower_id))
+        .where(Follow.followee_id == user_id)
+        .where(Follow.approved_at.is_(None))
+    ).one()
+
+
+def _button_partial(request: Request, target: User, state: str) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request, "_follow_button.html", {"target": target, "state": state}
+    )
+
+
+@router.post("/u/{handle}/follow", response_class=HTMLResponse)
+def follow(
+    handle: str,
+    request: Request,
+    viewer: User = Depends(login_required),
+    db: Session = Depends(get_session),
+):
+    target = db.exec(select(User).where(User.handle == handle)).first()
+    if not target:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "user not found")
+    if target.id == viewer.id:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "can't follow yourself")
+
+    existing = db.get(Follow, (viewer.id, target.id))
+    if not existing:
+        approved = _now() if target.visibility != "private" else None
+        db.add(Follow(follower_id=viewer.id, followee_id=target.id, approved_at=approved))
+        db.commit()
+        state = "following" if approved else "pending"
+    else:
+        state = "following" if existing.approved_at else "pending"
+
+    return _button_partial(request, target, state)
+
+
+@router.delete("/u/{handle}/follow", response_class=HTMLResponse)
+def unfollow(
+    handle: str,
+    request: Request,
+    viewer: User = Depends(login_required),
+    db: Session = Depends(get_session),
+):
+    target = db.exec(select(User).where(User.handle == handle)).first()
+    if not target:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "user not found")
+    row = db.get(Follow, (viewer.id, target.id))
+    if row:
+        db.delete(row)
+        db.commit()
+    return _button_partial(request, target, "none")
+
+
+@router.get("/follow-requests", response_class=HTMLResponse)
+def requests_inbox(
+    request: Request,
+    user: User = Depends(login_required),
+    db: Session = Depends(get_session),
+):
+    rows = db.exec(
+        select(Follow, User)
+        .join(User, User.id == Follow.follower_id)
+        .where(Follow.followee_id == user.id)
+        .where(Follow.approved_at.is_(None))
+        .order_by(Follow.created_at.desc())
+    ).all()
+    return templates.TemplateResponse(
+        request,
+        "follow_requests.html",
+        {"user": user, "requests": [{"follow": f, "follower": u} for f, u in rows]},
+    )
+
+
+@router.post("/follow-requests/{follower_id}/approve", response_class=HTMLResponse)
+def approve_request(
+    follower_id: int,
+    user: User = Depends(login_required),
+    db: Session = Depends(get_session),
+):
+    row = db.get(Follow, (follower_id, user.id))
+    if not row or row.approved_at is not None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "no pending request")
+    row.approved_at = _now()
+    db.add(row)
+    db.commit()
+    return HTMLResponse("")  # HTMX will delete the row
+
+
+@router.post("/follow-requests/{follower_id}/reject", response_class=HTMLResponse)
+def reject_request(
+    follower_id: int,
+    user: User = Depends(login_required),
+    db: Session = Depends(get_session),
+):
+    row = db.get(Follow, (follower_id, user.id))
+    if not row or row.approved_at is not None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "no pending request")
+    db.delete(row)
+    db.commit()
+    return HTMLResponse("")
+
+
+@router.get("/u/{handle}/followers", response_class=HTMLResponse)
+def followers_page(
+    handle: str,
+    request: Request,
+    viewer: User | None = Depends(current_user),
+    db: Session = Depends(get_session),
+):
+    from .public import can_view  # avoid cycle at import time
+
+    owner = db.exec(select(User).where(User.handle == handle)).first()
+    if not owner:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "user not found")
+    if not can_view(viewer, owner, db=db):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "this radar is private")
+    rows = db.exec(
+        select(Follow, User)
+        .join(User, User.id == Follow.follower_id)
+        .where(Follow.followee_id == owner.id)
+        .where(Follow.approved_at.is_not(None))
+        .order_by(Follow.approved_at.desc())
+    ).all()
+    return templates.TemplateResponse(
+        request,
+        "follow_list.html",
+        {
+            "user": viewer,
+            "owner": owner,
+            "kind": "followers",
+            "entries": [{"follow": f, "other": u} for f, u in rows],
+        },
+    )
+
+
+@router.get("/u/{handle}/following", response_class=HTMLResponse)
+def following_page(
+    handle: str,
+    request: Request,
+    viewer: User | None = Depends(current_user),
+    db: Session = Depends(get_session),
+):
+    from .public import can_view
+
+    owner = db.exec(select(User).where(User.handle == handle)).first()
+    if not owner:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "user not found")
+    if not can_view(viewer, owner, db=db):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "this radar is private")
+    rows = db.exec(
+        select(Follow, User)
+        .join(User, User.id == Follow.followee_id)
+        .where(Follow.follower_id == owner.id)
+        .where(Follow.approved_at.is_not(None))
+        .order_by(Follow.approved_at.desc())
+    ).all()
+    return templates.TemplateResponse(
+        request,
+        "follow_list.html",
+        {
+            "user": viewer,
+            "owner": owner,
+            "kind": "following",
+            "entries": [{"follow": f, "other": u} for f, u in rows],
+        },
+    )

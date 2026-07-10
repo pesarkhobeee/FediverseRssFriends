@@ -70,7 +70,7 @@ def user_favorites(
     owner = db.exec(select(User).where(User.handle == handle)).first()
     if not owner:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "user not found")
-    if not can_view(viewer, owner):
+    if not can_view(viewer, owner, db=db):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "this radar is private")
 
     rows = db.exec(

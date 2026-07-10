@@ -81,6 +81,16 @@ class Favorite(SQLModel, table=True):
     created_at: datetime = Field(default_factory=_now, index=True)
 
 
+class Follow(SQLModel, table=True):
+    """A directed follow. approved_at is None → pending request (private
+    followees only); NOT NULL → approved (implicit for public/unlisted)."""
+
+    follower_id: int = Field(foreign_key="user.id", primary_key=True)
+    followee_id: int = Field(foreign_key="user.id", primary_key=True, index=True)
+    created_at: datetime = Field(default_factory=_now, index=True)
+    approved_at: datetime | None = Field(default=None, index=True)
+
+
 def init_db() -> None:
     # SQLite: WAL for better concurrency under a single process.
     if DATABASE_URL.startswith("sqlite"):

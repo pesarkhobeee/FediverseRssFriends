@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Follow requests{% endblock %}
+{% block content %}
+<section class="hero stack">
+  <h1>Follow requests</h1>
+  <p class="muted">Approve or reject people who want to follow your private radar.</p>
+  <p><a class="btn-ghost" href="/dashboard">← Back to dashboard</a></p>
+</section>
+
+{% if requests %}
+<ul class="fav-list">
+  {% for r in requests %}
+    <li class="fav-item" id="req-{{ r.follower.id }}">
+      <div class="fav-head">
+        <a class="title" href="/u/{{ r.follower.handle }}">@{{ r.follower.handle }}</a>
+        <span class="spacer"></span>
+        <span class="muted" style="font-size:.85rem">
+          requested {{ r.follow.created_at|relative_time }}
+        </span>
+      </div>
+      <div>
+        <button class="btn"
+                hx-post="/follow-requests/{{ r.follower.id }}/approve"
+                hx-target="#req-{{ r.follower.id }}"
+                hx-swap="delete">Approve</button>
+        <button class="btn-ghost"
+                hx-post="/follow-requests/{{ r.follower.id }}/reject"
+                hx-target="#req-{{ r.follower.id }}"
+                hx-swap="delete">Reject</button>
+      </div>
+    </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="muted">No pending requests.</p>
+{% endif %}
+{% endblock %}

@@ -13,7 +13,19 @@
       · Next update every ~{{ refresh_interval_minutes }} minutes
     </p>
   {% endif %}
+  <p class="muted" style="font-size:.9rem">
+    <a href="/u/{{ owner.handle }}/followers" class="muted">
+      <strong>{{ followers_n }}</strong> follower{{ '' if followers_n == 1 else 's' }}</a>
+    ·
+    <a href="/u/{{ owner.handle }}/following" class="muted">
+      <strong>{{ following_n }}</strong> following</a>
+  </p>
   <p>
+    {% if user and not is_owner %}
+      {% with target=owner, state=follow_state %}
+        {% include "_follow_button.html" %}
+      {% endwith %}
+    {% endif %}
     <a class="btn-ghost" href="/u/{{ owner.handle }}/favorites">⭐ Favorites</a>
     <a class="btn-ghost" href="/u/{{ owner.handle }}.opml">📥 OPML</a>
     {% if is_owner %}
