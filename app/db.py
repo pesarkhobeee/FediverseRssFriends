@@ -73,6 +73,14 @@ class FeedItem(SQLModel, table=True):
     fetched_at: datetime = Field(default_factory=_now)
 
 
+class Favorite(SQLModel, table=True):
+    """A user starring a specific FeedItem. Composite PK deduplicates."""
+
+    user_id: int = Field(foreign_key="user.id", primary_key=True)
+    feed_item_id: int = Field(foreign_key="feeditem.id", primary_key=True)
+    created_at: datetime = Field(default_factory=_now, index=True)
+
+
 def init_db() -> None:
     # SQLite: WAL for better concurrency under a single process.
     if DATABASE_URL.startswith("sqlite"):

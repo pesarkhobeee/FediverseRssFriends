@@ -248,6 +248,33 @@ main { max-width: 880px; margin: 0 auto; padding: 2rem 1.25rem; }
 .item-title:hover { color: var(--accent); }
 .item-date { font-size: .8rem; margin-top: .15rem; }
 
+/* Star button */
+.star {
+  background: transparent;
+  border: none;
+  padding: 0 .4rem 0 0;
+  cursor: pointer;
+  font-size: 1.05rem;
+  color: var(--muted);
+  vertical-align: middle;
+}
+.star:hover { color: var(--fg); }
+.star.star-on { color: #d4a017; }
+.star.star-on:hover { color: #b8890f; }
+
+/* Favorites page */
+.fav-list { list-style: none; padding: 0; margin: 0; }
+.fav-item {
+  padding: .9rem 1rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.fav-item + .fav-item { margin-top: .5rem; }
+.fav-head { display: flex; align-items: center; gap: .55rem; margin-bottom: .25rem; }
+.fav-head .favicon { width: 18px; height: 18px; }
+.fav-source { font-size: .85rem; }
+
 /* Visibility badge on public page */
 .badge-visibility {
   display: inline-block;

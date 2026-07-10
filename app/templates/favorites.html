@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}@{{ owner.handle }}'s favorites{% endblock %}
+{% block content %}
+<section class="hero stack">
+  <h1>⭐ @{{ owner.handle }}'s favorites</h1>
+  <p class="muted">
+    Items {{ 'you' if is_owner else '@' + owner.handle }} starred, newest first.
+  </p>
+  <p>
+    <a class="btn-ghost" href="/u/{{ owner.handle }}">← Back to radar</a>
+  </p>
+</section>
+
+{% if entries %}
+<ul class="fav-list">
+  {% for e in entries %}
+    <li class="fav-item">
+      <div class="fav-head">
+        {% if e.feed.favicon_url %}
+          <img class="favicon" src="{{ e.feed.favicon_url }}" alt="" loading="lazy"
+               onerror="this.style.visibility='hidden'" />
+        {% endif %}
+        <span class="fav-source muted">{{ e.feed.title }}</span>
+        <span class="spacer"></span>
+        <span class="muted" style="font-size:.85rem">
+          starred {{ e.fav.created_at|relative_time }}
+        </span>
+      </div>
+      <a class="item-title" href="{{ e.item.link }}" target="_blank" rel="noopener">
+        {{ e.item.title }}
+      </a>
+      <div class="muted item-date">
+        {{ e.item.published_at|relative_time or "recently" }}
+        {% if user %}
+          {% with item_id=e.item.id, is_favorited=(e.item.id in viewer_faves) %}
+            · {% include "_star.html" %}
+          {% endwith %}
+        {% endif %}
+      </div>
+    </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="muted">Nothing starred yet.</p>
+{% endif %}
+{% endblock %}

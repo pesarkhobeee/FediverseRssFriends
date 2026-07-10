@@ -8,7 +8,7 @@ Visual language is inherited from [lovelyRSS](https://github.com/pesarkhobeee/lo
 
 ## Status
 
-Steps 1–6 done. Signed-in visitors on someone else's radar can **cherry-pick individual feeds** (button per row, category name is copied over) or **fork the whole radar** (all categories + all feeds cloned into their own). OPML **import** (upload) and **export** are both live — imports dedupe against your existing radar and merge into same-named categories case-insensitively. Every subscribe path shares one helper, so cherry-pick, fork, and OPML import all guarantee the same idempotency. Favorites, follow, and activity land in later steps.
+Steps 1–7 done. Every item on the radar can be **starred**; `/u/{handle}/favorites` lists what a user has starred (respects visibility). Star toggles are single HTMX swaps — the button re-renders in place. Signed-in visitors see the correct star state for every item on someone else's radar. Follow + activity land in the next steps.
 
 ## Run
 
@@ -43,8 +43,8 @@ docker compose up --build
 3. Dashboard CRUD: categories + subscriptions ✅
 4. Background fetcher + `FeedItem` cache ✅
 5. Public `/u/{handle}` + visibility gate (public / unlisted / private) ✅
-6. Cherry-pick + fork + OPML import ✅ *(you are here)*
-7. Favorites (★ items)
+6. Cherry-pick + fork + OPML import ✅
+7. Favorites (★ items) ✅ *(you are here)*
 8. Follow (auto-approve; pending requests for private users)
 9. Activity log + `/u/{handle}/activity` + `activity.rss` (signed token for private)
 10. Home timeline `/feed`

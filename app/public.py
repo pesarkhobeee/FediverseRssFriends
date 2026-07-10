@@ -16,7 +16,7 @@ from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select
 
 from .auth import current_user, login_required
-from .db import Category, Feed, FeedItem, Subscription, User, get_session
+from .db import Category, Favorite, Feed, FeedItem, Subscription, User, get_session
 from .importers import add_subscription_by_feed, fork_from
 from .utils import relative_time
 
@@ -37,7 +37,9 @@ def can_view(viewer: User | None, target: User) -> bool:
     return bool(viewer and viewer.id == target.id)
 
 
-def _load_public_radar(db: Session, owner: User, category_filter: str | None) -> dict:
+def _load_public_radar(
+    db: Session, owner: User, category_filter: str | None, viewer: User | None = None
+) -> dict:
     """Categories → subs → feed → recent items. Filters by category name if given."""
     categories = db.exec(
         select(Category)
@@ -97,12 +99,27 @@ def _load_public_radar(db: Session, owner: User, category_filter: str | None) ->
         select(Subscription).where(Subscription.user_id == owner.id)
     ).all()
 
+    viewer_faves: set[int] = set()
+    if viewer:
+        all_item_ids = [
+            item.id for items in items_by_feed.values() for item in items
+        ]
+        if all_item_ids:
+            viewer_faves = set(
+                db.exec(
+                    select(Favorite.feed_item_id)
+                    .where(Favorite.user_id == viewer.id)
+                    .where(Favorite.feed_item_id.in_(all_item_ids))
+                ).all()
+            )
+
     return {
         "owner": owner,
         "categories_view": [{"category": c, "subs": by_cat.get(c.id, [])} for c in categories],
         "all_categories": all_categories,
         "active_cat": category_filter or "",
         "total_feeds": len(total_feeds),
+        "viewer_faves": viewer_faves,
     }
 
 
@@ -173,7 +190,7 @@ def user_radar(
     if not can_view(viewer, owner):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "this radar is private")
 
-    ctx = _load_public_radar(db, owner, cat)
+    ctx = _load_public_radar(db, owner, cat, viewer=viewer)
     ctx["user"] = viewer
     ctx["is_owner"] = bool(viewer and viewer.id == owner.id)
     return templates.TemplateResponse(request, "user_radar.html", ctx)

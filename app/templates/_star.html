@@ -1,0 +1,14 @@
+{# Star toggle. `item_id` and `is_favorited` are required. #}
+{% if is_favorited %}
+<button class="star star-on"
+        hx-delete="/items/{{ item_id }}/favorite"
+        hx-swap="outerHTML"
+        title="Remove from favorites"
+        aria-label="Remove from favorites">★</button>
+{% else %}
+<button class="star"
+        hx-post="/items/{{ item_id }}/favorite"
+        hx-swap="outerHTML"
+        title="Save to favorites"
+        aria-label="Save to favorites">☆</button>
+{% endif %}
