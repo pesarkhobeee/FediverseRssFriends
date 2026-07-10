@@ -8,7 +8,7 @@ Visual language is inherited from [lovelyRSS](https://github.com/pesarkhobeee/lo
 
 ## Status
 
-Steps 1–5 done. Every signed-up user gets a shareable radar page at `/u/{handle}` showing feeds grouped by category with recent items in an expandable card. Visibility is `public` / `unlisted` / `private` (single dependency gates every leak point). OPML export at `/u/{handle}.opml`. Category-filter chips work via `?cat=`. Owners see an "Edit radar" link on their own public page. Favorites, follow, and activity land in later steps.
+Steps 1–6 done. Signed-in visitors on someone else's radar can **cherry-pick individual feeds** (button per row, category name is copied over) or **fork the whole radar** (all categories + all feeds cloned into their own). OPML **import** (upload) and **export** are both live — imports dedupe against your existing radar and merge into same-named categories case-insensitively. Every subscribe path shares one helper, so cherry-pick, fork, and OPML import all guarantee the same idempotency. Favorites, follow, and activity land in later steps.
 
 ## Run
 
@@ -42,8 +42,8 @@ docker compose up --build
 2. Magic-link auth ✅
 3. Dashboard CRUD: categories + subscriptions ✅
 4. Background fetcher + `FeedItem` cache ✅
-5. Public `/u/{handle}` + visibility gate (public / unlisted / private) ✅ *(you are here)*
-6. Cherry-pick + fork another user's radar
+5. Public `/u/{handle}` + visibility gate (public / unlisted / private) ✅
+6. Cherry-pick + fork + OPML import ✅ *(you are here)*
 7. Favorites (★ items)
 8. Follow (auto-approve; pending requests for private users)
 9. Activity log + `/u/{handle}/activity` + `activity.rss` (signed token for private)

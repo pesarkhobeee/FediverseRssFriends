@@ -1,0 +1,9 @@
+{# OPML import summary. #}
+<div class="card" style="margin-top:.75rem">
+  <p>
+    Imported <strong>{{ result.added }}</strong> new feed{{ '' if result.added == 1 else 's' }} from
+    {{ result.total }} outline{{ '' if result.total == 1 else 's' }}.
+    Skipped <strong>{{ result.duplicates }}</strong> already-subscribed.
+    <a href="/dashboard">Reload</a> to see them.
+  </p>
+</div>

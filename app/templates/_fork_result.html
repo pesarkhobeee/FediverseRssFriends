@@ -1,0 +1,9 @@
+{# Fork summary flash. #}
+<div class="card" style="margin-top:1rem">
+  <p>
+    Forked @{{ owner.handle }}'s radar.
+    <strong>{{ result.added }}</strong> feed{{ '' if result.added == 1 else 's' }} added,
+    <strong>{{ result.skipped }}</strong> already in your radar.
+    <a class="btn-ghost" href="/dashboard">Open your radar</a>
+  </p>
+</div>

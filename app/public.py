@@ -16,6 +16,7 @@ from sqlmodel import Session, select
 
 from .auth import current_user, login_required
 from .db import Category, Feed, FeedItem, Subscription, User, get_session
+from .importers import add_subscription_by_feed, fork_from
 from .utils import relative_time
 
 APP_DIR = Path(__file__).resolve().parent
@@ -176,3 +177,63 @@ def set_visibility(
     db.add(user)
     db.commit()
     return RedirectResponse("/dashboard", status_code=303)
+
+
+# ---------- Cherry-pick + fork ----------
+
+
+@router.post("/u/{handle}/subscribe/{feed_id}", response_class=HTMLResponse)
+def cherry_pick(
+    handle: str,
+    feed_id: int,
+    request: Request,
+    viewer: User = Depends(login_required),
+    db: Session = Depends(get_session),
+):
+    """Subscribe the viewer to a feed shown on another user's radar. The
+    category is copied from the owner's assignment."""
+    owner = db.exec(select(User).where(User.handle == handle)).first()
+    if not owner or not can_view(viewer, owner):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "not found")
+    if owner.id == viewer.id:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "that's your own feed")
+
+    row = db.exec(
+        select(Subscription, Feed, Category)
+        .join(Feed, Feed.id == Subscription.feed_id)
+        .join(Category, Category.id == Subscription.category_id)
+        .where(Subscription.user_id == owner.id)
+        .where(Subscription.feed_id == feed_id)
+    ).first()
+    if not row:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "feed not on this radar")
+    _sub, feed, category = row
+
+    added = add_subscription_by_feed(db, viewer, feed, category.name)
+    db.commit()
+    return templates.TemplateResponse(
+        request,
+        "_pick_result.html",
+        {"added": added, "feed": feed, "category_name": category.name},
+    )
+
+
+@router.post("/u/{handle}/fork", response_class=HTMLResponse)
+def fork(
+    handle: str,
+    request: Request,
+    viewer: User = Depends(login_required),
+    db: Session = Depends(get_session),
+):
+    owner = db.exec(select(User).where(User.handle == handle)).first()
+    if not owner or not can_view(viewer, owner):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "not found")
+    if owner.id == viewer.id:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "you can't fork yourself")
+
+    result = fork_from(db, viewer, owner)
+    return templates.TemplateResponse(
+        request,
+        "_fork_result.html",
+        {"result": result, "owner": owner},
+    )

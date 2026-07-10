@@ -1,0 +1,8 @@
+{# HTMX swaps this in place of the "Add to my radar" button. #}
+{% if added %}
+  <span class="pick-added" title="Added to your '{{ category_name }}' category">
+    ✓ Added to <a href="/dashboard">your radar</a>
+  </span>
+{% else %}
+  <span class="muted">Already in your radar</span>
+{% endif %}

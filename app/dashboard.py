@@ -6,7 +6,7 @@ them into the page. Full-page renders live at GET /dashboard.
 
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
 from fastapi.responses import HTMLResponse, Response
 from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select
@@ -14,6 +14,8 @@ from sqlmodel import Session, select
 from .auth import login_required
 from .db import Category, Feed, FeedItem, Subscription, User, get_session
 from .feeds import resolve_feed
+from .importers import add_subscription_by_url
+from .opml import parse_opml
 from .refresh import run_cycle
 
 APP_DIR = Path(__file__).resolve().parent
@@ -193,6 +195,48 @@ def unsubscribe(
     db.delete(sub)
     db.commit()
     return Response(status_code=200)
+
+
+MAX_OPML_BYTES = 2 * 1024 * 1024  # 2 MB is huge for OPML
+
+
+@router.post("/import/opml", response_class=HTMLResponse)
+async def import_opml(
+    request: Request,
+    file: UploadFile = File(...),
+    user: User = Depends(login_required),
+    db: Session = Depends(get_session),
+):
+    content = await file.read(MAX_OPML_BYTES + 1)
+    if len(content) > MAX_OPML_BYTES:
+        raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, "OPML too large")
+    if not content:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "empty file")
+
+    try:
+        entries = parse_opml(content)
+    except ValueError as e:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e)) from e
+
+    added = 0
+    dup = 0
+    for e in entries:
+        was_added, _feed = add_subscription_by_url(
+            db, user, e.xml_url, e.category,
+            title_hint=e.title or None,
+            site_hint=e.html_url or None,
+        )
+        if was_added:
+            added += 1
+        else:
+            dup += 1
+    db.commit()
+
+    return _partial(
+        request,
+        "_import_result.html",
+        result={"added": added, "duplicates": dup, "total": len(entries)},
+    )
 
 
 @router.post("/refresh", response_class=HTMLResponse)

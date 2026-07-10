@@ -11,6 +11,15 @@
     <a class="btn-ghost" href="/u/{{ owner.handle }}.opml">📥 OPML</a>
     {% if is_owner %}
       <a class="btn-ghost" href="/dashboard">Edit radar</a>
+    {% elif user %}
+      <button class="btn"
+              hx-post="/u/{{ owner.handle }}/fork"
+              hx-target="#fork-result"
+              hx-swap="innerHTML"
+              hx-confirm="Copy all of @{{ owner.handle }}'s feeds into your radar?">
+        🍴 Fork this radar
+      </button>
+      <span id="fork-result"></span>
     {% endif %}
   </p>
 </section>
@@ -52,10 +61,22 @@
             <span class="chevron" aria-hidden="true">▾</span>
           </summary>
           <div class="feed-body">
-            {% if it.feed.site_url %}
-              <p><a class="btn-ghost" href="{{ it.feed.site_url }}" target="_blank" rel="noopener">Visit Website</a>
-                 <a class="btn-ghost" href="{{ it.feed.url }}" target="_blank" rel="noopener">Feed XML</a></p>
-            {% endif %}
+            <p>
+              {% if it.feed.site_url %}
+                <a class="btn-ghost" href="{{ it.feed.site_url }}" target="_blank" rel="noopener">Visit Website</a>
+              {% endif %}
+              <a class="btn-ghost" href="{{ it.feed.url }}" target="_blank" rel="noopener">Feed XML</a>
+              {% if user and not is_owner %}
+                <span id="pick-{{ it.feed.id }}">
+                  <button class="btn-ghost"
+                          hx-post="/u/{{ owner.handle }}/subscribe/{{ it.feed.id }}"
+                          hx-target="#pick-{{ it.feed.id }}"
+                          hx-swap="innerHTML">
+                    ➕ Add to my radar
+                  </button>
+                </span>
+              {% endif %}
+            </p>
             {% if it.entries %}
               <ul class="item-list">
                 {% for item in it.entries %}
