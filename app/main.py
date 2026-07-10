@@ -19,6 +19,7 @@ from .favorites import router as favorites_router
 from .follow import router as follow_router
 from .public import router as public_router
 from .refresh import run_cycle
+from .timeline import router as timeline_router
 
 log = logging.getLogger(__name__)
 
@@ -64,7 +65,7 @@ def render(request: Request, template: str, **ctx) -> HTMLResponse:
 @app.get("/", response_class=HTMLResponse)
 def index(request: Request, user: User | None = Depends(current_user)):
     if user:
-        return RedirectResponse("/dashboard", status_code=303)
+        return RedirectResponse("/feed", status_code=303)
     return render(request, "index.html", user=None)
 
 
@@ -100,6 +101,7 @@ app.include_router(dashboard_router)
 app.include_router(public_router)
 app.include_router(favorites_router)
 app.include_router(follow_router)
+app.include_router(timeline_router)
 
 
 @app.get("/healthz")

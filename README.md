@@ -46,8 +46,8 @@ docker compose up --build
 6. Cherry-pick + fork + OPML import ✅
 7. Favorites (★ items) ✅
 8. Follow (auto-approve; pending requests for private users) ✅
-9. Activity log + `/u/{handle}/activity` + `activity.rss` (signed token for private) ✅ *(you are here)*
-10. Home timeline `/feed`
+9. Activity log + `/u/{handle}/activity` + `activity.rss` (signed token for private) ✅
+10. Home timeline `/feed` ✅ *(you are here)*
 11. OPML import/export
 12. Discover
 13. Polish (favicon cache, health badges, rate limits, backup)

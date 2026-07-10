@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}Home{% endblock %}
+{% block content %}
+<section class="hero stack">
+  <h1>🏠 Your feed</h1>
+  <p class="muted">
+    Activity from the {{ n_followees }} {{ 'person' if n_followees == 1 else 'people' }} you follow,
+    plus fresh items from your {{ n_subscriptions }} subscribed feed{{ '' if n_subscriptions == 1 else 's' }}.
+  </p>
+</section>
+
+{% if entries %}
+<ul class="fav-list">
+  {% for e in entries %}
+    {% if e.kind == "activity" %}
+      <li class="fav-item">
+        <div class="fav-head">
+          <span aria-hidden="true">{{ kind_icon.get(e.activity.kind, '') }}</span>
+          <span>
+            {% if e.actor %}
+              <a class="title" href="/u/{{ e.actor.handle }}">@{{ e.actor.handle }}</a>
+            {% else %}
+              <span class="title">someone</span>
+            {% endif %}
+            <span class="muted">{{ kind_verb.get(e.activity.kind, e.activity.kind) }}</span>
+            {% if e.activity.subject_url %}
+              <a class="item-title" href="{{ e.activity.subject_url }}"
+                 {% if e.activity.subject_url.startswith('http') %}target="_blank" rel="noopener"{% endif %}>
+                {{ e.activity.subject }}
+              </a>
+            {% else %}
+              <span class="item-title">{{ e.activity.subject }}</span>
+            {% endif %}
+          </span>
+          <span class="spacer"></span>
+          <span class="muted" style="font-size:.85rem">{{ e.ts|relative_time }}</span>
+        </div>
+      </li>
+    {% else %}
+      <li class="fav-item">
+        <div class="fav-head">
+          {% if e.feed and e.feed.favicon_url %}
+            <img class="favicon" src="{{ e.feed.favicon_url }}" alt="" loading="lazy"
+                 onerror="this.style.visibility='hidden'" />
+          {% else %}
+            <span aria-hidden="true">📡</span>
+          {% endif %}
+          <span class="fav-source muted">{{ e.feed.title if e.feed else "(unknown feed)" }}</span>
+          <span class="spacer"></span>
+          <span class="muted" style="font-size:.85rem">{{ e.ts|relative_time }}</span>
+        </div>
+        <a class="item-title" href="{{ e.item.link }}" target="_blank" rel="noopener">
+          {{ e.item.title }}
+        </a>
+        <div class="muted item-date">
+          {% with item_id=e.item.id, is_favorited=e.is_favorited %}
+            {% include "_star.html" %}
+          {% endwith %}
+        </div>
+      </li>
+    {% endif %}
+  {% endfor %}
+</ul>
+{% else %}
+<p class="muted">
+  Nothing here yet. <a href="/dashboard">Subscribe to feeds</a> or
+  visit someone's radar to follow them.
+</p>
+{% endif %}
+{% endblock %}
