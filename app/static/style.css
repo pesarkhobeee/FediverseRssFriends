@@ -106,7 +106,7 @@ main { max-width: 880px; margin: 0 auto; padding: 2rem 1.25rem; }
 /* Section headings */
 .section-title { font-size: 1.5rem; margin: 2rem 0 .75rem; }
 
-/* Login block (placeholder until step 2) */
+/* Login card */
 .login {
   margin-top: 2.5rem;
   padding: 1.25rem;
@@ -114,3 +114,27 @@ main { max-width: 880px; margin: 0 auto; padding: 2rem 1.25rem; }
   border: 1px solid var(--border);
   border-radius: var(--radius);
 }
+.login-form { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: .75rem; }
+.input {
+  flex: 1 1 260px;
+  padding: .55rem .8rem;
+  font-size: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--fg);
+}
+.input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.btn {
+  display: inline-block;
+  padding: .55rem 1.1rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--accent-fg);
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  cursor: pointer;
+  text-decoration: none;
+}
+.btn:hover { filter: brightness(0.95); }

@@ -11,12 +11,23 @@ engine = create_engine(
 )
 
 
+def _now() -> datetime:
+    return datetime.now(UTC)
+
+
 class User(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     email: str = Field(index=True, unique=True)
     handle: str = Field(index=True, unique=True)
     visibility: str = Field(default="public")  # public | unlisted | private
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    created_at: datetime = Field(default_factory=_now)
+
+
+class MagicToken(SQLModel, table=True):
+    token: str = Field(primary_key=True)
+    email: str = Field(index=True)
+    created_at: datetime = Field(default_factory=_now)
+    expires_at: datetime
 
 
 def init_db() -> None:

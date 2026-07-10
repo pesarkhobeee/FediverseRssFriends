@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="hero stack">
+  <h1>Welcome, @{{ user.handle }}.</h1>
+  <p class="muted">Signed in as {{ user.email }} · visibility: {{ user.visibility }}</p>
+</section>
+
+<section class="login">
+  <h2 style="margin-top:0">Your radar is empty.</h2>
+  <p class="muted">
+    Categories and feed subscriptions land in step 3. This screen is a stub — auth is working.
+  </p>
+</section>
+{% endblock %}

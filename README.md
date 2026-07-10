@@ -8,7 +8,7 @@ Visual language is inherited from [lovelyRSS](https://github.com/pesarkhobeee/lo
 
 ## Status
 
-Step 1 of the build order — **skeleton only**. Landing page, session middleware, SQLite bootstrap, health check. Auth, feeds, follow, and activity land in later steps.
+Steps 1–2 done. Magic-link auth works end-to-end: enter email → dev-mode link printed to stdout (and shown on the "check inbox" page) → verify → session cookie → `/dashboard`. Rate-limited per email, tokens are single-use with 15-minute TTL. Categories, feeds, follow, and activity land in later steps.
 
 ## Run
 
@@ -38,8 +38,8 @@ docker compose up --build
 
 ## Roadmap
 
-1. Skeleton ← *you are here*
-2. Magic-link auth
+1. Skeleton ✅
+2. Magic-link auth ✅ *(you are here)*
 3. Dashboard CRUD: categories + subscriptions
 4. Background fetcher + `FeedItem` cache
 5. Public `/u/{handle}` + visibility gate (public / unlisted / private)
@@ -60,6 +60,10 @@ Environment variables:
 - `RSSRADAR_DATA_DIR` — default `./data`
 - `RSSRADAR_SESSION_SECRET` — **change in production**
 - `RSSRADAR_DEBUG` — `1` to enable debug behavior
+- `RSSRADAR_BASE_URL` — public URL used in magic-link emails (default `http://localhost:8000`)
+- `RSSRADAR_MAGIC_LINK_TTL_MINUTES` — token lifetime (default `15`)
+- `RSSRADAR_MAGIC_LINK_MIN_INTERVAL` — min seconds between links per email (default `60`)
+- `RSSRADAR_SMTP_HOST` / `_PORT` / `_USER` / `_PASSWORD` / `_FROM` / `_STARTTLS` — leave `SMTP_HOST` empty for dev mode (link printed to stdout)
 
 ## License
 

@@ -5,33 +5,13 @@
   <p>Follow the web. Share what you read. Discover through people, not algorithms.</p>
 </section>
 
-<h2 class="section-title">Preview</h2>
-<div class="chips" aria-label="Categories (preview)">
-  <a class="chip active" href="#">All</a>
-  <a class="chip" href="#">Github</a>
-  <a class="chip" href="#">Weblogs</a>
-  <a class="chip" href="#">News</a>
-  <a class="chip" href="#">Mastodon</a>
-</div>
-
-<div style="margin-top:1rem">
-  <div class="feed">
-    <span class="favicon" aria-hidden="true">🟢</span>
-    <a class="title" href="#">The Proton Blog</a>
-    <span class="badge-new">New</span>
-    <span class="spacer"></span>
-    <span class="updated">Updated 18 hours ago</span>
-  </div>
-  <div class="feed">
-    <span class="favicon" aria-hidden="true">☁️</span>
-    <a class="title" href="#">Cloud Blog</a>
-    <span class="spacer"></span>
-    <span class="updated">Updated 2 days ago</span>
-  </div>
-</div>
-
 <section id="login" class="login">
   <h2 style="margin-top:0">Sign in</h2>
-  <p class="muted">Magic-link auth ships in step 2. This is just the skeleton.</p>
+  <p class="muted">Enter your email — we'll send you a magic link. No password, no signup form.</p>
+  <form method="post" action="/login" class="login-form">
+    <input type="email" name="email" required autocomplete="email"
+           placeholder="you@example.com" class="input" />
+    <button type="submit" class="btn">Send magic link</button>
+  </form>
 </section>
 {% endblock %}

@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="hero stack">
+  <h1>Check your inbox.</h1>
+  <p>We sent a sign-in link to <strong>{{ email }}</strong>. It expires soon.</p>
+</section>
+{% if dev_link %}
+<section class="login">
+  <h2 style="margin-top:0">Dev mode</h2>
+  <p class="muted">No SMTP configured. Click the link below to sign in.</p>
+  <p><a class="btn" href="{{ dev_link }}">Sign in now</a></p>
+</section>
+{% endif %}
+{% endblock %}
