@@ -1,14 +1,29 @@
 {% extends "base.html" %}
 {% block content %}
 <section class="hero stack">
-  <h1>Welcome, @{{ user.handle }}.</h1>
+  <h1>@{{ user.handle }}'s radar</h1>
   <p class="muted">Signed in as {{ user.email }} · visibility: {{ user.visibility }}</p>
 </section>
 
-<section class="login">
-  <h2 style="margin-top:0">Your radar is empty.</h2>
-  <p class="muted">
-    Categories and feed subscriptions land in step 3. This screen is a stub — auth is working.
-  </p>
+<section class="card">
+  <h2 style="margin-top:0">Add category</h2>
+  <form class="login-form"
+        hx-post="/categories"
+        hx-target="#categories"
+        hx-swap="beforeend"
+        hx-on::after-request="this.reset()">
+    <input class="input" type="text" name="name" required maxlength="40"
+           placeholder="e.g. Weblogs, News, GitHub" />
+    <button class="btn" type="submit">Add</button>
+  </form>
 </section>
+
+<div id="categories" class="stack">
+  {% for entry in radar %}
+    {% include "_category.html" %}
+  {% endfor %}
+  {% if not radar %}
+    <p class="muted" id="empty-hint">No categories yet. Add one above to start subscribing to feeds.</p>
+  {% endif %}
+</div>
 {% endblock %}

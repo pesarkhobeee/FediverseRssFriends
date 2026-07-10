@@ -30,6 +30,36 @@ class MagicToken(SQLModel, table=True):
     expires_at: datetime
 
 
+class Category(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="user.id", index=True)
+    name: str
+    sort_order: int = Field(default=0)
+
+
+class Feed(SQLModel, table=True):
+    """Global row, deduplicated by URL — every subscribed URL exists once."""
+
+    id: int | None = Field(default=None, primary_key=True)
+    url: str = Field(unique=True, index=True)
+    title: str
+    site_url: str = Field(default="")
+    favicon_url: str = Field(default="")
+    last_fetched_at: datetime | None = Field(default=None)
+    consecutive_failures: int = Field(default=0)
+    last_error: str = Field(default="")
+
+
+class Subscription(SQLModel, table=True):
+    """A user's assignment of a Feed to one of their Categories."""
+
+    id: int | None = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="user.id", index=True)
+    feed_id: int = Field(foreign_key="feed.id", index=True)
+    category_id: int = Field(foreign_key="category.id", index=True)
+    sort_order: int = Field(default=0)
+
+
 def init_db() -> None:
     # SQLite: WAL for better concurrency under a single process.
     if DATABASE_URL.startswith("sqlite"):

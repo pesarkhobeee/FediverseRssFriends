@@ -8,7 +8,7 @@ Visual language is inherited from [lovelyRSS](https://github.com/pesarkhobeee/lo
 
 ## Status
 
-Steps 1–2 done. Magic-link auth works end-to-end: enter email → dev-mode link printed to stdout (and shown on the "check inbox" page) → verify → session cookie → `/dashboard`. Rate-limited per email, tokens are single-use with 15-minute TTL. Categories, feeds, follow, and activity land in later steps.
+Steps 1–3 done. Signed-in users can create categories, subscribe to feeds by URL (title + favicon resolved on the fly from the feed's metadata, deduped globally by URL), unsubscribe, and delete categories (cascading their subscriptions). All CRUD is HTMX partial swaps — no page reloads. Background fetching of feed items, public radar pages, follow, and activity land in later steps.
 
 ## Run
 
@@ -39,8 +39,8 @@ docker compose up --build
 ## Roadmap
 
 1. Skeleton ✅
-2. Magic-link auth ✅ *(you are here)*
-3. Dashboard CRUD: categories + subscriptions
+2. Magic-link auth ✅
+3. Dashboard CRUD: categories + subscriptions ✅ *(you are here)*
 4. Background fetcher + `FeedItem` cache
 5. Public `/u/{handle}` + visibility gate (public / unlisted / private)
 6. Cherry-pick + fork another user's radar

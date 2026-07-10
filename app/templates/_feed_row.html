@@ -1,0 +1,25 @@
+{# One feed row. Expects `sub` and `feed`. #}
+<li class="feed" id="sub-{{ sub.id }}">
+  {% if feed.favicon_url %}
+    <img class="favicon" src="{{ feed.favicon_url }}" alt="" loading="lazy"
+         onerror="this.style.visibility='hidden'" />
+  {% else %}
+    <span class="favicon" aria-hidden="true">📡</span>
+  {% endif %}
+  {% if feed.site_url %}
+    <a class="title" href="{{ feed.site_url }}" target="_blank" rel="noopener">{{ feed.title }}</a>
+  {% else %}
+    <span class="title">{{ feed.title }}</span>
+  {% endif %}
+  <span class="spacer"></span>
+  <a class="feed-url muted" href="{{ feed.url }}" target="_blank" rel="noopener" title="Feed URL">
+    rss
+  </a>
+  <button class="btn-ghost"
+          hx-delete="/subscriptions/{{ sub.id }}"
+          hx-target="#sub-{{ sub.id }}"
+          hx-swap="delete"
+          hx-confirm="Unsubscribe from '{{ feed.title }}'?">
+    Remove
+  </button>
+</li>

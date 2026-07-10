@@ -138,3 +138,42 @@ main { max-width: 880px; margin: 0 auto; padding: 2rem 1.25rem; }
   text-decoration: none;
 }
 .btn:hover { filter: brightness(0.95); }
+.btn-ghost {
+  padding: .35rem .7rem;
+  font-size: .85rem;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+}
+.btn-ghost:hover { color: var(--fg); border-color: var(--muted); }
+
+/* Cards (dashboard building block) */
+.card {
+  padding: 1.1rem 1.25rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+/* Category card */
+.category .category-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+  margin-bottom: .5rem;
+}
+.category .category-name { margin: 0; font-size: 1.15rem; }
+.feed-list { list-style: none; padding: 0; margin: 0 0 .75rem; }
+.feed-list .feed { border-radius: 8px; }
+.feed-list .feed + .feed { margin-top: .35rem; }
+.feed-url {
+  font-size: .8rem;
+  text-decoration: none;
+  padding: .1rem .4rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.feed-url:hover { color: var(--fg); }

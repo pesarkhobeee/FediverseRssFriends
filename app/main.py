@@ -9,7 +9,8 @@ from sqlmodel import Session
 from starlette.middleware.sessions import SessionMiddleware
 
 from . import config, mail
-from .auth import consume_token, current_user, issue_magic_link, login_required
+from .auth import consume_token, current_user, issue_magic_link
+from .dashboard import router as dashboard_router
 from .db import User, get_session, init_db
 
 APP_DIR = Path(__file__).resolve().parent
@@ -67,9 +68,7 @@ def logout(request: Request):
     return RedirectResponse("/", status_code=303)
 
 
-@app.get("/dashboard", response_class=HTMLResponse)
-def dashboard(request: Request, user: User = Depends(login_required)):
-    return render(request, "dashboard.html", user=user)
+app.include_router(dashboard_router)
 
 
 @app.get("/healthz")

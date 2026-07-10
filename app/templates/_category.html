@@ -1,0 +1,32 @@
+{# One category card. Expects `entry = {category, items[]}`. #}
+<section class="card category" id="category-{{ entry.category.id }}">
+  <header class="category-head">
+    <h3 class="category-name">{{ entry.category.name }}</h3>
+    <button class="btn-ghost"
+            hx-delete="/categories/{{ entry.category.id }}"
+            hx-target="#category-{{ entry.category.id }}"
+            hx-swap="delete"
+            hx-confirm="Delete '{{ entry.category.name }}' and unsubscribe from its feeds?">
+      Delete
+    </button>
+  </header>
+
+  <ul class="feed-list" id="feeds-{{ entry.category.id }}">
+    {% for it in entry.subs %}
+      {% with sub=it.sub, feed=it.feed %}
+        {% include "_feed_row.html" %}
+      {% endwith %}
+    {% endfor %}
+  </ul>
+
+  <form class="login-form"
+        hx-post="/feeds"
+        hx-target="#feeds-{{ entry.category.id }}"
+        hx-swap="beforeend"
+        hx-on::after-request="if(event.detail.successful) this.reset()">
+    <input type="hidden" name="category_id" value="{{ entry.category.id }}" />
+    <input class="input" type="url" name="url" required
+           placeholder="Paste feed URL (RSS or Atom)" />
+    <button class="btn" type="submit">Subscribe</button>
+  </form>
+</section>
