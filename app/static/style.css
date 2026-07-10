@@ -207,6 +207,56 @@ main { max-width: 880px; margin: 0 auto; padding: 2rem 1.25rem; }
 /* Auto-hide empty hints when content exists. */
 #categories:has(.category) > .empty-hint { display: none; }
 .feed-list:has(.feed) > .empty-feeds { display: none; }
+
+/* Public radar — expandable feed cards */
+.chips .chip.small { padding: .15rem .55rem; font-size: .75rem; }
+.feed-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.feed-card + .feed-card { margin-top: .5rem; }
+.feed-card > summary {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  padding: .9rem 1rem;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+.feed-card > summary::-webkit-details-marker { display: none; }
+.feed-card > summary:hover { background: var(--bg); }
+.feed-card > summary .title { font-weight: 600; color: var(--fg); }
+.feed-card > summary .updated { font-size: .875rem; }
+.feed-card > summary .chevron {
+  color: var(--muted);
+  transition: transform .15s ease;
+  font-size: 1.1rem;
+}
+.feed-card[open] > summary .chevron { transform: rotate(180deg); }
+.feed-card[open] > summary { border-bottom: 1px solid var(--border); background: var(--bg); }
+
+.feed-body { padding: 1rem 1.1rem; }
+.item-list { list-style: none; padding: 0; margin: .5rem 0 0; }
+.item-list .item + .item { border-top: 1px solid var(--border); margin-top: .55rem; padding-top: .55rem; }
+.item-title { color: var(--fg); text-decoration: none; font-weight: 500; }
+.item-title:hover { color: var(--accent); }
+.item-date { font-size: .8rem; margin-top: .15rem; }
+
+/* Visibility badge on public page */
+.badge-visibility {
+  display: inline-block;
+  padding: .1rem .55rem;
+  font-size: .75rem;
+  font-weight: 600;
+  color: var(--muted);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  text-transform: lowercase;
+}
 .feed-url {
   font-size: .8rem;
   text-decoration: none;

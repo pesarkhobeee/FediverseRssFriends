@@ -8,7 +8,7 @@ Visual language is inherited from [lovelyRSS](https://github.com/pesarkhobeee/lo
 
 ## Status
 
-Steps 1–4 done. Signed-in users can create categories, subscribe to feeds by URL, unsubscribe, and delete categories. Feed metadata is resolved on subscription; a background `APScheduler` job then refreshes items every 15 minutes (configurable), and a "Refresh now" button on the dashboard forces one cycle synchronously. Feeds are global rows deduped by URL — one Feed table entry serves every subscriber. Public radar pages, favorites, follow, and activity land in later steps.
+Steps 1–5 done. Every signed-up user gets a shareable radar page at `/u/{handle}` showing feeds grouped by category with recent items in an expandable card. Visibility is `public` / `unlisted` / `private` (single dependency gates every leak point). OPML export at `/u/{handle}.opml`. Category-filter chips work via `?cat=`. Owners see an "Edit radar" link on their own public page. Favorites, follow, and activity land in later steps.
 
 ## Run
 
@@ -41,8 +41,8 @@ docker compose up --build
 1. Skeleton ✅
 2. Magic-link auth ✅
 3. Dashboard CRUD: categories + subscriptions ✅
-4. Background fetcher + `FeedItem` cache ✅ *(you are here)*
-5. Public `/u/{handle}` + visibility gate (public / unlisted / private)
+4. Background fetcher + `FeedItem` cache ✅
+5. Public `/u/{handle}` + visibility gate (public / unlisted / private) ✅ *(you are here)*
 6. Cherry-pick + fork another user's radar
 7. Favorites (★ items)
 8. Follow (auto-approve; pending requests for private users)

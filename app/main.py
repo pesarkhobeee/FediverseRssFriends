@@ -15,6 +15,7 @@ from . import config, mail
 from .auth import consume_token, current_user, issue_magic_link
 from .dashboard import router as dashboard_router
 from .db import User, get_session, init_db
+from .public import router as public_router
 from .refresh import run_cycle
 
 log = logging.getLogger(__name__)
@@ -94,6 +95,7 @@ def logout(request: Request):
 
 
 app.include_router(dashboard_router)
+app.include_router(public_router)
 
 
 @app.get("/healthz")

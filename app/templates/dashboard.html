@@ -2,7 +2,20 @@
 {% block content %}
 <section class="hero stack">
   <h1>@{{ user.handle }}'s radar</h1>
-  <p class="muted">Signed in as {{ user.email }} · visibility: {{ user.visibility }}</p>
+  <p class="muted">Signed in as {{ user.email }}</p>
+  <p>
+    <a class="btn-ghost" href="/u/{{ user.handle }}">🌐 View public page</a>
+    <a class="btn-ghost" href="/u/{{ user.handle }}.opml">📥 OPML</a>
+  </p>
+  <form method="post" action="/settings/visibility" class="login-form" style="margin-top:.75rem">
+    <label class="muted" for="vis">Visibility:</label>
+    <select id="vis" name="visibility" class="input" style="max-width:220px" onchange="this.form.submit()">
+      <option value="public"   {% if user.visibility == 'public' %}selected{% endif %}>Public — anyone</option>
+      <option value="unlisted" {% if user.visibility == 'unlisted' %}selected{% endif %}>Unlisted — link only</option>
+      <option value="private"  {% if user.visibility == 'private' %}selected{% endif %}>Private — only me</option>
+    </select>
+    <noscript><button class="btn-ghost" type="submit">Save</button></noscript>
+  </form>
 </section>
 
 <section class="card">
