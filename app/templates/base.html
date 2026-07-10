@@ -12,8 +12,12 @@
     <a href="/" class="brand">rssRadar</a>
     <nav>
       {% if user %}
-        <a href="/feed">Home</a>
+        <a href="/feed">Activities</a>
         <a href="/dashboard">Dashboard</a>
+        <a href="/u/{{ user.handle }}">Public page</a>
+        <a href="/u/{{ user.handle }}/favorites">Favorites</a>
+        <a href="/u/{{ user.handle }}/activity">My activity</a>
+        <a href="/follow-requests">Requests</a>
         <a href="/logout">Logout</a>
       {% else %}
         <a href="/#login">Login</a>

@@ -1,10 +1,10 @@
 {% extends "base.html" %}
-{% block title %}Home{% endblock %}
+{% block title %}Activities{% endblock %}
 {% block content %}
 <section class="hero stack">
-  <h1>🏠 Your feed</h1>
+  <h1>📜 Activities</h1>
   <p class="muted">
-    Activity from the {{ n_followees }} {{ 'person' if n_followees == 1 else 'people' }} you follow,
+    What the {{ n_followees }} {{ 'person' if n_followees == 1 else 'people' }} you follow have been doing,
     plus fresh items from your {{ n_subscriptions }} subscribed feed{{ '' if n_subscriptions == 1 else 's' }}.
   </p>
 </section>

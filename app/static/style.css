@@ -39,7 +39,9 @@ header {
   background: var(--surface);
 }
 .brand { font-weight: 700; text-decoration: none; color: var(--fg); font-size: 1.1rem; }
-nav a { margin-left: 1rem; text-decoration: none; color: var(--link); }
+nav { display: flex; flex-wrap: wrap; gap: .25rem 1rem; justify-content: flex-end; }
+nav a { text-decoration: none; color: var(--link); font-size: .95rem; }
+nav a:hover { text-decoration: underline; }
 
 /* Layout */
 main { max-width: 880px; margin: 0 auto; padding: 2rem 1.25rem; }
