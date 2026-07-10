@@ -227,6 +227,83 @@ def test_locked_page_after_request_shows_pending():
     assert "Requested" in r.text  # button shows pending state
 
 
+def test_owner_can_revoke_approved_follower():
+    owner = _client()
+    _login(owner, "owner@e.com")
+    viewer = _client()
+    _login(viewer, "viewer@e.com")
+    viewer.post("/u/owner/follow")
+
+    import app.db as db_mod
+    with Session(db_mod.engine) as s:
+        follower_id = s.exec(select(db_mod.User).where(db_mod.User.handle == "viewer")).one().id
+
+    r = owner.post(f"/followers/{follower_id}/revoke")
+    assert r.status_code == 200
+
+    with Session(db_mod.engine) as s:
+        assert s.exec(select(db_mod.Follow)).first() is None
+
+
+def test_revoke_pending_request_404():
+    """Revoke targets APPROVED followers only. Pending rows are for
+    /follow-requests/{id}/reject."""
+    owner = _client()
+    _login(owner, "owner@e.com")
+    owner.post("/settings/visibility", data={"visibility": "private"}, follow_redirects=False)
+
+    viewer = _client()
+    _login(viewer, "viewer@e.com")
+    viewer.post("/u/owner/follow")  # pending, not approved
+
+    import app.db as db_mod
+    with Session(db_mod.engine) as s:
+        follower_id = s.exec(select(db_mod.User).where(db_mod.User.handle == "viewer")).one().id
+    r = owner.post(f"/followers/{follower_id}/revoke")
+    assert r.status_code == 404
+
+
+def test_revoked_follower_loses_view_of_private_radar():
+    owner = _client()
+    _login(owner, "owner@e.com")
+    owner.post("/settings/visibility", data={"visibility": "private"}, follow_redirects=False)
+
+    viewer = _client()
+    _login(viewer, "viewer@e.com")
+    viewer.post("/u/owner/follow")
+
+    import app.db as db_mod
+    with Session(db_mod.engine) as s:
+        follower_id = s.exec(select(db_mod.User).where(db_mod.User.handle == "viewer")).one().id
+    owner.post(f"/follow-requests/{follower_id}/approve")
+
+    # Approved viewer can see the private radar now.
+    assert viewer.get("/u/owner").status_code == 200
+
+    # Owner revokes.
+    owner.post(f"/followers/{follower_id}/revoke")
+
+    # Viewer is back to locked page (HTTP 403).
+    assert viewer.get("/u/owner").status_code == 403
+
+
+def test_followers_page_shows_remove_button_only_to_owner():
+    owner = _client()
+    _login(owner, "owner@e.com")
+    viewer = _client()
+    _login(viewer, "viewer@e.com")
+    viewer.post("/u/owner/follow")
+
+    # Owner sees Remove button.
+    assert "Remove" in owner.get("/u/owner/followers").text
+    # A random other viewer does not.
+    other = _client()
+    _login(other, "other@e.com")
+    assert "Remove" not in other.get("/u/owner/followers").text
+    # Anonymous does not.
+    assert "Remove" not in _client().get("/u/owner/followers").text
+
+
 def test_dashboard_pending_count_shown():
     owner = _client()
     _login(owner, "owner@e.com")

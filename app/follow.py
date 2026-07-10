@@ -163,6 +163,22 @@ def reject_request(
     return HTMLResponse("")
 
 
+@router.post("/followers/{follower_id}/revoke", response_class=HTMLResponse)
+def revoke_follower(
+    follower_id: int,
+    user: User = Depends(login_required),
+    db: Session = Depends(get_session),
+):
+    """Owner removes an already-approved follower. Same effect as if the
+    follower had unfollowed themselves — the row is deleted."""
+    row = db.get(Follow, (follower_id, user.id))
+    if not row or row.approved_at is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "not an approved follower")
+    db.delete(row)
+    db.commit()
+    return HTMLResponse("")
+
+
 @router.get("/u/{handle}/followers", response_class=HTMLResponse)
 def followers_page(
     handle: str,
@@ -192,6 +208,7 @@ def followers_page(
             "owner": owner,
             "kind": "followers",
             "entries": [{"follow": f, "other": u} for f, u in rows],
+            "is_owner": bool(viewer and viewer.id == owner.id),
         },
     )
 
@@ -225,5 +242,6 @@ def following_page(
             "owner": owner,
             "kind": "following",
             "entries": [{"follow": f, "other": u} for f, u in rows],
+            "is_owner": bool(viewer and viewer.id == owner.id),
         },
     )

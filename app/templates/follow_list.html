@@ -9,13 +9,22 @@
 {% if entries %}
 <ul class="fav-list">
   {% for e in entries %}
-    <li class="fav-item">
+    <li class="fav-item" id="follow-{{ e.other.id }}">
       <div class="fav-head">
         <a class="title" href="/u/{{ e.other.handle }}">@{{ e.other.handle }}</a>
         <span class="spacer"></span>
         <span class="muted" style="font-size:.85rem">
           {{ 'since' if kind == 'followers' else 'followed' }} {{ e.follow.approved_at|relative_time }}
         </span>
+        {% if is_owner and kind == 'followers' %}
+          <button class="btn-ghost"
+                  hx-post="/followers/{{ e.other.id }}/revoke"
+                  hx-target="#follow-{{ e.other.id }}"
+                  hx-swap="delete"
+                  hx-confirm="Remove @{{ e.other.handle }} from your followers?">
+            Remove
+          </button>
+        {% endif %}
       </div>
     </li>
   {% endfor %}
