@@ -215,10 +215,24 @@ def user_radar(
     owner = db.exec(select(User).where(User.handle == handle)).first()
     if not owner:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "user not found")
-    if not can_view(viewer, owner, db=db):
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "this radar is private")
 
     from .follow import follow_state, follower_count, following_count
+
+    if not can_view(viewer, owner, db=db):
+        # Private radar — render a friendly locked page with a Follow button
+        # (creates a pending request) instead of a machine-readable 403.
+        return templates.TemplateResponse(
+            request,
+            "user_radar_locked.html",
+            {
+                "owner": owner,
+                "user": viewer,
+                "follow_state": follow_state(db, viewer.id, owner.id) if viewer else "none",
+                "followers_n": follower_count(db, owner.id),
+                "following_n": following_count(db, owner.id),
+            },
+            status_code=403,
+        )
 
     ctx = _load_public_radar(db, owner, cat, viewer=viewer)
     ctx["user"] = viewer

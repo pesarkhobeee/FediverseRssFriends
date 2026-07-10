@@ -188,6 +188,45 @@ def test_following_page():
     assert "@bob" in r.text
 
 
+def test_locked_page_shows_follow_button_for_signed_in_visitor():
+    owner = _client()
+    _login(owner, "owner@e.com")
+    owner.post("/settings/visibility", data={"visibility": "private"}, follow_redirects=False)
+
+    viewer = _client()
+    _login(viewer, "viewer@e.com")
+    r = viewer.get("/u/owner")
+    assert r.status_code == 403
+    assert "private" in r.text.lower()
+    assert "Follow" in r.text  # button rendered
+
+
+def test_locked_page_for_anonymous_visitor_hints_sign_in():
+    owner = _client()
+    _login(owner, "owner@e.com")
+    owner.post("/settings/visibility", data={"visibility": "private"}, follow_redirects=False)
+
+    r = _client().get("/u/owner")
+    assert r.status_code == 403
+    assert "Sign in" in r.text  # hint linking to /
+    assert "Follow" not in r.text  # no button when not signed in
+
+
+def test_locked_page_after_request_shows_pending():
+    owner = _client()
+    _login(owner, "owner@e.com")
+    owner.post("/settings/visibility", data={"visibility": "private"}, follow_redirects=False)
+
+    viewer = _client()
+    _login(viewer, "viewer@e.com")
+    viewer.post("/u/owner/follow")
+
+    r = viewer.get("/u/owner")
+    assert r.status_code == 403
+    assert "waiting for approval" in r.text
+    assert "Requested" in r.text  # button shows pending state
+
+
 def test_dashboard_pending_count_shown():
     owner = _client()
     _login(owner, "owner@e.com")

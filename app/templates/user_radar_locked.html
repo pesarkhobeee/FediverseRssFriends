@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}@{{ owner.handle }}'s radar (private){% endblock %}
+{% block content %}
+<section class="hero stack">
+  <h1>🔒 @{{ owner.handle }}'s radar</h1>
+  <p class="muted">This radar is private.
+    {% if follow_state == "pending" %}
+      Your follow request is waiting for approval.
+    {% elif user %}
+      Send a follow request — if @{{ owner.handle }} approves, you'll be able to see their feeds.
+    {% else %}
+      <a href="/">Sign in</a> to send a follow request.
+    {% endif %}
+  </p>
+  <p class="muted" style="font-size:.9rem">
+    <strong>{{ followers_n }}</strong> follower{{ '' if followers_n == 1 else 's' }}
+    · <strong>{{ following_n }}</strong> following
+  </p>
+  {% if user %}
+  <p>
+    {% with target=owner, state=follow_state %}
+      {% include "_follow_button.html" %}
+    {% endwith %}
+  </p>
+  {% endif %}
+</section>
+{% endblock %}
