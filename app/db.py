@@ -113,6 +113,33 @@ class Activity(SQLModel, table=True):
     created_at: datetime = Field(default_factory=_now, index=True)
 
 
+def _sqlite_column_exists(conn, table: str, column: str) -> bool:
+    rows = conn.exec_driver_sql(f"PRAGMA table_info({table})").fetchall()
+    return any(row[1] == column for row in rows)
+
+
+def _run_sqlite_migrations(conn) -> None:
+    """Idempotent, ALTER-TABLE-based migrations for SQLite. Runs on every
+    startup and is a no-op after the first successful run."""
+    import secrets
+
+    # activity_secret was added after the initial schema — backfill it.
+    if _sqlite_column_exists(conn, "user", "id") and not _sqlite_column_exists(
+        conn, "user", "activity_secret"
+    ):
+        conn.exec_driver_sql(
+            "ALTER TABLE user ADD COLUMN activity_secret TEXT NOT NULL DEFAULT ''"
+        )
+        rows = conn.exec_driver_sql(
+            "SELECT id FROM user WHERE activity_secret = ''"
+        ).fetchall()
+        for (uid,) in rows:
+            conn.exec_driver_sql(
+                "UPDATE user SET activity_secret = ? WHERE id = ?",
+                (secrets.token_urlsafe(24), uid),
+            )
+
+
 def init_db() -> None:
     # SQLite: WAL for better concurrency under a single process.
     if DATABASE_URL.startswith("sqlite"):
@@ -120,6 +147,9 @@ def init_db() -> None:
             conn.exec_driver_sql("PRAGMA journal_mode=WAL")
             conn.exec_driver_sql("PRAGMA foreign_keys=ON")
     SQLModel.metadata.create_all(engine)
+    if DATABASE_URL.startswith("sqlite"):
+        with engine.begin() as conn:
+            _run_sqlite_migrations(conn)
 
 
 def get_session() -> Iterator[Session]:
