@@ -83,12 +83,25 @@ def _load_public_radar(
             pub = pub.replace(tzinfo=UTC)
         return (now - pub) < NEW_BADGE_WINDOW
 
+    def _sort_key(item_list: list[FeedItem]) -> datetime:
+        """Newest-item published_at (fallback: fetched_at). Missing → very old."""
+        if not item_list:
+            return datetime.min.replace(tzinfo=UTC)
+        top = item_list[0]
+        dt = top.published_at or top.fetched_at
+        if dt is None:
+            return datetime.min.replace(tzinfo=UTC)
+        return dt if dt.tzinfo is not None else dt.replace(tzinfo=UTC)
+
     by_cat: dict[int, list[dict]] = {c.id: [] for c in categories}
     for sub, feed in subs_rows:
         entries = items_by_feed.get(feed.id, [])
         by_cat.setdefault(sub.category_id, []).append(
             {"sub": sub, "feed": feed, "entries": entries, "is_new": _is_new(entries)}
         )
+    # Sort each category by newest content first, matching lovelyRSS.
+    for cat_id in by_cat:
+        by_cat[cat_id].sort(key=lambda x: _sort_key(x["entries"]), reverse=True)
 
     all_categories = db.exec(
         select(Category)

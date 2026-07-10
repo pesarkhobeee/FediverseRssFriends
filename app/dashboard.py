@@ -16,7 +16,7 @@ from .db import Category, Feed, FeedItem, Subscription, User, get_session
 from .feeds import resolve_feed
 from .importers import add_subscription_by_url
 from .opml import parse_opml
-from .refresh import kick_background_refresh, run_cycle
+from .refresh import fetch_one, kick_background_refresh, run_cycle
 
 APP_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=APP_DIR / "templates")
@@ -239,6 +239,36 @@ async def import_opml(
         request,
         "_import_result.html",
         result={"added": added, "duplicates": dup, "total": len(entries)},
+    )
+
+
+@router.post("/feeds/{feed_id}/refresh", response_class=HTMLResponse)
+def refresh_single_feed(
+    feed_id: int,
+    request: Request,
+    user: User = Depends(login_required),
+    db: Session = Depends(get_session),
+):
+    """Force a synchronous refresh of a single feed. The caller must be
+    subscribed — feeds are global, so any subscriber can trigger a refetch."""
+    sub = db.exec(
+        select(Subscription)
+        .where(Subscription.user_id == user.id)
+        .where(Subscription.feed_id == feed_id)
+    ).first()
+    if not sub:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "not subscribed")
+    feed = db.get(Feed, feed_id)
+    if not feed:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "feed not found")
+
+    new, err = fetch_one(db, feed)
+    return _partial(
+        request,
+        "_feed_refreshed.html",
+        new=new,
+        err=err,
+        feed=feed,
     )
 
 

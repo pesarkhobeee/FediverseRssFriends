@@ -20,6 +20,12 @@
     rss
   </a>
   <button class="btn-ghost"
+          hx-post="/feeds/{{ feed.id }}/refresh"
+          hx-target="#refresh-{{ feed.id }}"
+          hx-swap="innerHTML"
+          title="Refresh this feed now">🔄</button>
+  <span id="refresh-{{ feed.id }}"></span>
+  <button class="btn-ghost"
           hx-delete="/subscriptions/{{ sub.id }}"
           hx-target="#sub-{{ sub.id }}"
           hx-swap="delete"

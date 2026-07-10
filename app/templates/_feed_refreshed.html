@@ -1,0 +1,10 @@
+{# Small inline flash after a single-feed refresh. #}
+{% if err %}
+<span class="muted" style="margin-left:.5rem">⚠️ {{ err }}</span>
+{% elif new %}
+<span class="muted" style="margin-left:.5rem">
+  ✓ {{ new }} new item{{ '' if new == 1 else 's' }} — <a href="">reload</a>
+</span>
+{% else %}
+<span class="muted" style="margin-left:.5rem">✓ up to date</span>
+{% endif %}
