@@ -17,7 +17,7 @@
   <ul class="feed-list" id="feeds-{{ entry.category.id }}">
     <li class="empty-feeds muted">No feeds in this category yet — paste one below.</li>
     {% for it in entry.subs %}
-      {% with sub=it.sub, feed=it.feed %}
+      {% with sub=it.sub, feed=it.feed, item_count=it.item_count %}
         {% include "_feed_row.html" %}
       {% endwith %}
     {% endfor %}

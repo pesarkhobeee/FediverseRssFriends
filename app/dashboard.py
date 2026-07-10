@@ -12,8 +12,9 @@ from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select
 
 from .auth import login_required
-from .db import Category, Feed, Subscription, User, get_session
+from .db import Category, Feed, FeedItem, Subscription, User, get_session
 from .feeds import resolve_feed
+from .refresh import run_cycle
 
 APP_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=APP_DIR / "templates")
@@ -26,7 +27,9 @@ def _partial(request: Request, name: str, **ctx) -> HTMLResponse:
 
 
 def _load_radar(db: Session, user: User) -> list[dict]:
-    """Return categories in order, each with its subscriptions + feed metadata."""
+    """Return categories in order, each with its subscriptions + feed metadata + item count."""
+    from sqlalchemy import func
+
     categories = db.exec(
         select(Category)
         .where(Category.user_id == user.id)
@@ -40,9 +43,22 @@ def _load_radar(db: Session, user: User) -> list[dict]:
         .order_by(Subscription.sort_order, Subscription.id)
     ).all()
 
+    # Cache item counts per feed in one query.
+    feed_ids = {feed.id for _sub, feed in subs}
+    counts: dict[int, int] = {}
+    if feed_ids:
+        rows = db.exec(
+            select(FeedItem.feed_id, func.count(FeedItem.id))
+            .where(FeedItem.feed_id.in_(feed_ids))
+            .group_by(FeedItem.feed_id)
+        ).all()
+        counts = {fid: n for fid, n in rows}
+
     by_cat: dict[int, list[dict]] = {c.id: [] for c in categories}
     for sub, feed in subs:
-        by_cat.setdefault(sub.category_id, []).append({"sub": sub, "feed": feed})
+        by_cat.setdefault(sub.category_id, []).append(
+            {"sub": sub, "feed": feed, "item_count": counts.get(feed.id, 0)}
+        )
 
     return [{"category": c, "subs": by_cat.get(c.id, [])} for c in categories]
 
@@ -162,7 +178,7 @@ def subscribe(
     db.add(sub)
     db.commit()
     db.refresh(sub)
-    return _partial(request, "_feed_row.html", sub=sub, feed=feed)
+    return _partial(request, "_feed_row.html", sub=sub, feed=feed, item_count=0)
 
 
 @router.delete("/subscriptions/{sub_id}")
@@ -177,3 +193,19 @@ def unsubscribe(
     db.delete(sub)
     db.commit()
     return Response(status_code=200)
+
+
+@router.post("/refresh", response_class=HTMLResponse)
+def manual_refresh(
+    request: Request,
+    _user: User = Depends(login_required),
+    db: Session = Depends(get_session),
+):
+    """Kick off one refresh cycle synchronously. Returns the fresh dashboard
+    body so HTMX can swap it in place."""
+    result = run_cycle()
+    return _partial(
+        request,
+        "_refresh_flash.html",
+        result=result,
+    )

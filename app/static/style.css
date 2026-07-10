@@ -105,6 +105,15 @@ main { max-width: 880px; margin: 0 auto; padding: 2rem 1.25rem; }
 
 /* Section headings */
 .section-title { font-size: 1.5rem; margin: 2rem 0 .75rem; }
+.section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 2rem 0 .75rem;
+}
+.feed-meta { font-size: .85rem; }
+.htmx-request#refresh-status::before { content: "Refreshing…"; color: var(--muted); }
 
 /* Login card */
 .login {

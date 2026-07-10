@@ -8,7 +8,7 @@ Visual language is inherited from [lovelyRSS](https://github.com/pesarkhobeee/lo
 
 ## Status
 
-Steps 1–3 done. Signed-in users can create categories, subscribe to feeds by URL (title + favicon resolved on the fly from the feed's metadata, deduped globally by URL), unsubscribe, and delete categories (cascading their subscriptions). All CRUD is HTMX partial swaps — no page reloads. Background fetching of feed items, public radar pages, follow, and activity land in later steps.
+Steps 1–4 done. Signed-in users can create categories, subscribe to feeds by URL, unsubscribe, and delete categories. Feed metadata is resolved on subscription; a background `APScheduler` job then refreshes items every 15 minutes (configurable), and a "Refresh now" button on the dashboard forces one cycle synchronously. Feeds are global rows deduped by URL — one Feed table entry serves every subscriber. Public radar pages, favorites, follow, and activity land in later steps.
 
 ## Run
 
@@ -40,8 +40,8 @@ docker compose up --build
 
 1. Skeleton ✅
 2. Magic-link auth ✅
-3. Dashboard CRUD: categories + subscriptions ✅ *(you are here)*
-4. Background fetcher + `FeedItem` cache
+3. Dashboard CRUD: categories + subscriptions ✅
+4. Background fetcher + `FeedItem` cache ✅ *(you are here)*
 5. Public `/u/{handle}` + visibility gate (public / unlisted / private)
 6. Cherry-pick + fork another user's radar
 7. Favorites (★ items)
@@ -64,6 +64,10 @@ Environment variables:
 - `RSSRADAR_MAGIC_LINK_TTL_MINUTES` — token lifetime (default `15`)
 - `RSSRADAR_MAGIC_LINK_MIN_INTERVAL` — min seconds between links per email (default `60`)
 - `RSSRADAR_SMTP_HOST` / `_PORT` / `_USER` / `_PASSWORD` / `_FROM` / `_STARTTLS` — leave `SMTP_HOST` empty for dev mode (link printed to stdout)
+- `RSSRADAR_ENABLE_SCHEDULER` — `1` (default) starts the background refresh loop; set to `0` for one-shot / test runs
+- `RSSRADAR_REFRESH_INTERVAL_MINUTES` — cycle interval (default `15`)
+- `RSSRADAR_REFRESH_BATCH_SIZE` — max feeds refreshed per cycle (default `50`)
+- `RSSRADAR_FEED_ITEM_KEEP` — max items retained per feed (default `100`)
 
 ## License
 

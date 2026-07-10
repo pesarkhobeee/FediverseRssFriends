@@ -1,4 +1,4 @@
-{# One feed row. Expects `sub` and `feed`. #}
+{# One feed row. Expects `sub`, `feed`, `item_count`. #}
 <li class="feed" id="sub-{{ sub.id }}">
   {% if feed.favicon_url %}
     <img class="favicon" src="{{ feed.favicon_url }}" alt="" loading="lazy"
@@ -11,6 +11,10 @@
   {% else %}
     <span class="title">{{ feed.title }}</span>
   {% endif %}
+  <span class="feed-meta muted">
+    {% if item_count %}{{ item_count }} items{% else %}no items yet{% endif %}
+    {% if feed.consecutive_failures %} · ⚠️ stale{% endif %}
+  </span>
   <span class="spacer"></span>
   <a class="feed-url muted" href="{{ feed.url }}" target="_blank" rel="noopener" title="Feed URL">
     rss

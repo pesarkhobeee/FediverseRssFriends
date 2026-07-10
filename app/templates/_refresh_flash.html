@@ -1,0 +1,7 @@
+{# Flash after a manual refresh — HTMX swaps it into #refresh-status. #}
+<span class="muted" style="margin-left:.5rem">
+  Checked {{ result.feeds }} feed{{ '' if result.feeds == 1 else 's' }},
+  added {{ result.new_items }} item{{ '' if result.new_items == 1 else 's' }}{% if result.errors %},
+  {{ result.errors }} error{{ '' if result.errors == 1 else 's' }}{% endif %}.
+  <a href="/dashboard">Reload</a> to see counts.
+</span>

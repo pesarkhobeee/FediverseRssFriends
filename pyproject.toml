@@ -13,6 +13,7 @@ dependencies = [
     "python-multipart>=0.0.12",
     "httpx>=0.27",
     "feedparser>=6.0.10",
+    "apscheduler>=3.10",
 ]
 
 [project.optional-dependencies]

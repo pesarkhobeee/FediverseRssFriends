@@ -60,6 +60,19 @@ class Subscription(SQLModel, table=True):
     sort_order: int = Field(default=0)
 
 
+class FeedItem(SQLModel, table=True):
+    """One entry parsed from a Feed. Dedup key is (feed_id, guid)."""
+
+    id: int | None = Field(default=None, primary_key=True)
+    feed_id: int = Field(foreign_key="feed.id", index=True)
+    guid: str = Field(index=True)
+    title: str
+    link: str = Field(default="")
+    summary: str = Field(default="")
+    published_at: datetime | None = Field(default=None, index=True)
+    fetched_at: datetime = Field(default_factory=_now)
+
+
 def init_db() -> None:
     # SQLite: WAL for better concurrency under a single process.
     if DATABASE_URL.startswith("sqlite"):

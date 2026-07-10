@@ -21,7 +21,19 @@
   </form>
 </section>
 
-<h2 class="section-title">2. Subscribe to feeds</h2>
+<div class="section-head">
+  <h2 class="section-title" style="margin:0">2. Subscribe to feeds</h2>
+  <div>
+    <button class="btn-ghost"
+            hx-post="/refresh"
+            hx-target="#refresh-status"
+            hx-swap="innerHTML"
+            hx-indicator="#refresh-status">
+      Refresh now
+    </button>
+    <span id="refresh-status"></span>
+  </div>
+</div>
 <div id="categories" class="stack">
   <p class="empty-hint muted">No categories yet. Add one above to start subscribing to feeds.</p>
   {% for entry in radar %}

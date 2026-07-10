@@ -20,3 +20,9 @@ SMTP_USER = os.getenv("RSSRADAR_SMTP_USER", "")
 SMTP_PASSWORD = os.getenv("RSSRADAR_SMTP_PASSWORD", "")
 SMTP_FROM = os.getenv("RSSRADAR_SMTP_FROM", "rssRadar <no-reply@rssradar.local>")
 SMTP_STARTTLS = os.getenv("RSSRADAR_SMTP_STARTTLS", "1") == "1"
+
+# Background feed refresh
+ENABLE_SCHEDULER = os.getenv("RSSRADAR_ENABLE_SCHEDULER", "1") == "1"
+REFRESH_INTERVAL_MINUTES = int(os.getenv("RSSRADAR_REFRESH_INTERVAL_MINUTES", "15"))
+REFRESH_BATCH_SIZE = int(os.getenv("RSSRADAR_REFRESH_BATCH_SIZE", "50"))
+FEED_ITEM_KEEP = int(os.getenv("RSSRADAR_FEED_ITEM_KEEP", "100"))  # max items stored per feed
