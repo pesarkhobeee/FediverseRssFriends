@@ -39,10 +39,13 @@ def test_add_category_returns_partial():
     assert "Weblogs" in r.text
     assert 'id="category-' in r.text
 
-    # Now reflected on the dashboard.
+    # Now reflected on the dashboard as a category card.
     dash = client.get("/dashboard")
+    assert 'class="category-name"' in dash.text
     assert "Weblogs" in dash.text
-    assert "No categories yet" not in dash.text
+    # Empty-hint stays in the DOM (CSS hides it via :has()); presence of the
+    # badge for a real category is our signal that the card rendered.
+    assert 'class="category-badge"' in dash.text
 
 
 def test_empty_category_name_rejected():

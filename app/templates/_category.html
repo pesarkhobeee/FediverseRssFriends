@@ -1,17 +1,21 @@
-{# One category card. Expects `entry = {category, items[]}`. #}
+{# One category card. Expects `entry = {category, subs[]}`. #}
 <section class="card category" id="category-{{ entry.category.id }}">
   <header class="category-head">
-    <h3 class="category-name">{{ entry.category.name }}</h3>
+    <h3 class="category-name">
+      <span class="category-badge">Category</span>
+      {{ entry.category.name }}
+    </h3>
     <button class="btn-ghost"
             hx-delete="/categories/{{ entry.category.id }}"
             hx-target="#category-{{ entry.category.id }}"
             hx-swap="delete"
-            hx-confirm="Delete '{{ entry.category.name }}' and unsubscribe from its feeds?">
-      Delete
+            hx-confirm="Delete category '{{ entry.category.name }}' and unsubscribe from its feeds?">
+      Delete category
     </button>
   </header>
 
   <ul class="feed-list" id="feeds-{{ entry.category.id }}">
+    <li class="empty-feeds muted">No feeds in this category yet — paste one below.</li>
     {% for it in entry.subs %}
       {% with sub=it.sub, feed=it.feed %}
         {% include "_feed_row.html" %}
@@ -26,7 +30,7 @@
         hx-on::after-request="if(event.detail.successful) this.reset()">
     <input type="hidden" name="category_id" value="{{ entry.category.id }}" />
     <input class="input" type="url" name="url" required
-           placeholder="Paste feed URL (RSS or Atom)" />
-    <button class="btn" type="submit">Subscribe</button>
+           placeholder="https://example.com/feed.xml" />
+    <button class="btn" type="submit">Subscribe to feed</button>
   </form>
 </section>

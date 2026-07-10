@@ -164,11 +164,40 @@ main { max-width: 880px; margin: 0 auto; padding: 2rem 1.25rem; }
   justify-content: space-between;
   gap: .75rem;
   margin-bottom: .5rem;
+  text-align: left;
 }
-.category .category-name { margin: 0; font-size: 1.15rem; }
+.category .category-name {
+  margin: 0;
+  font-size: 1.15rem;
+  display: flex;
+  align-items: center;
+  gap: .55rem;
+}
+.category-badge {
+  display: inline-block;
+  padding: .1rem .55rem;
+  font-size: .7rem;
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+
 .feed-list { list-style: none; padding: 0; margin: 0 0 .75rem; }
 .feed-list .feed { border-radius: 8px; }
 .feed-list .feed + .feed { margin-top: .35rem; }
+.empty-feeds {
+  padding: .75rem 0;
+  font-size: .9rem;
+  font-style: italic;
+}
+
+/* Auto-hide empty hints when content exists. */
+#categories:has(.category) > .empty-hint { display: none; }
+.feed-list:has(.feed) > .empty-feeds { display: none; }
 .feed-url {
   font-size: .8rem;
   text-decoration: none;
