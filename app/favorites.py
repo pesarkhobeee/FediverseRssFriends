@@ -12,6 +12,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select
 
+from . import activity
 from .auth import current_user, login_required
 from .db import Favorite, Feed, FeedItem, User, get_session
 from .public import can_view
@@ -37,11 +38,16 @@ def add_favorite(
     user: User = Depends(login_required),
     db: Session = Depends(get_session),
 ):
-    if not db.get(FeedItem, item_id):
+    item = db.get(FeedItem, item_id)
+    if not item:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "item not found")
     existing = db.get(Favorite, (user.id, item_id))
     if not existing:
         db.add(Favorite(user_id=user.id, feed_item_id=item_id))
+        activity.record(
+            db, user, "favorited", item.title,
+            subject_url=item.link, ref_type="item", ref_id=item.id,
+        )
         db.commit()
     return _star(request, item_id, is_favorited=True)
 

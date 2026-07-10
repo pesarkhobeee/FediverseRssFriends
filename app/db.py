@@ -15,11 +15,19 @@ def _now() -> datetime:
     return datetime.now(UTC)
 
 
+def _rand_secret() -> str:
+    import secrets
+    return secrets.token_urlsafe(24)
+
+
 class User(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     email: str = Field(index=True, unique=True)
     handle: str = Field(index=True, unique=True)
     visibility: str = Field(default="public")  # public | unlisted | private
+    # Per-user secret mixed into activity.rss signed tokens. Rotating it
+    # invalidates every previously-shared feed link.
+    activity_secret: str = Field(default_factory=_rand_secret)
     created_at: datetime = Field(default_factory=_now)
 
 
@@ -89,6 +97,20 @@ class Follow(SQLModel, table=True):
     followee_id: int = Field(foreign_key="user.id", primary_key=True, index=True)
     created_at: datetime = Field(default_factory=_now, index=True)
     approved_at: datetime | None = Field(default=None, index=True)
+
+
+class Activity(SQLModel, table=True):
+    """Append-only log of user actions. Subject fields are denormalized so
+    the timeline renders correctly even after the referenced row is deleted."""
+
+    id: int | None = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="user.id", index=True)
+    kind: str = Field(index=True)  # subscribed | favorited | followed | forked | created_category
+    subject: str = Field(default="")
+    subject_url: str = Field(default="")
+    ref_type: str = Field(default="")
+    ref_id: int | None = Field(default=None)
+    created_at: datetime = Field(default_factory=_now, index=True)
 
 
 def init_db() -> None:

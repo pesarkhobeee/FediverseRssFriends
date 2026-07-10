@@ -10,14 +10,24 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from xml.sax.saxutils import escape as xml_escape
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
+from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request, status
 from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select
 
-from . import config
+from . import activity, config
 from .auth import current_user, login_required
-from .db import Category, Favorite, Feed, FeedItem, Follow, Subscription, User, get_session
+from .db import (
+    Activity,
+    Category,
+    Favorite,
+    Feed,
+    FeedItem,
+    Follow,
+    Subscription,
+    User,
+    get_session,
+)
 from .importers import add_subscription_by_feed, fork_from
 from .utils import relative_time
 
@@ -288,6 +298,12 @@ def cherry_pick(
     _sub, feed, category = row
 
     added = add_subscription_by_feed(db, viewer, feed, category.name)
+    if added:
+        activity.record(
+            db, viewer, "subscribed", feed.title,
+            subject_url=feed.site_url or feed.url,
+            ref_type="feed", ref_id=feed.id,
+        )
     db.commit()
     return templates.TemplateResponse(
         request,
@@ -310,8 +326,138 @@ def fork(
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "you can't fork yourself")
 
     result = fork_from(db, viewer, owner)
+    if result["added"]:
+        activity.record(
+            db, viewer, "forked", f"@{owner.handle}",
+            subject_url=f"/u/{owner.handle}", ref_type="user", ref_id=owner.id,
+        )
+        db.commit()
     return templates.TemplateResponse(
         request,
         "_fork_result.html",
         {"result": result, "owner": owner},
     )
+
+
+# ---------- Activity timeline + RSS ----------
+
+
+def _load_activity(db: Session, owner: User, limit: int = 100) -> list[Activity]:
+    return db.exec(
+        select(Activity)
+        .where(Activity.user_id == owner.id)
+        .order_by(Activity.created_at.desc())
+        .limit(limit)
+    ).all()
+
+
+@router.get("/u/{handle}/activity", response_class=HTMLResponse)
+def user_activity(
+    handle: str,
+    request: Request,
+    viewer: User | None = Depends(current_user),
+    db: Session = Depends(get_session),
+):
+    owner = db.exec(select(User).where(User.handle == handle)).first()
+    if not owner:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "user not found")
+    if not can_view(viewer, owner, db=db):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "this radar is private")
+
+    # For approved followers viewing a private user, mint the RSS URL that
+    # includes their signed token, so they can subscribe from an RSS reader.
+    rss_url = f"/u/{owner.handle}/activity.rss"
+    if owner.visibility == "private" and viewer and viewer.id != owner.id:
+        token = activity.sign_follower(owner, viewer)
+        rss_url = f"/u/{owner.handle}/activity.rss?as={viewer.handle}&t={token}"
+
+    return templates.TemplateResponse(
+        request,
+        "activity.html",
+        {
+            "owner": owner,
+            "user": viewer,
+            "events": _load_activity(db, owner),
+            "kind_icon": activity.KIND_ICON,
+            "kind_verb": activity.KIND_VERB,
+            "rss_url": rss_url,
+        },
+    )
+
+
+@router.get("/u/{handle}/activity.rss", response_class=PlainTextResponse)
+def user_activity_rss(
+    handle: str,
+    request: Request,
+    as_: str | None = Query(None, alias="as"),
+    t: str | None = None,
+    viewer: User | None = Depends(current_user),
+    db: Session = Depends(get_session),
+):
+    """RSS feed of a user's activity.
+
+    - public/unlisted: open.
+    - private: caller must be the owner, an approved follower via session,
+      OR present ?as={follower_handle}&t={hmac} tokens that match.
+    """
+    owner = db.exec(select(User).where(User.handle == handle)).first()
+    if not owner:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "user not found")
+
+    allowed = False
+    if owner.visibility != "private":  # noqa: SIM114 — keep branches distinct for clarity
+        allowed = True
+    elif viewer and can_view(viewer, owner, db=db):
+        allowed = True
+    elif as_ and t:
+        follower = db.exec(select(User).where(User.handle == as_)).first()
+        if follower and activity.verify_follower_token(owner, follower, t):
+            row = db.get(Follow, (follower.id, owner.id))
+            if row and row.approved_at is not None:
+                allowed = True
+
+    if not allowed:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "this activity feed is private")
+
+    events = _load_activity(db, owner, limit=50)
+    base = str(request.base_url).rstrip("/")
+
+    def _abs(url: str) -> str:
+        if not url:
+            return f"{base}/u/{owner.handle}"
+        return url if url.startswith(("http://", "https://")) else f"{base}{url}"
+
+    def _rfc822(dt: datetime) -> str:
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=UTC)
+        return dt.strftime("%a, %d %b %Y %H:%M:%S +0000")
+
+    items = []
+    for ev in events:
+        verb = activity.KIND_VERB.get(ev.kind, ev.kind)
+        icon = activity.KIND_ICON.get(ev.kind, "")
+        title = f"{icon} @{owner.handle} {verb} {ev.subject}".strip()
+        link = _abs(ev.subject_url)
+        items.append(
+            "    <item>\n"
+            f"      <title>{xml_escape(title)}</title>\n"
+            f"      <link>{xml_escape(link)}</link>\n"
+            f"      <guid isPermaLink=\"false\">activity-{ev.id}</guid>\n"
+            f"      <pubDate>{_rfc822(ev.created_at)}</pubDate>\n"
+            f"      <description>{xml_escape(title)}</description>\n"
+            "    </item>"
+        )
+
+    body = (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<rss version="2.0">\n'
+        "  <channel>\n"
+        f"    <title>@{xml_escape(owner.handle)}'s rssRadar activity</title>\n"
+        f"    <link>{base}/u/{xml_escape(owner.handle)}</link>\n"
+        f"    <description>Follows, stars, subscriptions and forks by "
+        f"@{xml_escape(owner.handle)}</description>\n"
+        + "\n".join(items) + "\n"
+        "  </channel>\n"
+        "</rss>\n"
+    )
+    return PlainTextResponse(body, media_type="application/rss+xml; charset=utf-8")

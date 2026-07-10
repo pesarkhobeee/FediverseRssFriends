@@ -16,6 +16,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, func, select
 
+from . import activity
 from .auth import current_user, login_required
 from .db import Follow, User, _now, get_session
 from .utils import relative_time
@@ -89,6 +90,11 @@ def follow(
     if not existing:
         approved = _now() if target.visibility != "private" else None
         db.add(Follow(follower_id=viewer.id, followee_id=target.id, approved_at=approved))
+        if approved:
+            activity.record(
+                db, viewer, "followed", f"@{target.handle}",
+                subject_url=f"/u/{target.handle}", ref_type="user", ref_id=target.id,
+            )
         db.commit()
         state = "following" if approved else "pending"
     else:
@@ -145,6 +151,13 @@ def approve_request(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "no pending request")
     row.approved_at = _now()
     db.add(row)
+    # Log on the *follower's* activity — "@X followed @user".
+    follower = db.get(User, follower_id)
+    if follower:
+        activity.record(
+            db, follower, "followed", f"@{user.handle}",
+            subject_url=f"/u/{user.handle}", ref_type="user", ref_id=user.id,
+        )
     db.commit()
     return HTMLResponse("")  # HTMX will delete the row
 

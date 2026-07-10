@@ -44,9 +44,9 @@ docker compose up --build
 4. Background fetcher + `FeedItem` cache ✅
 5. Public `/u/{handle}` + visibility gate (public / unlisted / private) ✅
 6. Cherry-pick + fork + OPML import ✅
-7. Favorites (★ items) ✅ *(you are here)*
-8. Follow (auto-approve; pending requests for private users)
-9. Activity log + `/u/{handle}/activity` + `activity.rss` (signed token for private)
+7. Favorites (★ items) ✅
+8. Follow (auto-approve; pending requests for private users) ✅
+9. Activity log + `/u/{handle}/activity` + `activity.rss` (signed token for private) ✅ *(you are here)*
 10. Home timeline `/feed`
 11. OPML import/export
 12. Discover

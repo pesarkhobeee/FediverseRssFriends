@@ -11,6 +11,7 @@ from fastapi.responses import HTMLResponse, Response
 from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select
 
+from . import activity
 from .auth import login_required
 from .db import Category, Feed, FeedItem, Subscription, User, get_session
 from .feeds import resolve_feed
@@ -101,6 +102,8 @@ def create_category(
     ).first()
     cat = Category(user_id=user.id, name=name, sort_order=(max_order or 0) + 1)
     db.add(cat)
+    db.flush()
+    activity.record(db, user, "created_category", cat.name, ref_type="category", ref_id=cat.id)
     db.commit()
     db.refresh(cat)
     return _partial(request, "_category.html", user=user, entry={"category": cat, "subs": []})
@@ -185,6 +188,11 @@ def subscribe(
         sort_order=(max_order or 0) + 1,
     )
     db.add(sub)
+    activity.record(
+        db, user, "subscribed", feed.title,
+        subject_url=feed.site_url or feed.url,
+        ref_type="feed", ref_id=feed.id,
+    )
     db.commit()
     db.refresh(sub)
     return _partial(request, "_feed_row.html", sub=sub, feed=feed, item_count=0)

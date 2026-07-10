@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}@{{ owner.handle }}'s activity{% endblock %}
+{% block content %}
+<section class="hero stack">
+  <h1>📜 @{{ owner.handle }}'s activity</h1>
+  <p class="muted">Follows, stars, subscriptions and forks — newest first.</p>
+  <p>
+    <a class="btn-ghost" href="/u/{{ owner.handle }}">← Back to radar</a>
+    <a class="btn-ghost" href="{{ rss_url }}">🔗 RSS</a>
+  </p>
+</section>
+
+{% if events %}
+<ul class="fav-list">
+  {% for ev in events %}
+    <li class="fav-item">
+      <div class="fav-head">
+        <span aria-hidden="true">{{ kind_icon.get(ev.kind, '') }}</span>
+        <span>
+          <strong>@{{ owner.handle }}</strong>
+          <span class="muted">{{ kind_verb.get(ev.kind, ev.kind) }}</span>
+          {% if ev.subject_url %}
+            <a class="item-title" href="{{ ev.subject_url }}"
+               {% if ev.subject_url.startswith('http') %}target="_blank" rel="noopener"{% endif %}>
+              {{ ev.subject }}
+            </a>
+          {% else %}
+            <span class="item-title">{{ ev.subject }}</span>
+          {% endif %}
+        </span>
+        <span class="spacer"></span>
+        <span class="muted" style="font-size:.85rem">{{ ev.created_at|relative_time }}</span>
+      </div>
+    </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="muted">No activity yet.</p>
+{% endif %}
+{% endblock %}
