@@ -2,7 +2,9 @@
 
 Multi-user, self-hosted RSS radar. Sign in with a magic link, curate feeds by category, share your radar publicly, follow other users, star items, and expose your activity as an RSS feed.
 
-Stack: **FastAPI + HTMX + Jinja2 + SQLite (WAL) + APScheduler**. No JS build step, no Redis, no worker process. One Docker container.
+Stack: **FastAPI + HTMX + Jinja2 + SQLite (WAL) + APScheduler**, managed with **uv**. No JS build step, no Redis, no worker process. One Docker container.
+
+Visual language is inherited from [lovelyRSS](https://github.com/pesarkhobeee/lovelyRSS): warm-gray surface, olive-green accent for active category chips and "New" badges, full-width card rows with favicon + title + "Updated X ago". See `app/static/style.css` for the palette.
 
 ## Status
 
@@ -10,13 +12,25 @@ Step 1 of the build order — **skeleton only**. Landing page, session middlewar
 
 ## Run
 
+Requires [uv](https://docs.astral.sh/uv/).
+
 ```bash
-make install
-make dev            # http://localhost:8000
-make test
+uv sync --all-extras
+uv run uvicorn app.main:app --reload   # http://localhost:8000
+uv run pytest -q
+uv run ruff check .
 ```
 
-Or:
+Or via the Makefile:
+
+```bash
+make install
+make dev
+make test
+make lint
+```
+
+Docker:
 
 ```bash
 docker compose up --build

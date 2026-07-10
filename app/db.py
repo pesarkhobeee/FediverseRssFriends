@@ -1,5 +1,5 @@
 from collections.abc import Iterator
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlmodel import Field, Session, SQLModel, create_engine
 
@@ -16,7 +16,7 @@ class User(SQLModel, table=True):
     email: str = Field(index=True, unique=True)
     handle: str = Field(index=True, unique=True)
     visibility: str = Field(default="public")  # public | unlisted | private
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 def init_db() -> None:

@@ -1,23 +1,26 @@
-.PHONY: install dev test lint fmt up down
+.PHONY: install dev test lint fmt up down clean
 
 install:
-	pip install -e ".[dev]"
+	uv sync --all-extras
 
 dev:
-	uvicorn app.main:app --reload
+	uv run uvicorn app.main:app --reload
 
 test:
-	pytest -q
+	uv run pytest -q
 
 lint:
-	ruff check .
+	uv run ruff check .
 
 fmt:
-	ruff format .
-	ruff check --fix .
+	uv run ruff format .
+	uv run ruff check --fix .
 
 up:
 	docker compose up --build
 
 down:
 	docker compose down
+
+clean:
+	rm -rf .venv .pytest_cache .ruff_cache dist build *.egg-info
