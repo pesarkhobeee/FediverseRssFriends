@@ -6,6 +6,7 @@ Visibility rules (single dependency, used everywhere a user's radar leaks):
 - private  → only the owner (follow-based access lands in step 8)
 """
 
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from xml.sax.saxutils import escape as xml_escape
 
@@ -18,6 +19,8 @@ from .auth import current_user, login_required
 from .db import Category, Feed, FeedItem, Subscription, User, get_session
 from .importers import add_subscription_by_feed, fork_from
 from .utils import relative_time
+
+NEW_BADGE_WINDOW = timedelta(hours=24)
 
 APP_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=APP_DIR / "templates")
@@ -67,10 +70,21 @@ def _load_public_radar(db: Session, owner: User, category_filter: str | None) ->
                 .limit(RECENT_ITEMS_PER_FEED)
             ).all()
 
+    now = datetime.now(UTC)
+
+    def _is_new(entries: list[FeedItem]) -> bool:
+        if not entries or not entries[0].published_at:
+            return False
+        pub = entries[0].published_at
+        if pub.tzinfo is None:
+            pub = pub.replace(tzinfo=UTC)
+        return (now - pub) < NEW_BADGE_WINDOW
+
     by_cat: dict[int, list[dict]] = {c.id: [] for c in categories}
     for sub, feed in subs_rows:
+        entries = items_by_feed.get(feed.id, [])
         by_cat.setdefault(sub.category_id, []).append(
-            {"sub": sub, "feed": feed, "entries": items_by_feed.get(feed.id, [])}
+            {"sub": sub, "feed": feed, "entries": entries, "is_new": _is_new(entries)}
         )
 
     all_categories = db.exec(

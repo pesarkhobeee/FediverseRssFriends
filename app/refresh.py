@@ -17,7 +17,7 @@ from sqlmodel import Session, select
 
 from . import config
 from .db import Feed, FeedItem, _now, engine
-from .feeds import USER_AGENT
+from .feeds import USER_AGENT, feed_image_href
 
 log = logging.getLogger(__name__)
 
@@ -77,6 +77,11 @@ def fetch_one(db: Session, feed: Feed) -> tuple[int, str | None]:
         feed.title = fmeta["title"].strip()
     if fmeta.get("link"):
         feed.site_url = fmeta["link"].strip()
+    # Prefer the feed's own <image> (Mastodon avatars, YouTube channel icons,
+    # blogs with a proper channel image) over the site's favicon.ico.
+    img_href = feed_image_href(fmeta)
+    if img_href:
+        feed.favicon_url = img_href
 
     existing_guids = set(
         db.exec(select(FeedItem.guid).where(FeedItem.feed_id == feed.id)).all()

@@ -40,7 +40,7 @@
   {% for entry in categories_view %}
     {% if entry.subs %}
       {% for it in entry.subs %}
-        <details class="feed-card" {% if loop.first and loop.index0 == 0 %}open{% endif %}>
+        <details class="feed-card">
           <summary>
             {% if it.feed.favicon_url %}
               <img class="favicon" src="{{ it.feed.favicon_url }}" alt="" loading="lazy"
@@ -49,10 +49,12 @@
               <span class="favicon" aria-hidden="true">📡</span>
             {% endif %}
             <span class="title">{{ it.feed.title }}</span>
-            <span class="chip small">{{ entry.category.name }}</span>
+            {% if it.is_new %}<span class="badge-new">New</span>{% endif %}
             <span class="spacer"></span>
             <span class="updated muted">
-              {% if it.feed.last_fetched_at %}
+              {% if it.entries and it.entries[0].published_at %}
+                Updated {{ it.entries[0].published_at|relative_time }}
+              {% elif it.feed.last_fetched_at %}
                 Updated {{ it.feed.last_fetched_at|relative_time }}
               {% else %}
                 Not fetched yet

@@ -19,6 +19,23 @@ def _fallback_title(url: str) -> str:
     return host or url
 
 
+def feed_image_href(fmeta) -> str:
+    """Extract a channel-level image URL from a feedparser feed dict.
+    Covers RSS <image><url/></image>, Atom <logo/> / <icon/>, and
+    Mastodon-style avatar URLs. Returns '' if none present."""
+    img = fmeta.get("image") if hasattr(fmeta, "get") else None
+    if img:
+        for key in ("href", "url", "link"):
+            val = img.get(key) if isinstance(img, dict) else getattr(img, key, None)
+            if val:
+                return str(val).strip()
+    for key in ("logo", "icon"):
+        val = fmeta.get(key) if hasattr(fmeta, "get") else None
+        if val:
+            return str(val).strip()
+    return ""
+
+
 def _favicon_for(site_url: str, feed_url: str) -> str:
     origin = urlparse(site_url or feed_url)
     if not origin.netloc:
@@ -55,8 +72,12 @@ def resolve_feed(url: str) -> dict:
     if site_url and not urlparse(site_url).netloc:
         site_url = urljoin(url, site_url)
 
+    # Prefer the feed's own <image> (Mastodon avatar, YouTube channel icon).
+    channel_img = feed_image_href(feed_meta)
+    favicon = channel_img or _favicon_for(site_url, url)
+
     return {
         "title": title,
         "site_url": site_url,
-        "favicon_url": _favicon_for(site_url, url),
+        "favicon_url": favicon,
     }

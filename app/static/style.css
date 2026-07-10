@@ -9,10 +9,12 @@
 :root {
   --fg: #212529;
   --muted: #6c757d;
-  --bg: #f5f5f4;
+  --bg: #f0ece2;            /* warm cream page bg — matches lovelyRSS */
   --surface: #ffffff;
-  --border: #e5e5e5;
-  --accent: #7a8a2a;        /* olive-green — matches lovelyRSS badges */
+  --card: #eae5d7;          /* card bg — slightly warmer/darker than page */
+  --card-hover: #e2ddcd;
+  --border: #d9d4c4;
+  --accent: #7d8f2a;        /* olive-green pill for active chips + "New" */
   --accent-fg: #ffffff;
   --link: #2563eb;
   --radius: 10px;
@@ -53,8 +55,8 @@ main { max-width: 880px; margin: 0 auto; padding: 2rem 1.25rem; }
   display: flex;
   flex-wrap: wrap;
   gap: .5rem;
-  padding: .75rem;
-  background: var(--surface);
+  padding: .75rem 1rem;
+  background: var(--card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
 }
@@ -211,34 +213,35 @@ main { max-width: 880px; margin: 0 auto; padding: 2rem 1.25rem; }
 /* Public radar — expandable feed cards */
 .chips .chip.small { padding: .15rem .55rem; font-size: .75rem; }
 .feed-card {
-  background: var(--surface);
+  background: var(--card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   overflow: hidden;
 }
-.feed-card + .feed-card { margin-top: .5rem; }
+.feed-card + .feed-card { margin-top: .55rem; }
 .feed-card > summary {
   display: flex;
   align-items: center;
   gap: .75rem;
-  padding: .9rem 1rem;
+  padding: 1rem 1.1rem;
   cursor: pointer;
   list-style: none;
   user-select: none;
 }
 .feed-card > summary::-webkit-details-marker { display: none; }
-.feed-card > summary:hover { background: var(--bg); }
-.feed-card > summary .title { font-weight: 600; color: var(--fg); }
+.feed-card > summary:hover { background: var(--card-hover); }
+.feed-card > summary .title { font-weight: 700; color: var(--fg); }
 .feed-card > summary .updated { font-size: .875rem; }
 .feed-card > summary .chevron {
   color: var(--muted);
   transition: transform .15s ease;
   font-size: 1.1rem;
+  margin-left: .3rem;
 }
 .feed-card[open] > summary .chevron { transform: rotate(180deg); }
-.feed-card[open] > summary { border-bottom: 1px solid var(--border); background: var(--bg); }
+.feed-card[open] > summary { border-bottom: 1px solid var(--border); }
 
-.feed-body { padding: 1rem 1.1rem; }
+.feed-body { padding: 1rem 1.1rem; background: var(--surface); }
 .item-list { list-style: none; padding: 0; margin: .5rem 0 0; }
 .item-list .item + .item { border-top: 1px solid var(--border); margin-top: .55rem; padding-top: .55rem; }
 .item-title { color: var(--fg); text-decoration: none; font-weight: 500; }
