@@ -15,6 +15,7 @@ from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select
 
+from . import config
 from .auth import current_user, login_required
 from .db import Category, Favorite, Feed, FeedItem, Subscription, User, get_session
 from .importers import add_subscription_by_feed, fork_from
@@ -113,6 +114,11 @@ def _load_public_radar(
                 ).all()
             )
 
+    last_fetched = [f.last_fetched_at for _s, f in subs_rows if f.last_fetched_at]
+    last_updated = max(last_fetched) if last_fetched else None
+    if last_updated and last_updated.tzinfo is None:
+        last_updated = last_updated.replace(tzinfo=UTC)
+
     return {
         "owner": owner,
         "categories_view": [{"category": c, "subs": by_cat.get(c.id, [])} for c in categories],
@@ -120,6 +126,8 @@ def _load_public_radar(
         "active_cat": category_filter or "",
         "total_feeds": len(total_feeds),
         "viewer_faves": viewer_faves,
+        "last_updated": last_updated,
+        "refresh_interval_minutes": config.REFRESH_INTERVAL_MINUTES,
     }
 
 

@@ -88,6 +88,18 @@ main { max-width: 880px; margin: 0 auto; padding: 2rem 1.25rem; }
   border-radius: var(--radius);
 }
 .feed + .feed { margin-top: .5rem; }
+/* Favicon — universal size cap. Applies to <img class="favicon"> everywhere
+ * (dashboard rows, feed cards, favorites list). Handles Mastodon/YouTube
+ * avatars which come in at 400×400+. */
+.favicon,
+img.favicon {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+  object-fit: cover;
+  border-radius: 4px;
+  background: var(--surface);
+}
 .feed .favicon { width: 20px; height: 20px; flex: 0 0 20px; }
 .feed .title { font-weight: 600; color: var(--fg); text-decoration: none; }
 .feed .spacer { flex: 1; }
@@ -272,7 +284,6 @@ main { max-width: 880px; margin: 0 auto; padding: 2rem 1.25rem; }
 }
 .fav-item + .fav-item { margin-top: .5rem; }
 .fav-head { display: flex; align-items: center; gap: .55rem; margin-bottom: .25rem; }
-.fav-head .favicon { width: 18px; height: 18px; }
 .fav-source { font-size: .85rem; }
 
 /* Visibility badge on public page */

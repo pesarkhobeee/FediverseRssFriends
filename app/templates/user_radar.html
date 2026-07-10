@@ -7,6 +7,12 @@
     A collection of favorite RSS feeds
     {% if owner.visibility != "public" %} · <span class="badge-visibility">{{ owner.visibility }}</span>{% endif %}
   </p>
+  {% if last_updated %}
+    <p class="muted" style="font-size:.9rem">
+      Last updated: {{ last_updated.strftime('%Y-%m-%d %H:%M UTC') }}
+      · Next update every ~{{ refresh_interval_minutes }} minutes
+    </p>
+  {% endif %}
   <p>
     <a class="btn-ghost" href="/u/{{ owner.handle }}/favorites">⭐ Favorites</a>
     <a class="btn-ghost" href="/u/{{ owner.handle }}.opml">📥 OPML</a>
