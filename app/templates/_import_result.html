@@ -4,6 +4,9 @@
     Imported <strong>{{ result.added }}</strong> new feed{{ '' if result.added == 1 else 's' }} from
     {{ result.total }} outline{{ '' if result.total == 1 else 's' }}.
     Skipped <strong>{{ result.duplicates }}</strong> already-subscribed.
-    <a href="/dashboard">Reload</a> to see them.
+    {% if result.added %}
+      <br><span class="muted">Fetching items in the background — refresh the page in a minute to see them.</span>
+    {% endif %}
+    <a href="/dashboard">Reload</a>
   </p>
 </div>

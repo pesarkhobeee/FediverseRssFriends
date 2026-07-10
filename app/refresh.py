@@ -6,6 +6,8 @@ recorded on the Feed row; a bad feed never breaks the cycle.
 """
 
 import logging
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -139,16 +141,44 @@ def _due_feeds(db: Session, interval_minutes: int, batch: int) -> list[Feed]:
     return list(rows)
 
 
+def _refresh_worker(feed_id: int) -> tuple[int, str | None]:
+    """One feed's refresh in its own DB session — safe for thread-pool use.
+    SQLite + WAL + check_same_thread=False supports many concurrent writers
+    at MVP scale."""
+    with Session(engine) as db:
+        feed = db.get(Feed, feed_id)
+        if not feed:
+            return 0, "gone"
+        return fetch_one(db, feed)
+
+
 def run_cycle() -> dict:
-    """One refresh cycle over all due feeds. Safe to call from a scheduler thread."""
+    """One refresh cycle over all due feeds. Concurrency capped at
+    REFRESH_CONCURRENCY threads. Safe to call from any thread."""
     with Session(engine) as db:
         due = _due_feeds(db, config.REFRESH_INTERVAL_MINUTES, config.REFRESH_BATCH_SIZE)
-        total_new = 0
-        errors = 0
-        for feed in due:
-            new, err = fetch_one(db, feed)
-            total_new += new
-            if err:
-                errors += 1
-    log.info("refresh cycle: feeds=%d new_items=%d errors=%d", len(due), total_new, errors)
-    return {"feeds": len(due), "new_items": total_new, "errors": errors}
+        due_ids = [f.id for f in due]
+
+    total_new = 0
+    errors = 0
+    if due_ids:
+        max_workers = max(1, min(config.REFRESH_CONCURRENCY, len(due_ids)))
+        with ThreadPoolExecutor(max_workers=max_workers) as ex:
+            for new, err in ex.map(_refresh_worker, due_ids):
+                total_new += new
+                if err:
+                    errors += 1
+
+    log.info(
+        "refresh cycle: feeds=%d new_items=%d errors=%d", len(due_ids), total_new, errors
+    )
+    return {"feeds": len(due_ids), "new_items": total_new, "errors": errors}
+
+
+def kick_background_refresh() -> None:
+    """Fire-and-forget refresh (used after OPML import so newly-added feeds
+    populate without waiting for the scheduler tick). Gated by
+    ENABLE_SCHEDULER so tests / one-shot runs don't spawn stray threads."""
+    if not config.ENABLE_SCHEDULER:
+        return
+    threading.Thread(target=run_cycle, daemon=True).start()

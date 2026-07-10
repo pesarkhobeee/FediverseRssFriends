@@ -16,7 +16,7 @@ from .db import Category, Feed, FeedItem, Subscription, User, get_session
 from .feeds import resolve_feed
 from .importers import add_subscription_by_url
 from .opml import parse_opml
-from .refresh import run_cycle
+from .refresh import kick_background_refresh, run_cycle
 
 APP_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=APP_DIR / "templates")
@@ -231,6 +231,9 @@ async def import_opml(
         else:
             dup += 1
     db.commit()
+
+    if added:
+        kick_background_refresh()
 
     return _partial(
         request,

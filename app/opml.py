@@ -46,9 +46,13 @@ def _walk(node, current_category: str, out: list[OpmlEntry]) -> None:
     for outline in node.findall("outline"):
         xml_url = (outline.get("xmlUrl") or outline.get("xmlurl") or "").strip()
         if xml_url:
+            # A feed outline may carry its own `category` attribute (Fraidycat,
+            # some other exporters), in which case that wins over the nesting
+            # parent's label.
+            explicit = (outline.get("category") or "").strip()
             out.append(
                 OpmlEntry(
-                    category=current_category or "Imported",
+                    category=explicit or current_category or "Imported",
                     xml_url=xml_url,
                     title=(outline.get("text") or outline.get("title") or "").strip(),
                     html_url=(outline.get("htmlUrl") or outline.get("htmlurl") or "").strip(),

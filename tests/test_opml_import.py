@@ -41,6 +41,16 @@ DUP_OPML = b"""<?xml version="1.0"?>
 </body></opml>
 """
 
+# Fraidycat and some other exporters flatten everything and put the
+# category on the feed outline itself.
+FLAT_CATEGORY_OPML = b"""<?xml version='1.0' encoding='utf-8'?>
+<opml version="2.0"><head><title>flat</title></head><body>
+  <outline category="News" text="HN Best" xmlUrl="https://hnrss.org/best"/>
+  <outline category="weblogs" text="DHH" xmlUrl="https://world.hey.com/dhh/feed.atom"/>
+  <outline category="News" text="Berlin" xmlUrl="https://www.berlin.de/en/news/rubric.rss"/>
+</body></opml>
+"""
+
 
 def test_parse_opml_nested_and_flat():
     from app.opml import parse_opml
@@ -55,6 +65,46 @@ def test_parse_opml_nested_and_flat():
     assert proton.title == "Proton Blog"
     flat = next(e for e in entries if "flat.example" in e.xml_url)
     assert flat.category == "Imported"
+
+
+def test_parse_opml_reads_flat_category_attribute():
+    """Fraidycat-style OPML: category is an attribute on each feed outline."""
+    from app.opml import parse_opml
+
+    entries = parse_opml(FLAT_CATEGORY_OPML)
+    assert len(entries) == 3
+    by_url = {e.xml_url: e for e in entries}
+    assert by_url["https://hnrss.org/best"].category == "News"
+    assert by_url["https://world.hey.com/dhh/feed.atom"].category == "weblogs"
+    assert by_url["https://www.berlin.de/en/news/rubric.rss"].category == "News"
+
+
+def test_import_flat_opml_creates_matching_categories():
+    """End-to-end: flat category-attribute OPML should NOT dump everything into 'Imported'."""
+    client = _client()
+    _login(client, "farid@example.com")
+    r = client.post(
+        "/import/opml",
+        files={"file": ("f.opml", io.BytesIO(FLAT_CATEGORY_OPML), "text/xml")},
+    )
+    assert r.status_code == 200
+
+    from sqlmodel import Session, select
+
+    import app.db as db_mod
+    with Session(db_mod.engine) as s:
+        user = s.exec(select(db_mod.User).where(db_mod.User.handle == "farid")).one()
+        cats = {
+            c.name for c in s.exec(
+                select(db_mod.Category).where(db_mod.Category.user_id == user.id)
+            ).all()
+        }
+    # "News" appears with two casings but our find_or_create is case-insensitive,
+    # so we end up with exactly two categories: {News, weblogs}. "Imported"
+    # should NOT appear.
+    assert "Imported" not in cats
+    assert len(cats) == 2
+    assert {c.lower() for c in cats} == {"news", "weblogs"}
 
 
 def test_parse_opml_dedups_within_file():
