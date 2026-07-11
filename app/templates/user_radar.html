@@ -28,6 +28,7 @@
     {% endif %}
     <a class="btn-ghost" href="/u/{{ owner.handle }}/favorites">⭐ Favorites</a>
     <a class="btn-ghost" href="/u/{{ owner.handle }}/activity">📜 Activity</a>
+    <a class="btn-ghost" href="{{ reading_rss_url }}" title="Subscribe to @{{ owner.handle }}'s reading list in any RSS reader">🔗 RSS</a>
     <a class="btn-ghost" href="/u/{{ owner.handle }}.opml">📥 OPML</a>
     {% if is_owner %}
       <a class="btn-ghost" href="/dashboard">Edit radar</a>

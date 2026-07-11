@@ -161,6 +161,94 @@ def _load_public_radar(
     }
 
 
+@router.get("/u/{handle}.rss", response_class=PlainTextResponse)
+def user_reading_rss(
+    handle: str,
+    request: Request,
+    as_: str | None = Query(None, alias="as"),
+    t: str | None = None,
+    viewer: User | None = Depends(current_user),
+    db: Session = Depends(get_session),
+):
+    """The union of items across a user's subscribed feeds, newest first.
+
+    Lets anyone drop this URL into a normal RSS reader and follow the
+    person, not each individual feed. Gate rules mirror activity.rss:
+    public/unlisted open; private + owner-or-approved-follower session
+    allowed; private + ?as=&t= signed-token allowed while the Follow
+    row remains approved.
+    """
+    owner = db.exec(select(User).where(User.handle == handle)).first()
+    if not owner:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "user not found")
+
+    allowed = False
+    if owner.visibility != "private":  # noqa: SIM114 — branches are semantically distinct
+        allowed = True
+    elif viewer and can_view(viewer, owner, db=db):
+        allowed = True
+    elif as_ and t:
+        follower = db.exec(select(User).where(User.handle == as_)).first()
+        if follower and activity.verify_follower_token(owner, follower, t):
+            row = db.get(Follow, (follower.id, owner.id))
+            if row and row.approved_at is not None:
+                allowed = True
+
+    if not allowed:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "this reading feed is private")
+
+    # Union of items across every subscribed feed, newest first.
+    items = db.exec(
+        select(FeedItem, Feed)
+        .join(Feed, Feed.id == FeedItem.feed_id)
+        .join(Subscription, Subscription.feed_id == Feed.id)
+        .where(Subscription.user_id == owner.id)
+        .order_by(FeedItem.published_at.desc().nulls_last(), FeedItem.fetched_at.desc())
+        .limit(100)
+    ).all()
+
+    base = str(request.base_url).rstrip("/")
+
+    def _rfc822(dt: datetime | None) -> str:
+        if dt is None:
+            return ""
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=UTC)
+        return dt.strftime("%a, %d %b %Y %H:%M:%S +0000")
+
+    entries = []
+    for item, feed in items:
+        pubdate = _rfc822(item.published_at or item.fetched_at)
+        title_prefix = f"[{feed.title}] " if feed.title else ""
+        entries.append(
+            "    <item>\n"
+            f"      <title>{xml_escape(title_prefix + (item.title or '(untitled)'))}</title>\n"
+            f"      <link>{xml_escape(item.link or feed.url)}</link>\n"
+            f"      <guid isPermaLink=\"false\">item-{item.id}</guid>\n"
+            f"      <source url=\"{xml_escape(feed.url)}\">{xml_escape(feed.title)}</source>\n"
+            + (f"      <pubDate>{pubdate}</pubDate>\n" if pubdate else "")
+            + (
+                f"      <description>{xml_escape(item.summary)}</description>\n"
+                if item.summary else ""
+            )
+            + "    </item>"
+        )
+
+    body = (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<rss version="2.0">\n'
+        "  <channel>\n"
+        f"    <title>@{xml_escape(owner.handle)}'s reading list</title>\n"
+        f"    <link>{base}/u/{xml_escape(owner.handle)}</link>\n"
+        f"    <description>Every item across every feed "
+        f"@{xml_escape(owner.handle)} subscribes to, newest first.</description>\n"
+        + "\n".join(entries) + "\n"
+        "  </channel>\n"
+        "</rss>\n"
+    )
+    return PlainTextResponse(body, media_type="application/rss+xml; charset=utf-8")
+
+
 @router.get("/u/{handle}.opml", response_class=PlainTextResponse)
 def user_opml(
     handle: str,
@@ -228,6 +316,14 @@ def user_radar(
 
     from .follow import follow_state, follower_count, following_count
 
+    def _signed_url(base_path: str) -> str:
+        """Return a URL to `base_path`, appending a signed follower token when
+        the viewer is an approved follower of a private owner."""
+        if owner.visibility == "private" and viewer and viewer.id != owner.id:
+            token = activity.sign_follower(owner, viewer)
+            return f"{base_path}?as={viewer.handle}&t={token}"
+        return base_path
+
     if not can_view(viewer, owner, db=db):
         # Private radar — render a friendly locked page with a Follow button
         # (creates a pending request) instead of a machine-readable 403.
@@ -250,6 +346,8 @@ def user_radar(
     ctx["follow_state"] = follow_state(db, viewer.id, owner.id) if viewer else "none"
     ctx["followers_n"] = follower_count(db, owner.id)
     ctx["following_n"] = following_count(db, owner.id)
+    ctx["reading_rss_url"] = _signed_url(f"/u/{owner.handle}.rss")
+    ctx["activity_rss_url"] = _signed_url(f"/u/{owner.handle}/activity.rss")
     return templates.TemplateResponse(request, "user_radar.html", ctx)
 
 
