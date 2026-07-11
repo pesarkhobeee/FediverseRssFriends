@@ -42,6 +42,7 @@ header {
 nav { display: flex; flex-wrap: wrap; gap: .25rem 1rem; justify-content: flex-end; }
 nav a { text-decoration: none; color: var(--link); font-size: .95rem; }
 nav a:hover { text-decoration: underline; }
+nav a.nav-user { color: var(--fg); font-weight: 600; }
 
 /* Layout */
 main { max-width: 880px; margin: 0 auto; padding: 2rem 1.25rem; }
