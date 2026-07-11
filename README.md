@@ -69,6 +69,31 @@ Environment variables:
 - `RSSRADAR_REFRESH_BATCH_SIZE` — max feeds refreshed per cycle (default `50`)
 - `RSSRADAR_FEED_ITEM_KEEP` — max items retained per feed (default `100`)
 
+## Backup + restore
+
+The SQLite file lives at `./data/rssradar.db` by default. Two scripts handle
+WAL-safe backups with a rolling retention window:
+
+```bash
+make backup                         # snapshot → ./backups/rssradar-<ts>.sqlite.gz
+RSSRADAR_BACKUP_KEEP=30 make backup # keep 30 archives instead of the default 14
+make restore FROM=backups/rssradar-20260101-030000.sqlite.gz
+```
+
+Backups use `sqlite3 .backup`, which is WAL-safe (a plain `cp` would tear if
+the app is writing). Each archive is gzip-tested before it's counted as a
+keeper, and pruning only touches files matching the exact naming pattern —
+your own files in `backups/` are left alone.
+
+For cron on the host:
+
+```
+15 3 * * * cd /srv/rssradar && ./scripts/backup.sh >> /var/log/rssradar-backup.log 2>&1
+```
+
+`restore.sh` moves the existing DB aside (`*.bak-<ts>`) before overwriting,
+so an accidental restore never destroys data.
+
 ## License
 
 MIT

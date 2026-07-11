@@ -11,10 +11,12 @@
   <header>
     <a href="/" class="brand">rssRadar</a>
     <nav>
+      {% if user %}
+        <a href="/u/{{ user.handle }}" class="nav-user" title="Your public radar">@{{ user.handle }}</a>
+      {% endif %}
       <a href="/discover">Discover</a>
       {% if user %}
         <a href="/feed">Activities</a>
-        <a href="/u/{{ user.handle }}" class="nav-user" title="Your public radar">@{{ user.handle }}</a>
         <a href="/u/{{ user.handle }}/favorites">Favorites</a>
         <a href="/u/{{ user.handle }}/activity">My activity</a>
         <a href="/follow-requests">Requests</a>

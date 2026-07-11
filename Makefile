@@ -1,4 +1,4 @@
-.PHONY: install dev test lint fmt up down clean
+.PHONY: install dev test lint fmt up down clean backup restore
 
 install:
 	uv sync --all-extras
@@ -24,3 +24,10 @@ down:
 
 clean:
 	rm -rf .venv .pytest_cache .ruff_cache dist build *.egg-info
+
+backup:
+	./scripts/backup.sh
+
+restore:
+	@[ -n "$(FROM)" ] || (echo "usage: make restore FROM=backups/rssradar-...sqlite.gz" && exit 2)
+	./scripts/restore.sh "$(FROM)"
