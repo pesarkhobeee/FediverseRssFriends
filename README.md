@@ -47,9 +47,9 @@ docker compose up --build
 7. Favorites (★ items) ✅
 8. Follow (auto-approve; pending requests for private users) ✅
 9. Activity log + `/u/{handle}/activity` + `activity.rss` (signed token for private) ✅
-10. Home timeline `/feed` ✅ *(you are here)*
-11. OPML import/export
-12. Discover
+10. Home timeline `/feed` ✅
+11. OPML import/export ✅ *(shipped in step 6)*
+12. Discover ✅ *(you are here)*
 13. Polish (favicon cache, health badges, rate limits, backup)
 
 ## Config

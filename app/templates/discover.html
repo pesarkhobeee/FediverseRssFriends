@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Discover{% endblock %}
+{% block content %}
+<section class="hero stack">
+  <h1>🔭 Discover</h1>
+  <p class="muted">New radars, popular feeds, most-forked curators. Only public radars are listed.</p>
+</section>
+
+<h2 class="section-title">🌱 Recent radars</h2>
+{% if recent_users %}
+<ul class="fav-list">
+  {% for r in recent_users %}
+    <li class="fav-item">
+      <div class="fav-head">
+        <a class="title" href="/u/{{ r.user.handle }}">@{{ r.user.handle }}</a>
+        <span class="spacer"></span>
+        <span class="muted" style="font-size:.85rem">
+          {{ r.feeds }} feed{{ '' if r.feeds == 1 else 's' }} ·
+          {{ r.followers }} follower{{ '' if r.followers == 1 else 's' }} ·
+          joined {{ r.user.created_at|relative_time }}
+        </span>
+      </div>
+    </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="muted">No public radars yet.</p>
+{% endif %}
+
+<h2 class="section-title">🔥 Popular feeds</h2>
+{% if popular_feeds %}
+<ul class="fav-list">
+  {% for p in popular_feeds %}
+    <li class="fav-item">
+      <div class="fav-head">
+        {% if p.feed.favicon_url %}
+          <img class="favicon" src="{{ p.feed.favicon_url }}" alt="" loading="lazy"
+               onerror="this.style.visibility='hidden'" />
+        {% endif %}
+        {% if p.feed.site_url %}
+          <a class="title" href="{{ p.feed.site_url }}" target="_blank" rel="noopener">{{ p.feed.title }}</a>
+        {% else %}
+          <span class="title">{{ p.feed.title }}</span>
+        {% endif %}
+        <a class="feed-url muted" href="{{ p.feed.url }}" target="_blank" rel="noopener" title="Feed URL">rss</a>
+        <span class="spacer"></span>
+        <span class="muted" style="font-size:.85rem">
+          {{ p.subscribers }} subscriber{{ '' if p.subscribers == 1 else 's' }}
+        </span>
+      </div>
+    </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="muted">No feeds have been subscribed to publicly yet.</p>
+{% endif %}
+
+<h2 class="section-title">🍴 Most-forked curators</h2>
+{% if most_forked %}
+<ul class="fav-list">
+  {% for f in most_forked %}
+    <li class="fav-item">
+      <div class="fav-head">
+        <a class="title" href="/u/{{ f.user.handle }}">@{{ f.user.handle }}</a>
+        <span class="spacer"></span>
+        <span class="muted" style="font-size:.85rem">
+          forked {{ f.forks }} time{{ '' if f.forks == 1 else 's' }}
+        </span>
+      </div>
+    </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="muted">Nobody has been forked yet.</p>
+{% endif %}
+{% endblock %}
