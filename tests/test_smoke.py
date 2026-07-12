@@ -10,7 +10,7 @@ def test_index_renders():
     r = _client().get("/")
     assert r.status_code == 200
     assert "rssFriends" in r.text
-    assert "Send magic link" in r.text  # login form present
+    assert "Sign in with magic link" in r.text  # login form present
 
 
 def test_healthz():

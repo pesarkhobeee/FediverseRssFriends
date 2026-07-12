@@ -52,6 +52,7 @@ main { max-width: 880px; margin: 0 auto; padding: 2rem 1.25rem; }
 /* Hero */
 .hero h1 { font-size: 2rem; margin: 0 0 .35rem; }
 .hero p  { color: var(--muted); margin: 0; }
+.hero { margin-bottom: 1rem; }
 
 /* Category chips (used on public radar pages, previewed on landing) */
 .chips {
@@ -134,13 +135,13 @@ img.favicon {
 
 /* Login card */
 .login {
-  margin-top: 2.5rem;
+  margin-top: 1.5rem;
   padding: 1.25rem;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
 }
-.login-form { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: .75rem; }
+.login-form { display: flex; gap: .5rem; flex-wrap: wrap; }
 .input {
   flex: 1 1 260px;
   padding: .55rem .8rem;
@@ -361,28 +362,21 @@ img.favicon {
 }
 .feed-url:hover { color: var(--fg); }
 
-/* Landing-page feature grid */
-.features {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 1rem;
-  margin: 2rem 0;
+/* Landing-page compact features list — one line each. */
+.features-compact {
+  list-style: none;
+  padding: 0;
+  margin: 1.75rem 0 0;
 }
-.feature {
-  padding: 1.1rem 1.15rem;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+.features-compact li {
+  padding: .7rem 0;
+  border-top: 1px solid var(--border);
+  font-size: .95rem;
+  line-height: 1.5;
+  color: var(--fg);
 }
-.feature-icon { font-size: 1.6rem; line-height: 1; margin-bottom: .35rem; }
-.feature h3 { margin: 0 0 .35rem; font-size: 1.05rem; }
-.feature p { margin: 0; color: var(--muted); font-size: .92rem; line-height: 1.5; }
-@media (max-width: 900px) {
-  .features { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-@media (max-width: 560px) {
-  .features { grid-template-columns: 1fr; }
-}
+.features-compact li:last-child { border-bottom: 1px solid var(--border); }
+.features-compact b { font-weight: 600; }
 
 /* ────────────────────────────────────────────────────────────
  * Responsive — matches lovelyRSS behavior on small viewports.

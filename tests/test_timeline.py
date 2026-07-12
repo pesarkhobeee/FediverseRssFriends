@@ -38,7 +38,7 @@ def test_root_redirects_signed_in_to_own_page():
 def test_root_anonymous_still_lands_on_signup():
     r = _client().get("/", follow_redirects=False)
     assert r.status_code == 200
-    assert "Send magic link" in r.text
+    assert "Sign in with magic link" in r.text
 
 
 def test_empty_feed_has_helpful_hint():
