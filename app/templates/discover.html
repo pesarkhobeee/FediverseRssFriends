@@ -35,7 +35,7 @@
       <div class="fav-head">
         {% if p.feed.favicon_url %}
           <img class="favicon" src="{{ p.feed.favicon_url }}" alt="" loading="lazy"
-               onerror="this.style.visibility='hidden'" />
+ />
         {% endif %}
         {% if p.feed.site_url %}
           <a class="title" href="{{ p.feed.site_url }}" target="_blank" rel="noopener">{{ p.feed.title }}</a>

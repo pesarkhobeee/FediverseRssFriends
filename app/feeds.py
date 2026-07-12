@@ -50,22 +50,102 @@ def _is_youtube_feed(feed_url: str) -> bool:
     return "youtube.com" in feed_url and "feeds/videos.xml" in feed_url
 
 
-def resolve_avatar(feed_url: str, site_url: str, feed_meta=None) -> str:
-    """Best guess at a display avatar for a feed. Priority:
+# Extracts href from <link rel="…icon…"> in HTML. Rel can come before or
+# after href, and quotes vary. Two patterns cover the common shapes.
+_LINK_ICON_REL_FIRST = re.compile(
+    r'<link[^>]*\brel=["\']?[^"\'>]*icon[^"\'>]*["\']?[^>]*\bhref=["\']([^"\']+)["\']',
+    re.IGNORECASE,
+)
+_LINK_ICON_HREF_FIRST = re.compile(
+    r'<link[^>]*\bhref=["\']([^"\']+)["\'][^>]*\brel=["\']?[^"\'>]*icon',
+    re.IGNORECASE,
+)
+_OG_IMAGE = re.compile(
+    r'<meta[^>]*\bproperty=["\']og:image["\'][^>]*\bcontent=["\']([^"\']+)["\']',
+    re.IGNORECASE,
+)
 
-    1. GitHub user/org avatar (real per-account photo).
-    2. Feed's own <image> element (Mastodon avatars, blogs with a logo).
-    3. YouTube fallback to the site favicon.
-    4. Generic /favicon.ico from the site host.
+
+def _http_get_text(url: str, timeout: float = 3.0) -> str | None:
+    """Best-effort HTML fetch. Returns None on any failure."""
+    try:
+        with httpx.Client(
+            timeout=timeout,
+            follow_redirects=True,
+            headers={"User-Agent": USER_AGENT},
+        ) as client:
+            r = client.get(url)
+            r.raise_for_status()
+            return r.text
+    except Exception:
+        return None
+
+
+def _youtube_channel_avatar(feed_url: str) -> str | None:
+    """Scrape the channel's YouTube page for the og:image (the avatar).
+    Only useful in a deep resolve — costs one HTTP round-trip."""
+    m = re.search(r"channel_id=([A-Za-z0-9_\-]+)", feed_url)
+    if not m:
+        return None
+    html = _http_get_text(f"https://www.youtube.com/channel/{m.group(1)}")
+    if not html:
+        return None
+    hit = _OG_IMAGE.search(html)
+    return hit.group(1).strip() if hit else None
+
+
+def _site_icon_from_html(site_url: str) -> str | None:
+    """Fetch the site's homepage and return the first <link rel=…icon…>
+    href, resolved to an absolute URL. Costs one HTTP round-trip."""
+    if not site_url:
+        return None
+    html = _http_get_text(site_url)
+    if not html:
+        return None
+    hit = _LINK_ICON_REL_FIRST.search(html) or _LINK_ICON_HREF_FIRST.search(html)
+    if not hit:
+        return None
+    href = hit.group(1).strip()
+    if not href:
+        return None
+    return href if urlparse(href).netloc else urljoin(site_url, href)
+
+
+def resolve_avatar(
+    feed_url: str, site_url: str, feed_meta=None, *, deep: bool = False
+) -> str:
+    """Best guess at a display avatar for a feed.
+
+    Fast (deep=False, used in every refresh cycle):
+      GitHub owner → feed's <image> → YouTube-site favicon → /favicon.ico
+
+    Deep (deep=True, one-time on subscribe + manual per-feed refresh):
+      + YouTube channel avatar (og:image scrape)
+      + <link rel="icon"> from the site's HTML if we'd otherwise
+        return the generic /favicon.ico
     """
     owner = github_owner(feed_url)
     if owner:
         return f"https://github.com/{owner}.png?size=64"
 
+    # YouTube channel avatar — only paid for on deep resolves.
+    if _is_youtube_feed(feed_url) and deep:
+        yt_avatar = _youtube_channel_avatar(feed_url)
+        if yt_avatar:
+            return yt_avatar
+        # If we couldn't scrape, fall through to feed image / site favicon.
+
     if feed_meta is not None:
         img = feed_image_href(feed_meta)
         if img:
             return img
+
+    # Generic sites: if this is a deep pass, try to discover the real
+    # icon URL from the HTML before falling back to /favicon.ico.
+    if deep and site_url:
+        found = _site_icon_from_html(site_url)
+        if found:
+            return found
 
     if _is_youtube_feed(feed_url):
         return "https://www.youtube.com/favicon.ico"
@@ -129,5 +209,5 @@ def resolve_feed(url: str) -> dict:
     return {
         "title": title,
         "site_url": site_url,
-        "favicon_url": resolve_avatar(url, site_url, feed_meta),
+        "favicon_url": resolve_avatar(url, site_url, feed_meta, deep=True),
     }

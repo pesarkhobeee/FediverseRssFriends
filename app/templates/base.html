@@ -36,6 +36,37 @@
   </div>
 
   <script>
+    // Favicon fallback chain: if <img class="favicon"> 404s, try the two
+    // other common paths on the same host before giving up. Server-side
+    // resolve handles most cases; this catches sites we didn't scrape.
+    (function () {
+      function nextCandidate(img) {
+        try {
+          var u = new URL(img.src);
+          var host = u.protocol + "//" + u.host;
+          var tried = (img.dataset.tried || "").split("|").filter(Boolean);
+          var candidates = ["/favicon.png", "/apple-touch-icon.png"];
+          for (var i = 0; i < candidates.length; i++) {
+            var next = host + candidates[i];
+            if (tried.indexOf(next) === -1 && img.src !== next) {
+              tried.push(next);
+              img.dataset.tried = tried.join("|");
+              img.src = next;
+              return;
+            }
+          }
+        } catch (_) { /* bad URL — just hide */ }
+        img.style.visibility = "hidden";
+      }
+      document.addEventListener("error", function (evt) {
+        var t = evt.target;
+        if (t && t.tagName === "IMG" && t.classList.contains("favicon")) {
+          nextCandidate(t);
+        }
+      }, true);  // capture — img error events don't bubble
+    })();
+  </script>
+  <script>
     (function () {
       var toast = document.getElementById("net-toast");
       var msg = toast.querySelector(".net-toast-msg");

@@ -80,6 +80,94 @@ def test_resolve_avatar_generic_site_favicon():
     assert got == "https://blog.example.com/favicon.ico"
 
 
+def _stub_html_fetch(monkeypatch, url_to_html: dict[str, str]) -> None:
+    """Stub feeds._http_get_text to return canned HTML per URL."""
+    import app.feeds as feeds
+
+    def fake(url, timeout=3.0):
+        return url_to_html.get(url)
+
+    monkeypatch.setattr(feeds, "_http_get_text", fake)
+
+
+def test_deep_resolves_youtube_channel_via_og_image(monkeypatch):
+    from app.feeds import resolve_avatar
+
+    channel_html = (
+        '<html><head>'
+        '<meta property="og:image" content="https://yt3.example/avatar.png">'
+        '</head></html>'
+    )
+    _stub_html_fetch(monkeypatch, {
+        "https://www.youtube.com/channel/UCabc123": channel_html,
+    })
+
+    url = "https://www.youtube.com/feeds/videos.xml?channel_id=UCabc123"
+    got = resolve_avatar(url, "https://www.youtube.com/channel/UCabc123", {}, deep=True)
+    assert got == "https://yt3.example/avatar.png"
+
+
+def test_shallow_resolve_skips_youtube_scrape():
+    """Refresh cycle uses deep=False so we do NOT spend a round-trip on YT."""
+    from app.feeds import resolve_avatar
+
+    url = "https://www.youtube.com/feeds/videos.xml?channel_id=UCabc123"
+    got = resolve_avatar(url, "https://www.youtube.com/channel/UCabc123", {}, deep=False)
+    assert got == "https://www.youtube.com/favicon.ico"
+
+
+def test_deep_falls_back_to_link_rel_icon_html_parse(monkeypatch):
+    from app.feeds import resolve_avatar
+
+    site_html = (
+        '<html><head>'
+        '<link rel="shortcut icon" href="/static/icon-192.png">'
+        '</head></html>'
+    )
+    _stub_html_fetch(monkeypatch, {"https://blog.example.com": site_html})
+
+    got = resolve_avatar(
+        "https://blog.example.com/feed.xml",
+        "https://blog.example.com",
+        {},
+        deep=True,
+    )
+    assert got == "https://blog.example.com/static/icon-192.png"
+
+
+def test_deep_link_rel_icon_absolute_href(monkeypatch):
+    from app.feeds import resolve_avatar
+
+    site_html = (
+        '<html><head>'
+        '<link href="https://cdn.example/icon.png" rel="icon">'
+        '</head></html>'
+    )
+    _stub_html_fetch(monkeypatch, {"https://blog.example.com": site_html})
+
+    got = resolve_avatar(
+        "https://blog.example.com/feed.xml",
+        "https://blog.example.com",
+        {},
+        deep=True,
+    )
+    assert got == "https://cdn.example/icon.png"
+
+
+def test_deep_falls_all_the_way_through_to_favicon_ico(monkeypatch):
+    """Every network step is stubbed to None; final fallback is /favicon.ico."""
+    _stub_html_fetch(monkeypatch, {})
+
+    from app.feeds import resolve_avatar
+    got = resolve_avatar(
+        "https://blog.example.com/feed",
+        "https://blog.example.com",
+        {},
+        deep=True,
+    )
+    assert got == "https://blog.example.com/favicon.ico"
+
+
 def test_migration_backfills_github_avatars():
     """Existing github.com Feed rows with generic favicons get upgraded."""
     import app.db as db_mod

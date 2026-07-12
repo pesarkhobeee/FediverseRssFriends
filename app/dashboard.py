@@ -14,7 +14,7 @@ from sqlmodel import Session, select
 from . import activity
 from .auth import login_required
 from .db import Category, Feed, FeedItem, Subscription, User, get_session
-from .feeds import resolve_feed
+from .feeds import resolve_avatar, resolve_feed
 from .importers import add_subscription_by_url
 from .opml import parse_opml
 from .refresh import fetch_one, kick_background_refresh, run_cycle
@@ -278,6 +278,14 @@ def refresh_single_feed(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "feed not found")
 
     new, err = fetch_one(db, feed)
+    # Manual refresh is a good moment to upgrade the avatar too — the
+    # scheduled cycle only does the fast path, so YouTube channels stay
+    # generic without this.
+    deep_avatar = resolve_avatar(feed.url, feed.site_url, None, deep=True)
+    if deep_avatar and deep_avatar != feed.favicon_url:
+        feed.favicon_url = deep_avatar
+        db.add(feed)
+        db.commit()
     return _partial(
         request,
         "_feed_refreshed.html",
