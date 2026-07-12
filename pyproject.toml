@@ -1,5 +1,5 @@
 [project]
-name = "rssradar"
+name = "rssfriends"
 version = "0.1.0"
 description = "Multi-user RSS radar with follow, favorites, and activity feeds"
 readme = "README.md"

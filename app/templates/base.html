@@ -3,13 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}rssRadar{% endblock %}</title>
+  <title>{% block title %}rssFriends{% endblock %}</title>
   <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}">
   <script src="https://unpkg.com/htmx.org@2.0.3" defer></script>
 </head>
 <body>
   <header>
-    <a href="/" class="brand">rssRadar</a>
+    <a href="/" class="brand">rssFriends</a>
     <nav>
       {% if user %}
         <a href="/u/{{ user.handle }}" class="nav-user" title="Your public radar">@{{ user.handle }}</a>

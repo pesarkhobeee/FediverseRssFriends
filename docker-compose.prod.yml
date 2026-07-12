@@ -9,8 +9,8 @@ services:
       - ./backups:/backups
     env_file: .env
     environment:
-      RSSRADAR_DATA_DIR: /data
-      RSSRADAR_BACKUP_DIR: /backups
+      RSSFRIENDS_DATA_DIR: /data
+      RSSFRIENDS_BACKUP_DIR: /backups
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz').read()"]
       interval: 30s

@@ -29,5 +29,5 @@ backup:
 	./scripts/backup.sh
 
 restore:
-	@[ -n "$(FROM)" ] || (echo "usage: make restore FROM=backups/rssradar-...sqlite.gz" && exit 2)
+	@[ -n "$(FROM)" ] || (echo "usage: make restore FROM=backups/rssfriends-...sqlite.gz" && exit 2)
 	./scripts/restore.sh "$(FROM)"

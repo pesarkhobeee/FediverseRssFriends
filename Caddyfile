@@ -1,7 +1,7 @@
 # Caddy automatically fetches + renews a Let's Encrypt cert for the
 # hostname on the left. Point your DNS A record at this VPS and it
 # just works on first boot.
-{$RSSRADAR_HOSTNAME} {
+{$RSSFRIENDS_HOSTNAME} {
 	encode zstd gzip
 
 	# HSTS for a year — comment out on first deploy if you want an

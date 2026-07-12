@@ -18,7 +18,7 @@ RUN uv sync --frozen --no-install-project --no-dev
 COPY app ./app
 RUN uv sync --frozen --no-dev
 
-ENV RSSRADAR_DATA_DIR=/data
+ENV RSSFRIENDS_DATA_DIR=/data
 VOLUME ["/data"]
 EXPOSE 8000
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

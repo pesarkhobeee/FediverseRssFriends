@@ -279,7 +279,7 @@ def user_opml(
         '<?xml version="1.0" encoding="UTF-8"?>',
         '<opml version="2.0">',
         "  <head>",
-        f"    <title>@{xml_escape(owner.handle)}'s rssRadar</title>",
+        f"    <title>@{xml_escape(owner.handle)}'s rssFriends</title>",
         "  </head>",
         "  <body>",
     ]
@@ -550,7 +550,7 @@ def user_activity_rss(
         '<?xml version="1.0" encoding="UTF-8"?>\n'
         '<rss version="2.0">\n'
         "  <channel>\n"
-        f"    <title>@{xml_escape(owner.handle)}'s rssRadar activity</title>\n"
+        f"    <title>@{xml_escape(owner.handle)}'s rssFriends activity</title>\n"
         f"    <link>{base}/u/{xml_escape(owner.handle)}</link>\n"
         f"    <description>Follows, stars, subscriptions and forks by "
         f"@{xml_escape(owner.handle)}</description>\n"

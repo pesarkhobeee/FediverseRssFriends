@@ -1,6 +1,6 @@
 # Attribution chain — future feature
 
-Reframes rssRadar from "a reader" to **a public credit graph for
+Reframes rssFriends from "a reader" to **a public credit graph for
 curation**. For every subscription, remember *where it came from* — then
 render both the inbound genealogy ("who I learned from") and outbound
 reach ("who took feeds from me").

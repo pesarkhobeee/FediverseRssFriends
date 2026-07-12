@@ -21,11 +21,11 @@ def send_magic_link(email: str, url: str) -> None:
         return
 
     msg = EmailMessage()
-    msg["Subject"] = "Your rssRadar sign-in link"
+    msg["Subject"] = "Your rssFriends sign-in link"
     msg["From"] = config.SMTP_FROM
     msg["To"] = email
     msg.set_content(
-        f"Click to sign in to rssRadar:\n\n{url}\n\n"
+        f"Click to sign in to rssFriends:\n\n{url}\n\n"
         f"This link expires in {config.MAGIC_LINK_TTL_MINUTES} minutes."
     )
 

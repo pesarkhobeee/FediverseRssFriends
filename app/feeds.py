@@ -11,7 +11,7 @@ from urllib.parse import urljoin, urlparse
 import feedparser
 import httpx
 
-USER_AGENT = "rssRadar/0.1 (+https://github.com/pesarkhobeee/rssRadar)"
+USER_AGENT = "rssFriends/0.1 (+https://github.com/pesarkhobeee/rssFriends)"
 FETCH_TIMEOUT = 3.0
 
 

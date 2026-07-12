@@ -1,4 +1,4 @@
-# rssRadar
+# rssFriends
 
 Multi-user, self-hosted RSS radar. Sign in with a magic link, curate feeds by category, share your radar publicly, follow other users, star items, and expose your activity as an RSS feed.
 
@@ -56,28 +56,28 @@ docker compose up --build
 
 Environment variables:
 
-- `RSSRADAR_DATABASE_URL` — default `sqlite:///./data/rssradar.db`
-- `RSSRADAR_DATA_DIR` — default `./data`
-- `RSSRADAR_SESSION_SECRET` — **change in production**
-- `RSSRADAR_DEBUG` — `1` to enable debug behavior
-- `RSSRADAR_BASE_URL` — public URL used in magic-link emails (default `http://localhost:8000`)
-- `RSSRADAR_MAGIC_LINK_TTL_MINUTES` — token lifetime (default `15`)
-- `RSSRADAR_MAGIC_LINK_MIN_INTERVAL` — min seconds between links per email (default `60`)
-- `RSSRADAR_SMTP_HOST` / `_PORT` / `_USER` / `_PASSWORD` / `_FROM` / `_STARTTLS` — leave `SMTP_HOST` empty for dev mode (link printed to stdout)
-- `RSSRADAR_ENABLE_SCHEDULER` — `1` (default) starts the background refresh loop; set to `0` for one-shot / test runs
-- `RSSRADAR_REFRESH_INTERVAL_MINUTES` — cycle interval (default `15`)
-- `RSSRADAR_REFRESH_BATCH_SIZE` — max feeds refreshed per cycle (default `50`)
-- `RSSRADAR_FEED_ITEM_KEEP` — max items retained per feed (default `100`)
+- `RSSFRIENDS_DATABASE_URL` — default `sqlite:///./data/rssfriends.db`
+- `RSSFRIENDS_DATA_DIR` — default `./data`
+- `RSSFRIENDS_SESSION_SECRET` — **change in production**
+- `RSSFRIENDS_DEBUG` — `1` to enable debug behavior
+- `RSSFRIENDS_BASE_URL` — public URL used in magic-link emails (default `http://localhost:8000`)
+- `RSSFRIENDS_MAGIC_LINK_TTL_MINUTES` — token lifetime (default `15`)
+- `RSSFRIENDS_MAGIC_LINK_MIN_INTERVAL` — min seconds between links per email (default `60`)
+- `RSSFRIENDS_SMTP_HOST` / `_PORT` / `_USER` / `_PASSWORD` / `_FROM` / `_STARTTLS` — leave `SMTP_HOST` empty for dev mode (link printed to stdout)
+- `RSSFRIENDS_ENABLE_SCHEDULER` — `1` (default) starts the background refresh loop; set to `0` for one-shot / test runs
+- `RSSFRIENDS_REFRESH_INTERVAL_MINUTES` — cycle interval (default `15`)
+- `RSSFRIENDS_REFRESH_BATCH_SIZE` — max feeds refreshed per cycle (default `50`)
+- `RSSFRIENDS_FEED_ITEM_KEEP` — max items retained per feed (default `100`)
 
 ## Backup + restore
 
-The SQLite file lives at `./data/rssradar.db` by default. Two scripts handle
+The SQLite file lives at `./data/rssfriends.db` by default. Two scripts handle
 WAL-safe backups with a rolling retention window:
 
 ```bash
-make backup                         # snapshot → ./backups/rssradar-<ts>.sqlite.gz
-RSSRADAR_BACKUP_KEEP=30 make backup # keep 30 archives instead of the default 14
-make restore FROM=backups/rssradar-20260101-030000.sqlite.gz
+make backup                         # snapshot → ./backups/rssfriends-<ts>.sqlite.gz
+RSSFRIENDS_BACKUP_KEEP=30 make backup # keep 30 archives instead of the default 14
+make restore FROM=backups/rssfriends-20260101-030000.sqlite.gz
 ```
 
 Backups use `sqlite3 .backup`, which is WAL-safe (a plain `cp` would tear if
@@ -88,7 +88,7 @@ your own files in `backups/` are left alone.
 For cron on the host:
 
 ```
-15 3 * * * cd /srv/rssradar && ./scripts/backup.sh >> /var/log/rssradar-backup.log 2>&1
+15 3 * * * cd /srv/rssfriends && ./scripts/backup.sh >> /var/log/rssfriends-backup.log 2>&1
 ```
 
 `restore.sh` moves the existing DB aside (`*.bak-<ts>`) before overwriting,

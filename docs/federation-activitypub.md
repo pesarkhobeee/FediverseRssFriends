@@ -3,11 +3,11 @@
 Parked for later. Key clarification: **ActivityPub is not a Mastodon
 thing** — it's a W3C protocol. Once we speak it, we federate with:
 
-- other rssRadar instances (natively — both speak AP)
-- Bookwyrm (federated reading logs, the closest cousin to rssRadar)
+- other rssFriends instances (natively — both speak AP)
+- Bookwyrm (federated reading logs, the closest cousin to rssFriends)
 - Mastodon, Pixelfed, Lemmy, PeerTube, WriteFreely, Misskey, GoToSocial…
 
-So "let different rssRadar instances find each other" and "be part of
+So "let different rssFriends instances find each other" and "be part of
 the Fediverse" are the same feature. Adopting the standard means one
 implementation gets us both.
 
@@ -82,14 +82,14 @@ we write ours.
 
 ## The decision questions we didn't resolve
 
-1. **How many rssRadar instances do we realistically expect?**
-   - 0-3 friend instances → a custom rssRadar-only JSON API is simpler
+1. **How many rssFriends instances do we realistically expect?**
+   - 0-3 friend instances → a custom rssFriends-only JSON API is simpler
      (~M vs ~L) and skips all the AP compat pain.
    - "Be part of the Fediverse" → ActivityPub is the only choice.
 2. **Is federation the product, or a feature?**
    - For Mastodon it *is* the product.
    - For Bookwyrm it's a feature that makes them 10× more interesting.
-   - For rssRadar — probably feature-level.
+   - For rssFriends — probably feature-level.
 
 **Decision path we've committed to**: build the app config surface (see
 `docs/instance-config.md`) first so that federation can be **turned on

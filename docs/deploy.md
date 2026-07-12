@@ -1,4 +1,4 @@
-# Deploying rssRadar in production
+# Deploying rssFriends in production
 
 The simplest workable stack: **one small VPS + Docker Compose + Caddy
 for TLS + cron for backups**. This runs comfortably on a $5-6/mo box
@@ -19,8 +19,8 @@ briefly at the end.
 
 ```bash
 ssh you@your-vps
-git clone https://github.com/<you>/rssRadar.git
-cd rssRadar
+git clone https://github.com/<you>/rssFriends.git
+cd rssFriends
 cp .env.example .env
 ```
 
@@ -29,13 +29,13 @@ cp .env.example .env
 Bare minimum:
 
 ```
-RSSRADAR_SESSION_SECRET=<paste 64 random chars>
-RSSRADAR_BASE_URL=https://radar.example.com
-RSSRADAR_SMTP_HOST=smtp.fastmail.com
-RSSRADAR_SMTP_PORT=587
-RSSRADAR_SMTP_USER=you@example.com
-RSSRADAR_SMTP_PASSWORD=<app-specific password>
-RSSRADAR_SMTP_FROM=rssRadar <no-reply@example.com>
+RSSFRIENDS_SESSION_SECRET=<paste 64 random chars>
+RSSFRIENDS_BASE_URL=https://radar.example.com
+RSSFRIENDS_SMTP_HOST=smtp.fastmail.com
+RSSFRIENDS_SMTP_PORT=587
+RSSFRIENDS_SMTP_USER=you@example.com
+RSSFRIENDS_SMTP_PASSWORD=<app-specific password>
+RSSFRIENDS_SMTP_FROM=rssFriends <no-reply@example.com>
 ```
 
 Generate the session secret:
@@ -69,11 +69,11 @@ sudo crontab -e
 Add:
 
 ```
-15 3 * * * cd /home/you/rssRadar && ./scripts/backup.sh >> /var/log/rssradar-backup.log 2>&1
+15 3 * * * cd /home/you/rssFriends && ./scripts/backup.sh >> /var/log/rssfriends-backup.log 2>&1
 ```
 
 `scripts/backup.sh` runs a WAL-safe `sqlite3 .backup`, gzips, and
-prunes to the newest 14 by default (`RSSRADAR_BACKUP_KEEP`). Log
+prunes to the newest 14 by default (`RSSFRIENDS_BACKUP_KEEP`). Log
 grows about a line per day.
 
 For offsite copies, add another cron line to `rsync` (or `restic`,
@@ -108,7 +108,7 @@ column-additions from future versions are automatic.
 
 At MVP scale everything fits in a few hundred MB — one user with 300
 feeds averaging 100 items retained produces roughly 30 MB. The
-`RSSRADAR_FEED_ITEM_KEEP` env var caps items-per-feed (default 100)
+`RSSFRIENDS_FEED_ITEM_KEEP` env var caps items-per-feed (default 100)
 so growth is bounded.
 
 ## Resource budget
@@ -130,16 +130,16 @@ If Docker isn't your thing, run uvicorn under systemd. `uv sync` on
 the host, then:
 
 ```ini
-# /etc/systemd/system/rssradar.service
+# /etc/systemd/system/rssfriends.service
 [Unit]
-Description=rssRadar
+Description=rssFriends
 After=network.target
 
 [Service]
-User=rssradar
-WorkingDirectory=/srv/rssradar
-EnvironmentFile=/srv/rssradar/.env
-ExecStart=/srv/rssradar/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
+User=rssfriends
+WorkingDirectory=/srv/rssfriends
+EnvironmentFile=/srv/rssfriends/.env
+ExecStart=/srv/rssfriends/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
 Restart=on-failure
 
 [Install]
@@ -160,7 +160,7 @@ calls the same script.
   can hijack an account.
 - **SMTP creds**: use app-specific passwords / limited tokens, never
   your primary email password.
-- **Rate limits on `/login`** exist (`RSSRADAR_MAGIC_LINK_MIN_INTERVAL`,
+- **Rate limits on `/login`** exist (`RSSFRIENDS_MAGIC_LINK_MIN_INTERVAL`,
   default 60s per email). Consider putting the app behind Cloudflare
   or fail2ban for broader abuse protection.
 - **Public radars are public**. Search engines will index them

@@ -10,11 +10,11 @@ surface.
 Two tiers of settings.
 
 **Tier 1 — bootstrap** (env vars, chicken-and-egg for booting the app):
-- `RSSRADAR_SESSION_SECRET`
-- `RSSRADAR_DATABASE_URL`
-- `RSSRADAR_BASE_URL`
-- `RSSRADAR_ENABLE_SCHEDULER`
-- `RSSRADAR_SMTP_HOST` / `_USER` / `_PASSWORD` / etc.
+- `RSSFRIENDS_SESSION_SECRET`
+- `RSSFRIENDS_DATABASE_URL`
+- `RSSFRIENDS_BASE_URL`
+- `RSSFRIENDS_ENABLE_SCHEDULER`
+- `RSSFRIENDS_SMTP_HOST` / `_USER` / `_PASSWORD` / etc.
 
 These are set in `.env` / systemd / compose. Changing them requires a
 restart. Leave them where they are.
@@ -63,7 +63,7 @@ config value becomes the *default* for its matching setting key.
 
 Add `User.is_admin: bool`. Populated by:
 
-- `RSSRADAR_ADMIN_EMAILS=a@ex.com,b@ex.com` env var — matched on login
+- `RSSFRIENDS_ADMIN_EMAILS=a@ex.com,b@ex.com` env var — matched on login
   and applied idempotently.
 - Or first user on a fresh DB → auto-admin (bootstrap).
 - Or granted via existing admin's UI.
@@ -106,7 +106,7 @@ so we lock in the layout.
 - `InstanceSetting` table + migration
 - `app/settings.py` — `get()`, `set()`, cache, defaults registry
 - `User.is_admin` column + migration + `is_admin` dependency
-- `RSSRADAR_ADMIN_EMAILS` env var applied on login
+- `RSSFRIENDS_ADMIN_EMAILS` env var applied on login
 - No UI yet; everything else in the app still uses defaults exactly as
   it does today, so this is a no-op change functionally
 

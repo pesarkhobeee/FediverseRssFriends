@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Restore a backup produced by scripts/backup.sh.
 #
-#   ./scripts/restore.sh backups/rssradar-20260101-030000.sqlite.gz
+#   ./scripts/restore.sh backups/rssfriends-20260101-030000.sqlite.gz
 #
 # Refuses to overwrite an existing DB unless FORCE=1. The existing DB
 # is moved aside to <name>.bak-<timestamp> so nothing is lost.
@@ -9,7 +9,7 @@
 set -euo pipefail
 
 SRC="${1:-}"
-DB_PATH="${RSSRADAR_DB_PATH:-./data/rssradar.db}"
+DB_PATH="${RSSFRIENDS_DB_PATH:-./data/rssfriends.db}"
 
 if [[ -z "$SRC" ]]; then
   echo "usage: $0 <path-to-backup.sqlite.gz>" >&2
