@@ -6,6 +6,7 @@ recorded on the Feed row; a bad feed never breaks the cycle.
 """
 
 import logging
+import re
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
@@ -29,6 +30,37 @@ def _aware(dt: datetime | None) -> datetime | None:
     if dt is None or dt.tzinfo is not None:
         return dt
     return dt.replace(tzinfo=UTC)
+
+
+_TAG_RE = re.compile(r"<[^>]+>")
+_WS_RE = re.compile(r"\s+")
+_PUNCT_SPACE_RE = re.compile(r"\s+([.,!?;:])")
+
+
+def _strip_html(text: str) -> str:
+    if not text:
+        return ""
+    stripped = _WS_RE.sub(" ", _TAG_RE.sub(" ", text)).strip()
+    # Undo the space that tag-stripping inserted before punctuation.
+    return _PUNCT_SPACE_RE.sub(r"\1", stripped)
+
+
+def _derive_title(entry: Any) -> str:
+    """Some feeds (notably Mastodon) omit <title>. Fall back to a short
+    excerpt of the summary/content so items are recognizable."""
+    raw = (entry.get("title") or "").strip()
+    if raw and raw.lower() != "(untitled)":
+        return raw[:500]
+    body = entry.get("summary") or ""
+    if not body:
+        content = entry.get("content")
+        if isinstance(content, list) and content:
+            body = content[0].get("value", "") if isinstance(content[0], dict) else ""
+    text = _strip_html(body)
+    if not text:
+        return "(untitled)"
+    limit = 120
+    return (text[:limit] + "…") if len(text) > limit else text
 
 
 def _entry_guid(entry: Any) -> str:
@@ -94,7 +126,7 @@ def fetch_one(db: Session, feed: Feed) -> tuple[int, str | None]:
         item = FeedItem(
             feed_id=feed.id,
             guid=guid[:512],
-            title=(entry.get("title") or "(untitled)")[:500],
+            title=_derive_title(entry),
             link=(entry.get("link") or "")[:2000],
             summary=(entry.get("summary") or "")[:4000],
             published_at=_entry_published(entry),

@@ -1,6 +1,8 @@
 {# Small inline flash after a single-feed refresh. #}
 {% if err %}
-<span class="muted" style="margin-left:.5rem">⚠️ {{ err }}</span>
+<span class="feed-refresh-err" title="{{ err }}">
+  ⚠️ Couldn't reach this feed. {{ err.split(':')[0] }}
+</span>
 {% elif new %}
 <span class="muted" style="margin-left:.5rem">
   ✓ {{ new }} new item{{ '' if new == 1 else 's' }} — <a href="">reload</a>

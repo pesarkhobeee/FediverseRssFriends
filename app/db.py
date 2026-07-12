@@ -139,6 +139,32 @@ def _run_sqlite_migrations(conn) -> None:
                 (secrets.token_urlsafe(24), uid),
             )
 
+    # Backfill Mastodon-style "(untitled)" rows that DO have a summary.
+    # One-shot: after the first pass rows change so subsequent starts
+    # scan zero rows.
+    if _sqlite_column_exists(conn, "feeditem", "title"):
+        _backfill_untitled_items(conn)
+
+
+def _backfill_untitled_items(conn) -> None:
+    import re as _re
+    tag = _re.compile(r"<[^>]+>")
+    ws = _re.compile(r"\s+")
+    punct = _re.compile(r"\s+([.,!?;:])")
+    rows = conn.exec_driver_sql(
+        "SELECT id, summary FROM feeditem "
+        "WHERE title = '(untitled)' AND summary != '' LIMIT 5000"
+    ).fetchall()
+    for row_id, summary in rows:
+        text = ws.sub(" ", tag.sub(" ", summary or "")).strip()
+        text = punct.sub(r"\1", text)
+        if not text:
+            continue
+        title = (text[:120] + "…") if len(text) > 120 else text
+        conn.exec_driver_sql(
+            "UPDATE feeditem SET title = ? WHERE id = ?", (title, row_id)
+        )
+
 
 def init_db() -> None:
     # SQLite: WAL for better concurrency under a single process.
