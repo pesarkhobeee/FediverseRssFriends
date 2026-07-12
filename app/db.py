@@ -145,6 +145,29 @@ def _run_sqlite_migrations(conn) -> None:
     if _sqlite_column_exists(conn, "feeditem", "title"):
         _backfill_untitled_items(conn)
 
+    # Backfill GitHub owner avatars on existing Feed rows so users don't
+    # have to wait for the next refresh cycle to see real profile pics.
+    if _sqlite_column_exists(conn, "feed", "favicon_url"):
+        _backfill_github_avatars(conn)
+
+
+def _backfill_github_avatars(conn) -> None:
+    from .feeds import github_owner
+
+    rows = conn.exec_driver_sql(
+        "SELECT id, url, favicon_url FROM feed WHERE url LIKE '%github.com%'"
+    ).fetchall()
+    for row_id, url, favicon_url in rows:
+        owner = github_owner(url)
+        if not owner:
+            continue
+        want = f"https://github.com/{owner}.png?size=64"
+        if favicon_url == want:
+            continue
+        conn.exec_driver_sql(
+            "UPDATE feed SET favicon_url = ? WHERE id = ?", (want, row_id)
+        )
+
 
 def _backfill_untitled_items(conn) -> None:
     import re as _re

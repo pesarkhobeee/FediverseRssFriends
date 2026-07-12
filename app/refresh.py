@@ -18,7 +18,7 @@ from sqlmodel import Session, select
 
 from . import config
 from .db import Feed, FeedItem, _now, engine
-from .feeds import USER_AGENT, feed_image_href
+from .feeds import USER_AGENT, resolve_avatar
 
 log = logging.getLogger(__name__)
 
@@ -109,11 +109,10 @@ def fetch_one(db: Session, feed: Feed) -> tuple[int, str | None]:
         feed.title = fmeta["title"].strip()
     if fmeta.get("link"):
         feed.site_url = fmeta["link"].strip()
-    # Prefer the feed's own <image> (Mastodon avatars, YouTube channel icons,
-    # blogs with a proper channel image) over the site's favicon.ico.
-    img_href = feed_image_href(fmeta)
-    if img_href:
-        feed.favicon_url = img_href
+    # Re-derive the avatar every cycle so newly-supported source types
+    # (GitHub owners, feeds that just started serving a channel image)
+    # migrate forward. resolve_avatar handles per-type overrides.
+    feed.favicon_url = resolve_avatar(feed.url, feed.site_url, fmeta)
 
     existing_guids = set(
         db.exec(select(FeedItem.guid).where(FeedItem.feed_id == feed.id)).all()

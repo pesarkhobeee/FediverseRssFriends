@@ -5,6 +5,7 @@ Falls back to the URL's hostname if the request or parse fails; the
 background fetcher (step 4) will fill in items and refresh metadata.
 """
 
+import re
 from urllib.parse import urljoin, urlparse
 
 import feedparser
@@ -17,6 +18,59 @@ FETCH_TIMEOUT = 3.0
 def _fallback_title(url: str) -> str:
     host = urlparse(url).netloc
     return host or url
+
+
+GITHUB_URL_RE = re.compile(r"^https?://github\.com/([^/?#]+)", re.IGNORECASE)
+# Path segments that are NOT a username. Everything else on github.com is
+# either a user, an org, or a repo owned by one — all have a valid avatar
+# at github.com/{name}.png.
+_GITHUB_NON_USER = {
+    "orgs", "topics", "trending", "search", "settings", "notifications",
+    "explore", "marketplace", "codespaces", "features", "pricing", "about",
+    "sponsors", "collections", "issues", "pulls", "new", "assets", "site",
+}
+
+
+def github_owner(feed_url: str) -> str | None:
+    """If `feed_url` is a github.com URL, return the first path segment
+    (user or org). None otherwise."""
+    m = GITHUB_URL_RE.match(feed_url or "")
+    if not m:
+        return None
+    name = m.group(1)
+    # /schacon.atom → schacon; anything else with a dot isn't a username.
+    if name.endswith(".atom"):
+        name = name[:-5]
+    if not name or "." in name or name.lower() in _GITHUB_NON_USER:
+        return None
+    return name
+
+
+def _is_youtube_feed(feed_url: str) -> bool:
+    return "youtube.com" in feed_url and "feeds/videos.xml" in feed_url
+
+
+def resolve_avatar(feed_url: str, site_url: str, feed_meta=None) -> str:
+    """Best guess at a display avatar for a feed. Priority:
+
+    1. GitHub user/org avatar (real per-account photo).
+    2. Feed's own <image> element (Mastodon avatars, blogs with a logo).
+    3. YouTube fallback to the site favicon.
+    4. Generic /favicon.ico from the site host.
+    """
+    owner = github_owner(feed_url)
+    if owner:
+        return f"https://github.com/{owner}.png?size=64"
+
+    if feed_meta is not None:
+        img = feed_image_href(feed_meta)
+        if img:
+            return img
+
+    if _is_youtube_feed(feed_url):
+        return "https://www.youtube.com/favicon.ico"
+
+    return _favicon_for(site_url, feed_url)
 
 
 def feed_image_href(fmeta) -> str:
@@ -62,7 +116,7 @@ def resolve_feed(url: str) -> dict:
         return {
             "title": _fallback_title(url),
             "site_url": "",
-            "favicon_url": _favicon_for("", url),
+            "favicon_url": resolve_avatar(url, "", feed_meta=None),
         }
 
     feed_meta = getattr(parsed, "feed", {}) or {}
@@ -72,12 +126,8 @@ def resolve_feed(url: str) -> dict:
     if site_url and not urlparse(site_url).netloc:
         site_url = urljoin(url, site_url)
 
-    # Prefer the feed's own <image> (Mastodon avatar, YouTube channel icon).
-    channel_img = feed_image_href(feed_meta)
-    favicon = channel_img or _favicon_for(site_url, url)
-
     return {
         "title": title,
         "site_url": site_url,
-        "favicon_url": favicon,
+        "favicon_url": resolve_avatar(url, site_url, feed_meta),
     }
