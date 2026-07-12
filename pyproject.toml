@@ -15,6 +15,7 @@ dependencies = [
     "feedparser>=6.0.10",
     "apscheduler>=3.10",
     "defusedxml>=0.7",
+    "resend>=2.0",
 ]
 
 [project.optional-dependencies]

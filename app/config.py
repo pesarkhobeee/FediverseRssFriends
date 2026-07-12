@@ -21,6 +21,12 @@ SMTP_PASSWORD = os.getenv("RSSFRIENDS_SMTP_PASSWORD", "")
 SMTP_FROM = os.getenv("RSSFRIENDS_SMTP_FROM", "rssFriends <no-reply@rssfriends.local>")
 SMTP_STARTTLS = os.getenv("RSSFRIENDS_SMTP_STARTTLS", "1") == "1"
 
+# Resend HTTP API — preferred over SMTP when the key is set.
+RESEND_API_KEY = os.getenv("RSSFRIENDS_RESEND_API_KEY", "")
+RESEND_FROM = os.getenv(
+    "RSSFRIENDS_RESEND_FROM", "rssFriends <onboarding@resend.dev>"
+)
+
 # Background feed refresh
 ENABLE_SCHEDULER = os.getenv("RSSFRIENDS_ENABLE_SCHEDULER", "1") == "1"
 REFRESH_INTERVAL_MINUTES = int(os.getenv("RSSFRIENDS_REFRESH_INTERVAL_MINUTES", "15"))
