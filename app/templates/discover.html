@@ -6,6 +6,23 @@
   <p class="muted">New radars, popular feeds, most-forked curators. Only public radars are listed.</p>
 </section>
 
+<section class="card">
+  <h2 style="margin-top:0">🔍 Find a friend</h2>
+  <p class="muted" style="margin:.25rem 0 .75rem">
+    Type a handle — we'll find the closest matches even if you misspell it.
+  </p>
+  <input class="input"
+         type="search"
+         name="q"
+         placeholder="e.g. farid, jane, curator..."
+         autocomplete="off"
+         hx-get="/discover/search"
+         hx-target="#user-search-results"
+         hx-trigger="keyup changed delay:250ms, search"
+         hx-swap="innerHTML" />
+  <div id="user-search-results" style="margin-top:.75rem"></div>
+</section>
+
 <h2 class="section-title">🌱 Recent radars</h2>
 {% if recent_users %}
 <ul class="fav-list">

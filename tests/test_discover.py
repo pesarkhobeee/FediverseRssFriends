@@ -139,6 +139,81 @@ def test_popular_feeds_ignore_private_user_subs():
     assert "2 subscribers" not in r.text
 
 
+def test_search_finds_exact_handle():
+    a = _client()
+    _login(a, "alice@e.com")
+
+    r = _client().get("/discover/search?q=alice")
+    assert r.status_code == 200
+    assert "@alice" in r.text
+
+
+def test_search_is_fuzzy_and_handles_typos():
+    """Typo `aliec` for `alice` should still find her."""
+    a = _client()
+    _login(a, "alice@e.com")
+    b = _client()
+    _login(b, "bob@e.com")
+
+    r = _client().get("/discover/search?q=aliec")  # typo
+    assert r.status_code == 200
+    assert "@alice" in r.text
+
+
+def test_search_substring_match():
+    a = _client()
+    _login(a, "farid-ahmadian@e.com")
+
+    r = _client().get("/discover/search?q=ahmad")
+    assert r.status_code == 200
+    assert "@farid-ahmadian" in r.text
+
+
+def test_search_excludes_private_and_unlisted():
+    a = _client()
+    _login(a, "alice-public@e.com")
+    b = _client()
+    _login(b, "alice-private@e.com")
+    b.post(
+        "/settings/visibility", data={"visibility": "private"}, follow_redirects=False
+    )
+    c = _client()
+    _login(c, "alice-unlisted@e.com")
+    c.post(
+        "/settings/visibility", data={"visibility": "unlisted"}, follow_redirects=False
+    )
+
+    r = _client().get("/discover/search?q=alice")
+    assert "@alice-public" in r.text
+    assert "@alice-private" not in r.text
+    assert "@alice-unlisted" not in r.text
+
+
+def test_search_no_match_shows_hint():
+    r = _client().get("/discover/search?q=zzzzzzz-nobody")
+    assert r.status_code == 200
+    assert "No public radars match" in r.text
+
+
+def test_search_empty_query_returns_nothing():
+    r = _client().get("/discover/search?q=")
+    assert r.status_code == 200
+    assert "No public radars match" not in r.text
+
+
+def test_search_ignores_leading_at():
+    a = _client()
+    _login(a, "alice@e.com")
+    r = _client().get("/discover/search?q=@alice")
+    assert "@alice" in r.text
+
+
+def test_discover_page_has_search_input():
+    r = _client().get("/discover")
+    assert 'hx-get="/discover/search"' in r.text
+    assert "Find a friend" in r.text
+
+
 def test_most_forked_curators_ranking():
     """User with more fork activity events ranks first."""
     a = _client()

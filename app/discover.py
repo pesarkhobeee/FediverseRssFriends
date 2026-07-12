@@ -2,12 +2,13 @@
 curators. Anonymous-visitable so search engines and unregistered users can
 find their way in."""
 
+from difflib import SequenceMatcher
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
-from sqlmodel import Session, func, select
+from sqlmodel import Session, func, or_, select
 
 from .auth import current_user
 from .db import Activity, Feed, Follow, Subscription, User, get_session
@@ -85,6 +86,49 @@ def _most_forked_curators(db: Session) -> list[dict]:
     return [{"user": user, "forks": n} for user, n in rows]
 
 
+SEARCH_MAX_RESULTS = 15
+SEARCH_MIN_SIMILARITY = 0.35
+
+
+def _search_public_users(db: Session, q: str) -> list[User]:
+    """Fuzzy search by handle. Substring LIKE first (fast + covers the
+    common case), then re-rank by difflib similarity. Private + unlisted
+    users are excluded so search doesn't leak them."""
+    q = (q or "").strip().lstrip("@").lower()
+    if not q:
+        return []
+
+    pattern = f"%{q}%"
+    hits = db.exec(
+        select(User)
+        .where(User.visibility == "public")
+        .where(
+            or_(
+                func.lower(User.handle).like(pattern),
+                func.lower(User.email).like(pattern),
+            )
+        )
+        .limit(50)
+    ).all()
+
+    # If nothing substring-matched, do a wider difflib scan across ALL
+    # public users. Bounded at instance size — fine at MVP scale; when
+    # we outgrow it we can swap to SQLite FTS5.
+    if not hits:
+        hits = db.exec(
+            select(User)
+            .where(User.visibility == "public")
+            .limit(2000)
+        ).all()
+
+    def _similarity(u: User) -> float:
+        return SequenceMatcher(None, q, u.handle.lower()).ratio()
+
+    ranked = sorted(hits, key=_similarity, reverse=True)
+    ranked = [u for u in ranked if _similarity(u) >= SEARCH_MIN_SIMILARITY]
+    return ranked[:SEARCH_MAX_RESULTS]
+
+
 @router.get("/discover", response_class=HTMLResponse)
 def discover(
     request: Request,
@@ -100,4 +144,19 @@ def discover(
             "popular_feeds": _popular_feeds(db),
             "most_forked": _most_forked_curators(db),
         },
+    )
+
+
+@router.get("/discover/search", response_class=HTMLResponse)
+def discover_search(
+    request: Request,
+    q: str = Query("", max_length=100),
+    _viewer: User | None = Depends(current_user),
+    db: Session = Depends(get_session),
+):
+    """HTMX endpoint: returns a partial list of users matching `q`."""
+    return templates.TemplateResponse(
+        request,
+        "_discover_search_results.html",
+        {"q": q.strip(), "results": _search_public_users(db, q)},
     )
