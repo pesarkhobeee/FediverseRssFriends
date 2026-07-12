@@ -58,88 +58,26 @@
 {% endif %}
 
 <div class="stack" style="margin-top:1rem">
-  {% for entry in categories_view %}
-    {% if entry.subs %}
-      {% for it in entry.subs %}
-        <details class="feed-card">
-          <summary>
-            {% if it.feed.favicon_url %}
-              <img class="favicon" src="{{ it.feed.favicon_url }}" alt="" loading="lazy"
- />
-            {% else %}
-              <span class="favicon" aria-hidden="true">📡</span>
-            {% endif %}
-            <span class="title">{{ it.feed.title }}</span>
-            {% if it.is_new %}<span class="badge-new">New</span>{% endif %}
-            <span class="spacer"></span>
-            <span class="updated muted">
-              {% if it.entries and it.entries[0].published_at %}
-                Updated {{ it.entries[0].published_at|relative_time }}
-              {% elif it.feed.last_fetched_at %}
-                Updated {{ it.feed.last_fetched_at|relative_time }}
-              {% else %}
-                Not fetched yet
-              {% endif %}
-            </span>
-            <span class="chevron" aria-hidden="true">▾</span>
-          </summary>
-          <div class="feed-body">
-            <p>
-              {% if it.feed.site_url %}
-                <a class="btn-ghost" href="{{ it.feed.site_url }}" target="_blank" rel="noopener">Visit Website</a>
-              {% endif %}
-              <a class="btn-ghost" href="{{ it.feed.url }}" target="_blank" rel="noopener">Feed XML</a>
-              {% if is_owner %}
-                <button class="btn-ghost"
-                        hx-post="/feeds/{{ it.feed.id }}/refresh"
-                        hx-target="#refresh-{{ it.feed.id }}"
-                        hx-swap="innerHTML">🔄 Refresh</button>
-                <span id="refresh-{{ it.feed.id }}"></span>
-                <button class="btn-ghost"
-                        hx-delete="/subscriptions/{{ it.sub.id }}"
-                        hx-target="closest .feed-card"
-                        hx-swap="outerHTML"
-                        hx-confirm="Remove '{{ it.feed.title }}' from your radar?">🗑️ Remove</button>
-              {% elif user %}
-                <span id="pick-{{ it.feed.id }}">
-                  <button class="btn-ghost"
-                          hx-post="/u/{{ owner.handle }}/subscribe/{{ it.feed.id }}"
-                          hx-target="#pick-{{ it.feed.id }}"
-                          hx-swap="innerHTML">
-                    ➕ Add to my radar
-                  </button>
-                </span>
-              {% endif %}
-            </p>
-            {% if it.entries %}
-              <ul class="item-list">
-                {% for item in it.entries %}
-                  <li class="item">
-                    {% if user %}
-                      {% with item_id=item.id, is_favorited=(item.id in viewer_faves) %}
-                        {% include "_star.html" %}
-                      {% endwith %}
-                    {% endif %}
-                    <a class="item-title" href="{{ item.link }}" target="_blank" rel="noopener">
-                      {{ item.title }}
-                    </a>
-                    <div class="muted item-date">{{ item.published_at|relative_time or "recently" }}</div>
-                  </li>
-                {% endfor %}
-              </ul>
-            {% else %}
-              <p class="muted">No items yet — the background fetcher hasn't caught this one.</p>
-            {% endif %}
-          </div>
-        </details>
-      {% endfor %}
+  {% if not active_cat %}
+    {# Flat view — every feed on the radar sorted by newest item. #}
+    {% for it in flat_subs %}
+      {% with show_category=True %}
+        {% include "_public_feed_card.html" %}
+      {% endwith %}
+    {% endfor %}
+    {% if not flat_subs %}
+      <p class="muted">This radar is empty.</p>
     {% endif %}
-  {% endfor %}
-  {% if not categories_view or not (categories_view|selectattr("subs")|list) %}
-    <p class="muted">
-      {% if active_cat %}Nothing under “{{ active_cat }}”.
-      {% else %}This radar is empty.{% endif %}
-    </p>
+  {% else %}
+    {# Category filter active — show that category's feeds only, still sorted. #}
+    {% for entry in categories_view %}
+      {% for it in entry.subs %}
+        {% include "_public_feed_card.html" %}
+      {% endfor %}
+    {% endfor %}
+    {% if not (categories_view|selectattr("subs")|list) %}
+      <p class="muted">Nothing under “{{ active_cat }}”.</p>
+    {% endif %}
   {% endif %}
 </div>
 {% endblock %}

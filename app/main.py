@@ -81,7 +81,10 @@ def login(
     except HTTPException as e:
         return render(request, "login_error.html", user=None, message=e.detail)
     mail.send_magic_link(email.strip().lower(), url)
-    dev_link = url if not config.SMTP_HOST else None
+    # Dev mode: no email delivery configured at all → surface the link
+    # on the page so the developer can click through without email.
+    is_dev = not config.RESEND_API_KEY and not config.SMTP_HOST
+    dev_link = url if is_dev else None
     return render(request, "login_sent.html", user=None, email=email, dev_link=dev_link)
 
 

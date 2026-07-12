@@ -149,9 +149,27 @@ def _load_public_radar(
     if last_updated and last_updated.tzinfo is None:
         last_updated = last_updated.replace(tzinfo=UTC)
 
+    # Flat view: when no category filter is active, every feed goes into
+    # one list sorted by newest item across the entire radar. Matches
+    # lovelyRSS's default "All Feeds" behavior.
+    flat_subs: list[dict] = []
+    if not category_filter:
+        cat_name_by_id = {c.id: c.name for c in categories}
+        for sub, feed in subs_rows:
+            entries = items_by_feed.get(feed.id, [])
+            flat_subs.append({
+                "sub": sub,
+                "feed": feed,
+                "entries": entries,
+                "is_new": _is_new(entries),
+                "category_name": cat_name_by_id.get(sub.category_id, ""),
+            })
+        flat_subs.sort(key=lambda x: _sort_key(x["entries"]), reverse=True)
+
     return {
         "owner": owner,
         "categories_view": [{"category": c, "subs": by_cat.get(c.id, [])} for c in categories],
+        "flat_subs": flat_subs,
         "all_categories": all_categories,
         "active_cat": category_filter or "",
         "total_feeds": len(total_feeds),

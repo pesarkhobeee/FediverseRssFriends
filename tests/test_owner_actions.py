@@ -78,6 +78,67 @@ def test_public_radar_sorts_feeds_by_newest_item():
     assert idx_new < idx_old, "feeds should be sorted newest-content-first"
 
 
+def test_public_radar_flat_sort_across_categories():
+    """When no ?cat= filter is active, ALL feeds sort together by newest
+    item — a fresh feed in the second category should appear before an
+    old feed in the first category, regardless of category sort_order."""
+    import app.db as db_mod
+
+    now = datetime.now(UTC)
+    with Session(db_mod.engine) as s:
+        owner = db_mod.User(email="cross@e.com", handle="cross")
+        s.add(owner)
+        s.commit()
+        s.refresh(owner)
+
+        cat_a = db_mod.Category(user_id=owner.id, name="A", sort_order=1)
+        cat_b = db_mod.Category(user_id=owner.id, name="B", sort_order=2)
+        s.add(cat_a)
+        s.add(cat_b)
+        s.commit()
+        s.refresh(cat_a)
+        s.refresh(cat_b)
+
+        old_feed = db_mod.Feed(url="https://old.a/feed", title="A-Feed")
+        new_feed = db_mod.Feed(url="https://new.b/feed", title="B-Feed")
+        s.add(old_feed)
+        s.add(new_feed)
+        s.commit()
+        s.refresh(old_feed)
+        s.refresh(new_feed)
+
+        s.add(db_mod.Subscription(
+            user_id=owner.id, feed_id=old_feed.id,
+            category_id=cat_a.id, sort_order=1,
+        ))
+        s.add(db_mod.Subscription(
+            user_id=owner.id, feed_id=new_feed.id,
+            category_id=cat_b.id, sort_order=1,
+        ))
+        s.add(db_mod.FeedItem(
+            feed_id=old_feed.id, guid="a-1", title="OLD A post",
+            published_at=now - timedelta(days=5),
+        ))
+        s.add(db_mod.FeedItem(
+            feed_id=new_feed.id, guid="b-1", title="FRESH B post",
+            published_at=now - timedelta(minutes=10),
+        ))
+        s.commit()
+
+    r = _client().get("/u/cross")
+    assert r.status_code == 200
+    idx_fresh = r.text.find("B-Feed")
+    idx_old = r.text.find("A-Feed")
+    assert idx_fresh > 0 and idx_old > 0
+    assert idx_fresh < idx_old, (
+        "flat sort should put B-Feed (fresh) before A-Feed (old) "
+        "regardless of category sort_order"
+    )
+    # Category chip should render next to each feed in flat mode.
+    assert 'href="/u/cross?cat=A"' in r.text
+    assert 'href="/u/cross?cat=B"' in r.text
+
+
 def test_owner_sees_refresh_and_remove_on_own_page():
     ids = _seed_radar_with_dated_items()  # noqa: F841
     owner = _client()
