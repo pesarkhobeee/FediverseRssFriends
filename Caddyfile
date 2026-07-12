@@ -1,0 +1,16 @@
+# Caddy automatically fetches + renews a Let's Encrypt cert for the
+# hostname on the left. Point your DNS A record at this VPS and it
+# just works on first boot.
+{$RSSRADAR_HOSTNAME} {
+	encode zstd gzip
+
+	# HSTS for a year — comment out on first deploy if you want an
+	# easy escape hatch, then turn it back on once TLS is confirmed.
+	header Strict-Transport-Security "max-age=31536000; includeSubDomains"
+
+	# Long cache on static assets; app-shell etag'd normally.
+	@static path /static/*
+	header @static Cache-Control "public, max-age=604800"
+
+	reverse_proxy app:8000
+}
