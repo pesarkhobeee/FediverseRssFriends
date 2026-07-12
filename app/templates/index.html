@@ -1,8 +1,59 @@
 {% extends "base.html" %}
 {% block content %}
 <section class="hero stack">
-  <h1>Your RSS radar.</h1>
+  <h1>🌟 Your RSS, with friends.</h1>
   <p>Follow the web. Share what you read. Discover through people, not algorithms.</p>
+</section>
+
+<section class="features">
+  <div class="feature">
+    <div class="feature-icon" aria-hidden="true">📚</div>
+    <h3>A radar of your own</h3>
+    <p>
+      Bundle any RSS or Atom feed into named categories. Auto-updated in the
+      background. Import your existing OPML in one click.
+    </p>
+  </div>
+  <div class="feature">
+    <div class="feature-icon" aria-hidden="true">🌐</div>
+    <h3>Share your reading list</h3>
+    <p>
+      Every user has a public page. Set it to public, unlisted, or private
+      with follow-approval. Export as OPML any time.
+    </p>
+  </div>
+  <div class="feature">
+    <div class="feature-icon" aria-hidden="true">🍴</div>
+    <h3>Fork a friend's radar</h3>
+    <p>
+      See something interesting on someone else's page? Add one feed with a
+      click, or fork their entire radar into yours.
+    </p>
+  </div>
+  <div class="feature">
+    <div class="feature-icon" aria-hidden="true">⭐</div>
+    <h3>Star what matters</h3>
+    <p>
+      Save individual items to your favorites. Follow people whose taste you
+      trust — their stars appear in your Activities timeline.
+    </p>
+  </div>
+  <div class="feature">
+    <div class="feature-icon" aria-hidden="true">🔗</div>
+    <h3>Everything is RSS</h3>
+    <p>
+      Your reading list is itself an RSS feed. Someone can subscribe to
+      <em>you</em> in NetNewsWire, Miniflux, Feedly — without an account here.
+    </p>
+  </div>
+  <div class="feature">
+    <div class="feature-icon" aria-hidden="true">🔒</div>
+    <h3>No tracking, no ads</h3>
+    <p>
+      Magic-link sign-in — no password, no ad network, no algorithm.
+      Self-hostable. Your data lives in one SQLite file.
+    </p>
+  </div>
 </section>
 
 <section id="login" class="login">
@@ -13,5 +64,8 @@
            placeholder="you@example.com" class="input" />
     <button type="submit" class="btn">Send magic link</button>
   </form>
+  <p class="muted" style="margin-top:.75rem; font-size:.9rem">
+    Already have an account? Same form — the link goes to whichever email you signed up with.
+  </p>
 </section>
 {% endblock %}

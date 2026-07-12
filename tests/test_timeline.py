@@ -25,12 +25,14 @@ def test_feed_requires_login():
     assert r.status_code == 401
 
 
-def test_root_redirects_signed_in_to_feed():
+def test_root_redirects_signed_in_to_own_page():
     client = _client()
     _login(client, "u@e.com")
     r = client.get("/", follow_redirects=False)
     assert r.status_code == 303
-    assert r.headers["location"] == "/feed"
+    # Signed-in root goes to the user's own public page (handle derived
+    # from email local-part).
+    assert r.headers["location"] == "/u/u"
 
 
 def test_root_anonymous_still_lands_on_signup():

@@ -360,3 +360,111 @@ img.favicon {
   border-radius: 6px;
 }
 .feed-url:hover { color: var(--fg); }
+
+/* Landing-page feature grid */
+.features {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  margin: 2rem 0;
+}
+.feature {
+  padding: 1.1rem 1.15rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.feature-icon { font-size: 1.6rem; line-height: 1; margin-bottom: .35rem; }
+.feature h3 { margin: 0 0 .35rem; font-size: 1.05rem; }
+.feature p { margin: 0; color: var(--muted); font-size: .92rem; line-height: 1.5; }
+@media (max-width: 900px) {
+  .features { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 560px) {
+  .features { grid-template-columns: 1fr; }
+}
+
+/* ────────────────────────────────────────────────────────────
+ * Responsive — matches lovelyRSS behavior on small viewports.
+ * Breakpoints:
+ *   ≤ 900px  tighter horizontal padding, hide non-essential nav
+ *   ≤ 640px  header stacks; hero + section titles shrink; feed
+ *            summary wraps its "Updated X ago" onto its own line
+ * ────────────────────────────────────────────────────────────*/
+
+@media (max-width: 900px) {
+  main { padding: 1.25rem .9rem; }
+  .feed-card > summary { padding: .85rem .9rem; gap: .55rem; }
+  .feed-body { padding: .85rem .9rem; }
+}
+
+@media (max-width: 640px) {
+  /* Stack the header so 7-8 nav items don't collide with brand */
+  header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: .5rem;
+    padding: .8rem 1rem;
+  }
+  nav { width: 100%; justify-content: flex-start; gap: .25rem .75rem; }
+  nav a { font-size: .88rem; }
+  nav a.nav-user {  /* keep the handle prominent */
+    order: -1;
+    font-size: .95rem;
+  }
+
+  main { padding: 1rem .85rem; max-width: 100%; }
+
+  /* Hero titles shrink */
+  .hero h1 { font-size: 1.5rem; }
+  .section-title { font-size: 1.2rem; margin: 1.4rem 0 .55rem; }
+  .section-head { flex-wrap: wrap; }
+
+  /* Category chips flow */
+  .chips { padding: .55rem .65rem; gap: .35rem; }
+  .chip { padding: .3rem .7rem; font-size: .85rem; }
+
+  /* Feed card summary wraps: title on line 1, "Updated" + chevron on line 2 */
+  .feed-card > summary {
+    flex-wrap: wrap;
+    row-gap: .3rem;
+  }
+  .feed-card > summary .title {
+    font-size: .98rem;
+    /* Let the title breathe but stop it hogging the whole row */
+    min-width: 0;
+    flex: 1 1 auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .feed-card > summary .updated { font-size: .8rem; }
+
+  /* Category chip inside a summary shouldn't push everything to a new line */
+  .feed-card > summary .chip.small { flex: 0 0 auto; }
+
+  /* Body buttons — one action per line reads better than crammed on mobile */
+  .feed-body p .btn-ghost { display: inline-block; margin: .15rem .15rem .15rem 0; }
+
+  /* Inputs + buttons full-width for tap targets */
+  .login-form { flex-direction: column; align-items: stretch; }
+  .login-form .input,
+  .login-form .btn,
+  .login-form .btn-ghost { width: 100%; }
+  .input[type="search"] { width: 100%; }
+
+  /* Item list padding tightens */
+  .item-list .item { padding-top: .5rem; }
+  .item-title { font-size: .95rem; }
+
+  /* Favorite / fork / activity list rows */
+  .fav-item { padding: .75rem .8rem; }
+  .fav-head { flex-wrap: wrap; gap: .25rem .55rem; }
+
+  /* Net-error toast stays readable near the bottom */
+  .net-toast { left: .75rem; right: .75rem; transform: none; max-width: none; bottom: .75rem; }
+  @keyframes net-toast-in {
+    from { transform: translateY(.5rem); opacity: 0; }
+    to   { transform: translateY(0);     opacity: 1; }
+  }
+}

@@ -38,7 +38,8 @@ def test_login_verify_creates_user_and_signs_in(monkeypatch, capsys):
 
     r2 = client.get(link, follow_redirects=False)
     assert r2.status_code == 303
-    assert r2.headers["location"] == "/dashboard"
+    # Post-verify lands on the user's own public page (their handle).
+    assert r2.headers["location"] == "/u/alice"
 
     r3 = client.get("/dashboard")
     assert r3.status_code == 200

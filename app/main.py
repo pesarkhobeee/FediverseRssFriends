@@ -66,7 +66,7 @@ def render(request: Request, template: str, **ctx) -> HTMLResponse:
 @app.get("/", response_class=HTMLResponse)
 def index(request: Request, user: User | None = Depends(current_user)):
     if user:
-        return RedirectResponse("/feed", status_code=303)
+        return RedirectResponse(f"/u/{user.handle}", status_code=303)
     return render(request, "index.html", user=None)
 
 
@@ -92,7 +92,7 @@ def login(
 def verify(request: Request, token: str, db: Session = Depends(get_session)):
     user = consume_token(db, token)
     request.session["user_id"] = user.id
-    return RedirectResponse("/dashboard", status_code=303)
+    return RedirectResponse(f"/u/{user.handle}", status_code=303)
 
 
 @app.get("/logout")
