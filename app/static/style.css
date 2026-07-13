@@ -440,11 +440,14 @@ img.favicon {
   /* Body buttons — one action per line reads better than crammed on mobile */
   .feed-body p .btn-ghost { display: inline-block; margin: .15rem .15rem .15rem 0; }
 
-  /* Inputs + buttons full-width for tap targets */
+  /* Inputs + buttons full-width for tap targets.
+     Reset the flex-basis on inputs — in column-direction, 260px
+     becomes a minimum HEIGHT (would make a textarea-sized input). */
   .login-form { flex-direction: column; align-items: stretch; }
   .login-form .input,
   .login-form .btn,
-  .login-form .btn-ghost { width: 100%; }
+  .login-form .btn-ghost { width: 100%; flex: 0 0 auto; height: auto; }
+  .input { flex: 0 0 auto; }
   .input[type="search"] { width: 100%; }
 
   /* Item list padding tightens */
@@ -462,3 +465,20 @@ img.favicon {
     to   { transform: translateY(0);     opacity: 1; }
   }
 }
+
+/* Site footer */
+.site-footer {
+  max-width: 880px;
+  margin: 3rem auto 1.5rem;
+  padding: .75rem 1.25rem 0;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: .82rem;
+  display: flex;
+  gap: .5rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.site-footer .footer-sep { opacity: .5; }
+.site-footer a { color: var(--muted); text-decoration: none; }
+.site-footer a:hover { color: var(--fg); text-decoration: underline; }

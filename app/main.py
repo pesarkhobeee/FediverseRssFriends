@@ -11,7 +11,7 @@ from fastapi.templating import Jinja2Templates
 from sqlmodel import Session
 from starlette.middleware.sessions import SessionMiddleware
 
-from . import config, mail
+from . import __version__, config, mail
 from .auth import consume_token, current_user, issue_magic_link
 from .dashboard import router as dashboard_router
 from .db import User, get_session, init_db
@@ -53,9 +53,12 @@ async def lifespan(_: FastAPI):
             scheduler.shutdown(wait=False)
 
 
-app = FastAPI(lifespan=lifespan)
+app = FastAPI(lifespan=lifespan, version=__version__)
 app.add_middleware(SessionMiddleware, secret_key=config.SESSION_SECRET, same_site="lax")
 app.mount("/static", StaticFiles(directory=APP_DIR / "static"), name="static")
+
+# Expose the version to every template (footer, admin, etc.).
+templates.env.globals["app_version"] = __version__
 
 
 def render(request: Request, template: str, **ctx) -> HTMLResponse:
@@ -111,4 +114,10 @@ app.include_router(discover_router)
 
 @app.get("/healthz")
 def healthz():
-    return {"ok": True}
+    return {"ok": True, "version": __version__}
+
+
+@app.get("/version")
+def version():
+    """Plain-text version endpoint for uptime checkers + deploy scripts."""
+    return {"version": __version__}

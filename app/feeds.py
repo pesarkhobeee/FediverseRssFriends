@@ -50,6 +50,41 @@ def _is_youtube_feed(feed_url: str) -> bool:
     return "youtube.com" in feed_url and "feeds/videos.xml" in feed_url
 
 
+_REDDIT_SUB_RE = re.compile(
+    r"^(https?://(?:www\.|old\.)?reddit\.com/r/[^/?#]+)/?$", re.IGNORECASE
+)
+_GITHUB_PROFILE_RE = re.compile(r"^https?://github\.com/[^/?#]+/?$", re.IGNORECASE)
+
+
+def normalize_feed_url(url: str) -> str:
+    """Rewrite well-known 'feed-like but not actually a feed' URLs to their
+    real endpoint. Two rules — the sources that most often appear as plain
+    profile URLs in exported OPML files:
+
+      github.com/schacon        → github.com/schacon.atom
+      reddit.com/r/rss/         → reddit.com/r/rss/.rss
+
+    URLs that already look like real feeds (github.com/user.atom,
+    github.com/org/repo/releases.atom, reddit.com/r/x/.rss, .../top.rss)
+    are returned untouched.
+    """
+    url = (url or "").strip()
+    if not url:
+        return url
+
+    # Bare GitHub profile → .atom. github_owner() rejects non-user paths
+    # (orgs/, topics/, marketplace, …) and anything already containing a
+    # dot in the first segment.
+    if _GITHUB_PROFILE_RE.match(url) and github_owner(url):
+        return f"https://github.com/{github_owner(url)}.atom"
+
+    m = _REDDIT_SUB_RE.match(url)
+    if m:
+        return f"{m.group(1)}/.rss"
+
+    return url
+
+
 # Extracts href from <link rel="…icon…"> in HTML. Rel can come before or
 # after href, and quotes vary. Two patterns cover the common shapes.
 _LINK_ICON_REL_FIRST = re.compile(
@@ -179,7 +214,7 @@ def _favicon_for(site_url: str, feed_url: str) -> str:
 
 def resolve_feed(url: str) -> dict:
     """Return {title, site_url, favicon_url} for a feed URL. Never raises."""
-    url = url.strip()
+    url = normalize_feed_url(url.strip())
     if not url:
         return {"title": "", "site_url": "", "favicon_url": ""}
 

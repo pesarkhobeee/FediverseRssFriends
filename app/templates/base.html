@@ -30,6 +30,14 @@
   </header>
   <main>{% block content %}{% endblock %}</main>
 
+  <footer class="site-footer">
+    <span>rssFriends v{{ app_version }}</span>
+    <span class="footer-sep">·</span>
+    <a href="/version" class="muted">version</a>
+    <span class="footer-sep">·</span>
+    <a href="/healthz" class="muted">healthz</a>
+  </footer>
+
   <div id="net-toast" class="net-toast" role="alert" aria-live="polite" hidden>
     <span class="net-toast-icon" aria-hidden="true">🚧</span>
     <span class="net-toast-msg">Can't reach the server. Check your connection.</span>

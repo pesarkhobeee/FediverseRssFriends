@@ -8,7 +8,7 @@ from sqlalchemy import func
 from sqlmodel import Session, select
 
 from .db import Category, Feed, Subscription, User
-from .feeds import resolve_feed
+from .feeds import normalize_feed_url, resolve_feed
 
 
 def find_or_create_category(db: Session, user: User, name: str) -> Category:
@@ -77,7 +77,7 @@ def add_subscription_by_url(
     `title_hint` and `site_hint` are used to populate a NEW Feed cheaply
     (e.g. from an OPML `text=` attribute); the background fetcher will
     refresh real metadata within one cycle. Returns (added, feed)."""
-    url = url.strip()
+    url = normalize_feed_url(url.strip())
     feed = db.exec(select(Feed).where(Feed.url == url)).first()
     if not feed:
         if resolve_metadata:

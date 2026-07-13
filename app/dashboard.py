@@ -14,7 +14,7 @@ from sqlmodel import Session, select
 from . import activity
 from .auth import login_required
 from .db import Category, Feed, FeedItem, Subscription, User, get_session
-from .feeds import resolve_avatar, resolve_feed
+from .feeds import normalize_feed_url, resolve_avatar, resolve_feed
 from .importers import add_subscription_by_url
 from .opml import parse_opml
 from .refresh import fetch_one, kick_background_refresh, run_cycle
@@ -144,7 +144,7 @@ def subscribe(
     user: User = Depends(login_required),
     db: Session = Depends(get_session),
 ):
-    url = url.strip()
+    url = normalize_feed_url(url.strip())
     if not url:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "url required")
 

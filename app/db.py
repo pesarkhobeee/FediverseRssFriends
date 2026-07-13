@@ -150,6 +150,11 @@ def _run_sqlite_migrations(conn) -> None:
     if _sqlite_column_exists(conn, "feed", "favicon_url"):
         _backfill_github_avatars(conn)
 
+    # Normalize legacy GitHub/Reddit URLs that were stored without their
+    # .atom / .rss suffix (a common shape in exported OPML).
+    if _sqlite_column_exists(conn, "feed", "url"):
+        _backfill_feed_urls(conn)
+
 
 def _backfill_github_avatars(conn) -> None:
     from .feeds import github_owner
@@ -167,6 +172,45 @@ def _backfill_github_avatars(conn) -> None:
         conn.exec_driver_sql(
             "UPDATE feed SET favicon_url = ? WHERE id = ?", (want, row_id)
         )
+
+
+def _backfill_feed_urls(conn) -> None:
+    """One-shot: rewrite `github.com/user` → `github.com/user.atom` and
+    `reddit.com/r/x/` → `reddit.com/r/x/.rss` for Feed rows that were
+    imported before URL normalization existed.
+
+    If the normalized URL already exists (a duplicate Feed row), migrate
+    every Subscription that pointed at the old row to the new one, then
+    delete the old row. Otherwise just UPDATE the URL in place."""
+    from .feeds import normalize_feed_url
+
+    rows = conn.exec_driver_sql("SELECT id, url FROM feed").fetchall()
+    for row_id, url in rows:
+        new = normalize_feed_url(url)
+        if new == url:
+            continue
+        existing = conn.exec_driver_sql(
+            "SELECT id FROM feed WHERE url = ?", (new,)
+        ).fetchone()
+        if existing:
+            new_id = existing[0]
+            # Move every subscription over, dedup'd by (user, feed).
+            conn.exec_driver_sql(
+                "UPDATE OR IGNORE subscription SET feed_id = ? WHERE feed_id = ?",
+                (new_id, row_id),
+            )
+            # Remaining subs that hit the UNIQUE constraint stay pointing
+            # at the old row and would block deletion — kill them.
+            conn.exec_driver_sql(
+                "DELETE FROM subscription WHERE feed_id = ?", (row_id,)
+            )
+            conn.exec_driver_sql("DELETE FROM feed WHERE id = ?", (row_id,))
+        else:
+            conn.exec_driver_sql(
+                "UPDATE feed SET url = ?, consecutive_failures = 0, "
+                "last_error = '' WHERE id = ?",
+                (new, row_id),
+            )
 
 
 def _backfill_untitled_items(conn) -> None:

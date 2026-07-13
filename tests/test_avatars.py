@@ -205,7 +205,9 @@ def test_migration_backfills_github_avatars():
             f.url: f.favicon_url
             for f in s.exec(select(db_mod.Feed)).all()
         }
-    assert rows["https://github.com/torvalds"] == "https://github.com/torvalds.png?size=64"
+    # URL migration also runs on startup, so github.com/torvalds → .atom.
+    # Both keys just have to lead to the correct avatar.
+    assert rows["https://github.com/torvalds.atom"] == "https://github.com/torvalds.png?size=64"
     assert rows["https://github.com/temporalio/helm-charts/releases.atom"] == (
         "https://github.com/temporalio.png?size=64"
     )
