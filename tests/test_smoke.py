@@ -29,7 +29,10 @@ def test_version_endpoint():
     assert r.json() == {"version": __version__}
 
 
-def test_footer_shows_version():
+def test_static_urls_carry_version_cachebuster():
+    """CSS + favicon links include ?v={version} so a version bump busts
+    Cloudflare's edge cache automatically."""
     from app import __version__
     r = _client().get("/")
-    assert f"rssFriends v{__version__}" in r.text
+    assert f"style.css?v={__version__}" in r.text
+    assert f"favicon.svg?v={__version__}" in r.text

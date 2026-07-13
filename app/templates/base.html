@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}rssFriends{% endblock %}</title>
-  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', path='favicon.svg') }}">
-  <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}">
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', path='favicon.svg') }}?v={{ app_version }}">
+  <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}?v={{ app_version }}">
   <script src="https://unpkg.com/htmx.org@2.0.3" defer></script>
 </head>
 <body>
@@ -29,14 +29,6 @@
     </nav>
   </header>
   <main>{% block content %}{% endblock %}</main>
-
-  <footer class="site-footer">
-    <span>rssFriends v{{ app_version }}</span>
-    <span class="footer-sep">·</span>
-    <a href="/version" class="muted">version</a>
-    <span class="footer-sep">·</span>
-    <a href="/healthz" class="muted">healthz</a>
-  </footer>
 
   <div id="net-toast" class="net-toast" role="alert" aria-live="polite" hidden>
     <span class="net-toast-icon" aria-hidden="true">🚧</span>
