@@ -35,6 +35,84 @@ the exact schema, routes, and edge cases we'd need to build.
 - **Direct messages.** Not a rssFriends feature; no reason to add them.
 - **Boosts / reblogs / comments.** Same reason.
 
+## Prior art & positioning
+
+We are — at time of writing — filling a gap. The Venn diagram of
+"self-hostable" ∩ "RSS reader" ∩ "federated" is empty.
+
+### Fediverse-native readers
+None. FreshRSS, Miniflux, Tiny Tiny RSS are all multi-user or
+single-user readers with no follow / share / discovery layer. NewsBlur
+has Blurblogs but it's centralized on newsblur.com, not federated.
+
+### Federated social apps (adjacent, not readers)
+- **Bookwyrm** — federated Goodreads. AP-native. Users on different
+  instances follow each other and share reviews. **Same shape as
+  rssFriends, applied to books.** Our closest reference architecture;
+  read their signature + inbox modules before we write our own.
+- **Lemmy** — federated Reddit. Community-based, same AP primitives.
+- **PixelFed** — federated Instagram. Not reader-shaped, but proves AP
+  works for smaller communities.
+- **Mastodon** — federated Twitter. You can already follow RSS feeds
+  via bridge bots (`feed2toot`, `mastofeed`), but the account you
+  follow is a bot, and there's no reader UX around it.
+
+### Federated RSS-ish experiments (the actual gap)
+- Various **Mastodon-RSS bridges** — pipe an RSS feed into a Mastodon
+  account. Works for reading a feed as an isolated stream; doesn't
+  federate curation, categories, or reading-list sharing.
+- **Fedify's RSS demo** — proof-of-concept publishing RSS items as AP
+  Notes. Not used in production anywhere.
+- **FEP-0ea0** (published Fediverse Enhancement Proposal) covers
+  publishing feeds *into* the Fediverse, not federating readers.
+- **Yarn.social** — federated Twitter-alike where each user's timeline
+  IS an RSS feed. Very close in ethos ("everything is RSS") but a
+  publisher, not a reader.
+
+### Adjacent single-vendor / non-federated projects
+- **Fraidycat** — spiritual ancestor. Single-user, deliberately
+  non-federated. The OPML shape we import is Fraidycat's shape.
+- **Feedbin** — commercial, has `feedbin.com/{user}` public pages.
+  One vendor, no federation.
+- **Reeder / NetNewsWire** — client-only trad RSS readers.
+
+### Frameworks worth watching
+- **Fedify** — a Python/TypeScript AP framework doing what our doc's
+  "HTTP Signatures" section describes. Might be worth using instead
+  of hand-rolling; evaluate at Slice 0.
+- **Bonfire Social** — "federated social network kit" with pluggable
+  flavors. Long-term rssFriends could position as a reader flavor of
+  that stack; don't couple early.
+
+### Positioning implications
+
+1. **We define the terms.** Because nothing else federates
+   reading-list curation, `radar:Subscribe`, `radar:Fork`, `radar:Feed`
+   in this doc are the first attempt at an AP vocabulary for feed
+   sharing. Worth submitting as a **FEP** once Slice 3 lands, so other
+   projects can adopt or debate it. Coordinating with Bookwyrm's
+   maintainers early would help; they've done this exercise once
+   already for book reviews.
+
+2. **"First mover" ≠ "big audience."** Bookwyrm is beloved by its
+   users and tiny in absolute terms because most reading happens on
+   Kindle / Goodreads. We should build federation for **technical
+   delight and interop** — not because we expect viral growth. If
+   30 people ever run an rssFriends instance and follow each other,
+   that's success.
+
+3. **Interop with Mastodon matters more than interop with other
+   rssFriends instances**, at least early. Even if rssFriends stays
+   the only reader in the graph, plugging into Mastodon lets us reach
+   readers who already have an audience there. That's why the AP
+   compatibility target in the doc is "what Mastodon actually expects"
+   rather than "the AP spec to the letter."
+
+4. **Standing on the shoulders of Bookwyrm.** Their federation module
+   (~3-4k LOC of Python) is roughly what we'd build. Reading it
+   cover-to-cover before Slice 0 is the highest-ROI hour of prep we
+   can do.
+
 ## Two-user walkthrough
 
 Concrete example so the design decisions later have context.
