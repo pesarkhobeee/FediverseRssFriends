@@ -236,6 +236,12 @@ def resolve_feed(url: str) -> dict:
 
     feed_meta = getattr(parsed, "feed", {}) or {}
     title = (feed_meta.get("title") or "").strip() or _fallback_title(url)
+    # GitHub user/org feeds all ship the generic
+    # "Github Public timeline feed" (or similar) title. Prefer the
+    # username / org name instead — matches lovelyRSS.
+    owner = github_owner(url)
+    if owner:
+        title = owner
     site_url = (feed_meta.get("link") or "").strip()
     # Some feeds give a relative site link — resolve against the feed URL.
     if site_url and not urlparse(site_url).netloc:

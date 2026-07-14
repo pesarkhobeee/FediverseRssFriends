@@ -168,6 +168,42 @@ def test_deep_falls_all_the_way_through_to_favicon_ico(monkeypatch):
     assert got == "https://blog.example.com/favicon.ico"
 
 
+def test_migration_backfills_github_titles():
+    """Feed rows with the generic GitHub timeline title get retitled to
+    the extracted username. Non-github rows are untouched."""
+    import sqlite3
+
+    from sqlmodel import Session, select
+
+    import app.db as db_mod
+
+    path = db_mod.engine.url.database
+    conn = sqlite3.connect(path)
+    try:
+        conn.execute(
+            "INSERT INTO feed (url, title, site_url, favicon_url, "
+            "consecutive_failures, last_error) VALUES "
+            "('https://github.com/torvalds.atom', 'Github Public timeline "
+            "feed', '', '', 0, '')"
+        )
+        conn.execute(
+            "INSERT INTO feed (url, title, site_url, favicon_url, "
+            "consecutive_failures, last_error) VALUES "
+            "('https://blog.example.com/feed', 'Example Blog', '', '', 0, '')"
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    db_mod.init_db()
+
+    with Session(db_mod.engine) as s:
+        by_url = {f.url: f.title for f in s.exec(select(db_mod.Feed)).all()}
+    assert by_url["https://github.com/torvalds.atom"] == "torvalds"
+    # Non-github row was left alone.
+    assert by_url["https://blog.example.com/feed"] == "Example Blog"
+
+
 def test_migration_backfills_github_avatars():
     """Existing github.com Feed rows with generic favicons get upgraded."""
     import app.db as db_mod

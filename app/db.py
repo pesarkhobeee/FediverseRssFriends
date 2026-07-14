@@ -155,6 +155,11 @@ def _run_sqlite_migrations(conn) -> None:
     if _sqlite_column_exists(conn, "feed", "url"):
         _backfill_feed_urls(conn)
 
+    # Rewrite generic GitHub feed titles ("Github Public timeline feed")
+    # to the username, matching how lovelyRSS displays them.
+    if _sqlite_column_exists(conn, "feed", "title"):
+        _backfill_github_titles(conn)
+
 
 def _backfill_github_avatars(conn) -> None:
     from .feeds import github_owner
@@ -211,6 +216,24 @@ def _backfill_feed_urls(conn) -> None:
                 "last_error = '' WHERE id = ?",
                 (new, row_id),
             )
+
+
+def _backfill_github_titles(conn) -> None:
+    """GitHub user/org feeds all ship a generic title upstream. Rewrite to
+    the username so users see 'schacon' instead of 'Github Public timeline
+    feed'. Idempotent — after the first pass no rows match."""
+    from .feeds import github_owner
+
+    rows = conn.exec_driver_sql(
+        "SELECT id, url, title FROM feed WHERE url LIKE '%github.com%'"
+    ).fetchall()
+    for row_id, url, title in rows:
+        owner = github_owner(url)
+        if not owner or title == owner:
+            continue
+        conn.exec_driver_sql(
+            "UPDATE feed SET title = ? WHERE id = ?", (owner, row_id)
+        )
 
 
 def _backfill_untitled_items(conn) -> None:

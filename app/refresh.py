@@ -18,7 +18,7 @@ from sqlmodel import Session, select
 
 from . import config
 from .db import Feed, FeedItem, _now, engine
-from .feeds import USER_AGENT, resolve_avatar
+from .feeds import USER_AGENT, github_owner, resolve_avatar
 
 log = logging.getLogger(__name__)
 
@@ -109,6 +109,13 @@ def fetch_one(db: Session, feed: Feed) -> tuple[int, str | None]:
         feed.title = fmeta["title"].strip()
     if fmeta.get("link"):
         feed.site_url = fmeta["link"].strip()
+    # For GitHub user/org feeds, ignore the generic upstream title
+    # ("Github Public timeline feed") and use the username instead —
+    # otherwise every GitHub feed refresh would flip the good title
+    # back to the generic one.
+    owner = github_owner(feed.url)
+    if owner:
+        feed.title = owner
     # Re-derive the avatar every cycle so newly-supported source types
     # (GitHub owners, feeds that just started serving a channel image)
     # migrate forward. resolve_avatar handles per-type overrides.
