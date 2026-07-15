@@ -127,6 +127,11 @@ app.include_router(timeline_router)
 app.include_router(discover_router)
 
 
+@app.get("/help", response_class=HTMLResponse)
+def help_page(request: Request, user: User | None = Depends(current_user)):
+    return render(request, "help.html", user=user)
+
+
 @app.get("/healthz")
 def healthz():
     return {"ok": True, "version": __version__}

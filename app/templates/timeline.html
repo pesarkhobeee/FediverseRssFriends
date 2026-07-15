@@ -62,9 +62,28 @@
   {% endfor %}
 </ul>
 {% else %}
-<p class="muted">
-  Nothing here yet. <a href="/dashboard">Subscribe to feeds</a> or
-  visit someone's radar to follow them.
-</p>
+<section class="onboard-card">
+  <h2 style="margin-top:0">Your timeline is quiet</h2>
+  <p class="muted" style="margin:.25rem 0 1rem">
+    It fills up as the people you follow do things (star an item,
+    subscribe to a feed, fork a radar) — and as your own subscribed
+    feeds publish new items. So two paths to a lively timeline:
+  </p>
+  <ol class="onboard-steps">
+    <li>
+      <strong>Follow people whose taste you trust.</strong>
+      Their stars and subscribes appear here.
+      <br><a class="btn-ghost" href="/discover">Open Discover</a>
+    </li>
+    <li>
+      <strong>Subscribe to feeds on your own radar.</strong>
+      New items appear here as they publish.
+      <br><a class="btn-ghost" href="/dashboard">Open Dashboard</a>
+    </li>
+  </ol>
+  <p class="muted" style="font-size:.9rem; margin:1rem 0 0">
+    Confused about follow vs subscribe? <a href="/help#follow">Read the short intro →</a>
+  </p>
+</section>
 {% endif %}
 {% endblock %}

@@ -66,7 +66,40 @@
       {% endwith %}
     {% endfor %}
     {% if not flat_subs %}
-      <p class="muted">This radar is empty.</p>
+      {% if is_owner %}
+        <section class="onboard-card">
+          <h2 style="margin-top:0">👋 Welcome, @{{ owner.handle }}</h2>
+          <p class="muted" style="margin:.25rem 0 1rem">
+            Your radar is empty. Here's how to fill it — you can do any of
+            these first, in any order.
+          </p>
+          <ol class="onboard-steps">
+            <li>
+              <strong>📥 Have an existing reading list?</strong>
+              Import your OPML file — any RSS reader can export one.
+              <br><a class="btn-ghost" href="/dashboard#import-opml">Import OPML</a>
+            </li>
+            <li>
+              <strong>➕ Add feeds one at a time.</strong>
+              Create a category ("Blogs", "News", "GitHub"), then paste
+              any RSS or Atom URL.
+              <br><a class="btn-ghost" href="/dashboard">Open Dashboard</a>
+            </li>
+            <li>
+              <strong>🔭 Or start by following someone.</strong>
+              Browse recent radars and popular curators; add a feed
+              from theirs with one click.
+              <br><a class="btn-ghost" href="/discover">Open Discover</a>
+            </li>
+          </ol>
+          <p class="muted" style="font-size:.9rem; margin:1rem 0 0">
+            Not sure what "radar" or "category" means?
+            <a href="/help">Read the short intro →</a>
+          </p>
+        </section>
+      {% else %}
+        <p class="muted">This radar is empty.</p>
+      {% endif %}
     {% endif %}
   {% else %}
     {# Category filter active — show that category's feeds only, still sorted. #}

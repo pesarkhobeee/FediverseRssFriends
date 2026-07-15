@@ -487,3 +487,30 @@ img.favicon {
   word-break: break-all;
   margin: .25rem 0;
 }
+
+/* Onboarding card — shown on empty owner radar + empty timeline. */
+.onboard-card {
+  padding: 1.25rem 1.35rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.onboard-steps {
+  list-style: decimal;
+  padding-left: 1.4rem;
+  margin: .5rem 0 0;
+}
+.onboard-steps > li + li { margin-top: .85rem; }
+.onboard-steps .btn-ghost { display: inline-block; margin-top: .3rem; }
+
+/* Help page — table of contents + h2 spacing */
+.help-toc ul { columns: 2; column-gap: 1.25rem; padding-left: 1.1rem; margin: .35rem 0 0; }
+.help-toc li { break-inside: avoid; margin: .15rem 0; }
+.help-block { margin: 1.6rem 0; }
+.help-block h2 { margin: 0 0 .35rem; font-size: 1.15rem; scroll-margin-top: 1rem; }
+.help-block p, .help-block ul { margin: .3rem 0; }
+.help-block code {
+  background: var(--card); padding: .05rem .35rem;
+  border-radius: 4px; font-size: .95em;
+}
+@media (max-width: 640px) { .help-toc ul { columns: 1; } }

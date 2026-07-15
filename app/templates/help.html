@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+{% block title %}How rssFriends works{% endblock %}
+{% block content %}
+<section class="hero stack">
+  <h1>📖 How rssFriends works</h1>
+  <p class="muted">A short intro to the concepts. Keep it open in a tab while you set up.</p>
+</section>
+
+<section class="help-toc login">
+  <strong>On this page</strong>
+  <ul>
+    <li><a href="#radar">Your radar</a></li>
+    <li><a href="#categories">Categories &amp; feeds</a></li>
+    <li><a href="#follow">Follow vs subscribe</a></li>
+    <li><a href="#timeline">Timeline vs My activity</a></li>
+    <li><a href="#discover">Discover</a></li>
+    <li><a href="#privacy">Public, unlisted, private</a></li>
+    <li><a href="#opml-rss">OPML &amp; RSS in / out</a></li>
+    <li><a href="#fork">Cherry-pick &amp; fork</a></li>
+  </ul>
+</section>
+
+<section class="help-block">
+  <h2 id="radar">🌟 Your radar</h2>
+  <p>
+    Your <strong>radar</strong> is your public page at
+    <code>rssfriends.com/u/&lt;your-handle&gt;</code>. It shows every
+    RSS/Atom feed you subscribe to, grouped by category. Anyone can
+    visit it (unless you set it to private).
+  </p>
+</section>
+
+<section class="help-block">
+  <h2 id="categories">📂 Categories &amp; feeds</h2>
+  <p>
+    A <strong>category</strong> is a label you group feeds under —
+    "News", "Weblogs", "GitHub", "Twitter mirrors", whatever makes
+    sense for you. A <strong>feed</strong> is one RSS or Atom URL.
+    You subscribe to a feed inside a category.
+  </p>
+  <p>
+    Go to your <a href="/dashboard">Dashboard</a> to create categories
+    and paste feed URLs into them. If you already have a reading list
+    somewhere else, use the <strong>Import from OPML</strong> button —
+    every RSS reader can export OPML.
+  </p>
+</section>
+
+<section class="help-block">
+  <h2 id="follow">🔗 Follow vs subscribe</h2>
+  <ul>
+    <li>
+      <strong>Subscribe</strong> = you add a specific feed's articles
+      to your radar. Machine-to-machine.
+    </li>
+    <li>
+      <strong>Follow</strong> = you follow a <em>person</em>. Their
+      actions (stars, new subscriptions, forks) appear in your Timeline.
+      Human-to-human.
+    </li>
+  </ul>
+  <p>
+    You can subscribe to feeds without following anyone, follow people
+    without subscribing to feeds, or both.
+  </p>
+</section>
+
+<section class="help-block">
+  <h2 id="timeline">📜 Timeline vs My activity</h2>
+  <ul>
+    <li>
+      <strong>Timeline</strong> — a chronological stream of what the
+      people <em>you follow</em> have been doing (starring, subscribing,
+      forking), interleaved with fresh items from your own subscriptions.
+      Think of it as your home page.
+    </li>
+    <li>
+      <strong>My activity</strong> — your <em>own</em> log. Every
+      subscribe, star, follow, fork you've ever done. Publicly visible
+      unless your radar is private.
+    </li>
+  </ul>
+</section>
+
+<section class="help-block">
+  <h2 id="discover">🔭 Discover</h2>
+  <p>
+    <a href="/discover">Discover</a> lists new radars, popular feeds,
+    and most-forked curators — all public users only. There's a
+    fuzzy search box at the top; type a handle (even with typos) to
+    find someone.
+  </p>
+</section>
+
+<section class="help-block">
+  <h2 id="privacy">🔒 Public, unlisted, private</h2>
+  <p>Set from your Dashboard (Visibility dropdown):</p>
+  <ul>
+    <li>
+      <strong>Public</strong> — anyone can view your radar. Listed on
+      Discover.
+    </li>
+    <li>
+      <strong>Unlisted</strong> — anyone with the URL can view. Not
+      listed on Discover.
+    </li>
+    <li>
+      <strong>Private</strong> — only you and approved followers can
+      view. Others see a "Send follow request" page.
+    </li>
+  </ul>
+</section>
+
+<section class="help-block">
+  <h2 id="opml-rss">📥📤 OPML &amp; RSS in / out</h2>
+  <p>Every user has three subscribable URLs — plug them into any RSS reader:</p>
+  <ul>
+    <li>
+      <code>/u/&lt;handle&gt;.opml</code> — the list of feeds you subscribe
+      to, in OPML format. Import into another RSS reader to mirror your setup.
+    </li>
+    <li>
+      <code>/u/&lt;handle&gt;.rss</code> — the merged newest items across
+      <em>all</em> your subscriptions, as one RSS feed. Someone can subscribe
+      to <em>you</em> in NetNewsWire / Miniflux / Feedly and read your
+      curated stream.
+    </li>
+    <li>
+      <code>/u/&lt;handle&gt;/activity.rss</code> — your Timeline-style
+      actions (stars, subscribes) as RSS. For private users, the URL
+      includes a signed token so only approved followers can subscribe.
+    </li>
+  </ul>
+</section>
+
+<section class="help-block">
+  <h2 id="fork">🍴 Cherry-pick &amp; fork</h2>
+  <p>
+    On someone else's radar page you'll see two shortcuts (as long as
+    you're signed in and it's not your own):
+  </p>
+  <ul>
+    <li>
+      <strong>Add to my radar</strong> (per-feed) — copy just that
+      feed to your own radar, into the same category name they used.
+    </li>
+    <li>
+      <strong>Fork this radar</strong> (top of page) — copy their
+      entire radar into yours. Duplicates are skipped, so you can
+      fork repeatedly without piling up.
+    </li>
+  </ul>
+</section>
+
+<p class="muted" style="margin-top:2rem">
+  Ready to try? Head to your <a href="/dashboard">Dashboard</a>.
+</p>
+{% endblock %}

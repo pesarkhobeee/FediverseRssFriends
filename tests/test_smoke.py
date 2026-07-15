@@ -29,6 +29,20 @@ def test_version_endpoint():
     assert r.json() == {"version": __version__}
 
 
+def test_help_page_open_to_everyone():
+    r = _client().get("/help")
+    assert r.status_code == 200
+    assert "How rssFriends works" in r.text
+    # Section anchors present for the TOC links.
+    for anchor in ("radar", "categories", "follow", "timeline", "discover", "privacy"):
+        assert f'id="{anchor}"' in r.text
+
+
+def test_help_link_in_nav():
+    r = _client().get("/")
+    assert 'href="/help"' in r.text
+
+
 def test_static_urls_carry_version_cachebuster():
     """CSS + favicon links include ?v={version} so a version bump busts
     Cloudflare's edge cache automatically."""

@@ -39,6 +39,32 @@ def test_unknown_handle_404():
     assert r.status_code == 404
 
 
+def test_owner_sees_welcome_card_on_empty_radar():
+    """A new user on their own empty radar sees the getting-started card,
+    NOT the bare 'radar is empty' message."""
+    client = _client()
+    _login(client, "newby@example.com")
+    r = client.get("/u/newby")
+    assert r.status_code == 200
+    assert "Welcome" in r.text
+    assert "Open Dashboard" in r.text
+    assert "Open Discover" in r.text
+    assert 'href="/help"' in r.text
+
+
+def test_visitor_sees_plain_message_on_someone_elses_empty_radar():
+    """Someone else's empty radar should NOT show the welcome card —
+    that's just for the owner."""
+    owner = _client()
+    _login(owner, "farid@example.com")
+
+    visitor = _client()
+    r = visitor.get("/u/farid")
+    assert r.status_code == 200
+    assert "Welcome" not in r.text
+    assert "This radar is empty" in r.text
+
+
 def test_public_radar_shows_categories_and_feeds(monkeypatch):
     _stub_resolve(monkeypatch, title="Proton Blog")
     owner = _client()

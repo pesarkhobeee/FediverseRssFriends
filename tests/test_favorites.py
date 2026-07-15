@@ -106,7 +106,7 @@ def test_favorites_page_empty():
     _login(client, "alice@example.com")
     r = client.get("/u/alice/favorites")
     assert r.status_code == 200
-    assert "Nothing starred yet" in r.text
+    assert "You haven't starred anything yet" in r.text
 
 
 def test_favorites_visibility_private_blocks_others():

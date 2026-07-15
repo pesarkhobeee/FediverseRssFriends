@@ -48,7 +48,7 @@ def test_empty_feed_has_helpful_hint():
     _login(client, "u@e.com")
     r = client.get("/feed")
     assert r.status_code == 200
-    assert "Nothing here yet" in r.text
+    assert "Your timeline is quiet" in r.text
 
 
 def test_feed_shows_followee_activity():
