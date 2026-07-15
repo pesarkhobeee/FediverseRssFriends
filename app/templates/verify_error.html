@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Link expired{% endblock %}
+{% block content %}
+<section class="hero stack">
+  <h1>🕓 That link is no longer valid</h1>
+  <p class="muted">
+    The sign-in link you used has expired or was already used. This is
+    normal — links only work once and expire after 15 minutes.
+  </p>
+</section>
+
+<section class="login">
+  <h3 style="margin:0 0 .5rem">Get a fresh one</h3>
+  <p class="muted" style="margin:.25rem 0 .75rem; font-size:.92rem">
+    Enter your email address again — we'll send a brand-new link that
+    replaces the old one.
+  </p>
+  <form method="post" action="/login" class="login-form">
+    <input type="email" name="email" required autocomplete="email"
+           placeholder="you@example.com" class="input" />
+    <button type="submit" class="btn">Send a new link</button>
+  </form>
+</section>
+
+<section class="login">
+  <h3 style="margin:0 0 .5rem">Why does this happen?</h3>
+  <ul style="margin:.25rem 0 0; padding-left:1.1rem; color:var(--muted); font-size:.92rem">
+    <li><strong>You clicked the link more than once.</strong> First click
+      signs you in; subsequent clicks fail because the link is single-use.</li>
+    <li><strong>The link is more than 15 minutes old.</strong> Send a
+      fresh one.</li>
+    <li><strong>You clicked an old link after requesting a new one.</strong>
+      Only the most recent link works. Use the newest email.</li>
+  </ul>
+</section>
+{% endblock %}

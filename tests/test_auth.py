@@ -73,11 +73,13 @@ def test_get_verify_does_not_consume_token():
     assert r_real.headers["location"] == "/u/eve"
 
 
-def test_get_verify_expired_token_400():
-    """Expired tokens 400 on GET too, so the page doesn't render a
-    misleading Continue button for a dead link."""
+def test_get_verify_expired_token_shows_friendly_page():
+    """A dead token on GET renders the verify_error page (200), NOT the
+    raw FastAPI JSON 400. The page includes a "get a new link" form."""
     r = _client().get("/auth/verify?token=nope-never-existed", follow_redirects=False)
-    assert r.status_code == 400
+    assert r.status_code == 200
+    assert "no longer valid" in r.text
+    assert 'action="/login"' in r.text
 
 
 def test_token_is_single_use(monkeypatch):
@@ -93,9 +95,11 @@ def test_token_is_single_use(monkeypatch):
     assert r1.status_code == 303
 
     # A fresh, unauthenticated client should not be able to reuse the token.
+    # Instead of a 400 JSON, they get the friendly verify_error HTML page.
     fresh = _client()
     r2 = fresh.post("/auth/verify", data={"token": token}, follow_redirects=False)
-    assert r2.status_code == 400
+    assert r2.status_code == 200
+    assert "no longer valid" in r2.text
 
 
 def test_logout_clears_session():

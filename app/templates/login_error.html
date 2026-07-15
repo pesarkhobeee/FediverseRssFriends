@@ -1,8 +1,24 @@
 {% extends "base.html" %}
+{% block title %}Sign-in error{% endblock %}
 {% block content %}
 <section class="hero stack">
-  <h1>Hmm.</h1>
+  <h1>⚠️ We couldn't send that link</h1>
   <p class="muted">{{ message }}</p>
-  <p><a href="/">Try again</a></p>
+</section>
+
+<section class="login">
+  <form method="post" action="/login" class="login-form">
+    <input type="email" name="email" required autocomplete="email"
+           placeholder="you@example.com" class="input" />
+    <button type="submit" class="btn">Try again</button>
+  </form>
+  <p class="muted" style="margin-top:.75rem; font-size:.85rem">
+    {% if 'wait' in message.lower() %}
+      You just requested a link. Give it a minute before trying again.
+    {% else %}
+      Double-check the email address — a missing letter is the most
+      common cause of an "invalid email" error.
+    {% endif %}
+  </p>
 </section>
 {% endblock %}

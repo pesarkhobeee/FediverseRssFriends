@@ -474,3 +474,16 @@ img.favicon {
   }
 }
 
+
+/* Prominent email echo on the "Check your inbox" page — so typos
+   are obvious (rssfriends.com/main → mail address rendered big). */
+.email-echo {
+  padding: .55rem .9rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 1.02rem;
+  word-break: break-all;
+  margin: .25rem 0;
+}
