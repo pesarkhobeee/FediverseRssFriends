@@ -16,7 +16,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, func, select
 
-from . import activity
+from . import activity, mail
 from .auth import current_user, login_required
 from .db import Follow, User, _now, get_session
 from .utils import relative_time
@@ -87,7 +87,8 @@ def follow(
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "can't follow yourself")
 
     existing = db.get(Follow, (viewer.id, target.id))
-    if not existing:
+    is_new = existing is None
+    if is_new:
         approved = _now() if target.visibility != "private" else None
         db.add(Follow(follower_id=viewer.id, followee_id=target.id, approved_at=approved))
         if approved:
@@ -97,6 +98,14 @@ def follow(
             )
         db.commit()
         state = "following" if approved else "pending"
+        # Notify the followee — auto-approved followers or new pending
+        # requests. Failure is logged, never propagated.
+        mail.send_new_follower(
+            followee_email=target.email,
+            followee_handle=target.handle,
+            follower_handle=viewer.handle,
+            approved=bool(approved),
+        )
     else:
         state = "following" if existing.approved_at else "pending"
 
@@ -159,6 +168,12 @@ def approve_request(
             subject_url=f"/u/{user.handle}", ref_type="user", ref_id=user.id,
         )
     db.commit()
+    if follower:
+        mail.send_follow_approved(
+            follower_email=follower.email,
+            follower_handle=follower.handle,
+            followee_handle=user.handle,
+        )
     return HTMLResponse("")  # HTMX will delete the row
 
 

@@ -16,15 +16,16 @@
         <a href="/u/{{ user.handle }}" class="nav-user" title="Your public radar">@{{ user.handle }}</a>
       {% endif %}
       <a href="/discover">Discover</a>
-      <a href="/help">Help</a>
       {% if user %}
         <a href="/feed">Timeline</a>
         <a href="/u/{{ user.handle }}/favorites">Favorites</a>
         <a href="/u/{{ user.handle }}/activity">My activity</a>
         <a href="/follow-requests">Requests</a>
         <a href="/dashboard">Dashboard</a>
+        <a href="/help">Help</a>
         <a href="/logout">Logout</a>
       {% else %}
+        <a href="/help">Help</a>
         <a href="/#login">Login</a>
       {% endif %}
     </nav>

@@ -20,6 +20,101 @@ def _login(client, email):
     client.post("/auth/verify", data={"token": token}, follow_redirects=False)
 
 
+def test_new_follower_triggers_email_notification(monkeypatch):
+    """Follow (public target, auto-approved) emails the followee."""
+    from unittest.mock import MagicMock
+
+    import app.follow
+    sent = MagicMock()
+    monkeypatch.setattr(app.follow.mail, "send_new_follower", sent)
+
+    owner = _client()
+    _login(owner, "owner@e.com")
+    viewer = _client()
+    _login(viewer, "viewer@e.com")
+    viewer.post("/u/owner/follow")
+
+    sent.assert_called_once()
+    kwargs = sent.call_args.kwargs
+    assert kwargs["followee_email"] == "owner@e.com"
+    assert kwargs["followee_handle"] == "owner"
+    assert kwargs["follower_handle"] == "viewer"
+    assert kwargs["approved"] is True
+
+
+def test_pending_follow_triggers_email_notification(monkeypatch):
+    """Private target: follow enqueues a pending request; the email
+    should say approved=False."""
+    from unittest.mock import MagicMock
+
+    import app.follow
+    sent = MagicMock()
+    monkeypatch.setattr(app.follow.mail, "send_new_follower", sent)
+
+    owner = _client()
+    _login(owner, "owner@e.com")
+    owner.post(
+        "/settings/visibility", data={"visibility": "private"}, follow_redirects=False
+    )
+    viewer = _client()
+    _login(viewer, "viewer@e.com")
+    viewer.post("/u/owner/follow")
+
+    sent.assert_called_once()
+    assert sent.call_args.kwargs["approved"] is False
+
+
+def test_approve_request_emails_the_follower(monkeypatch):
+    from unittest.mock import MagicMock
+
+    import app.follow
+    monkeypatch.setattr(app.follow.mail, "send_new_follower", MagicMock())
+    sent = MagicMock()
+    monkeypatch.setattr(app.follow.mail, "send_follow_approved", sent)
+
+    owner = _client()
+    _login(owner, "owner@e.com")
+    owner.post(
+        "/settings/visibility", data={"visibility": "private"}, follow_redirects=False
+    )
+    viewer = _client()
+    _login(viewer, "viewer@e.com")
+    viewer.post("/u/owner/follow")
+
+    import app.db as db_mod
+    with Session(db_mod.engine) as s:
+        follower = s.exec(
+            select(db_mod.User).where(db_mod.User.handle == "viewer")
+        ).one()
+    owner.post(f"/follow-requests/{follower.id}/approve")
+
+    sent.assert_called_once()
+    kwargs = sent.call_args.kwargs
+    assert kwargs["follower_email"] == "viewer@e.com"
+    assert kwargs["follower_handle"] == "viewer"
+    assert kwargs["followee_handle"] == "owner"
+
+
+def test_repeat_follow_does_not_resend_email(monkeypatch):
+    """Idempotent — a second POST /follow with an existing row shouldn't
+    email the followee again."""
+    from unittest.mock import MagicMock
+
+    import app.follow
+    sent = MagicMock()
+    monkeypatch.setattr(app.follow.mail, "send_new_follower", sent)
+
+    owner = _client()
+    _login(owner, "owner@e.com")
+    viewer = _client()
+    _login(viewer, "viewer@e.com")
+    viewer.post("/u/owner/follow")
+    viewer.post("/u/owner/follow")
+    viewer.post("/u/owner/follow")
+
+    assert sent.call_count == 1
+
+
 def test_follow_public_user_auto_approves():
     owner = _client()
     _login(owner, "owner@e.com")
