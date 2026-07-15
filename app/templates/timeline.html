@@ -1,8 +1,8 @@
 {% extends "base.html" %}
-{% block title %}Activities{% endblock %}
+{% block title %}Timeline{% endblock %}
 {% block content %}
 <section class="hero stack">
-  <h1>📜 Activities</h1>
+  <h1>📜 Timeline</h1>
   <p class="muted">
     What the {{ n_followees }} {{ 'person' if n_followees == 1 else 'people' }} you follow have been doing,
     plus fresh items from your {{ n_subscriptions }} subscribed feed{{ '' if n_subscriptions == 1 else 's' }}.
