@@ -12,7 +12,7 @@ from sqlmodel import Session
 from starlette.middleware.sessions import SessionMiddleware
 
 from . import __version__, config, mail
-from .auth import consume_token, current_user, issue_magic_link
+from .auth import consume_token, current_user, issue_magic_link, peek_token
 from .dashboard import router as dashboard_router
 from .db import User, get_session, init_db
 from .discover import router as discover_router
@@ -91,8 +91,17 @@ def login(
     return render(request, "login_sent.html", user=None, email=email, dev_link=dev_link)
 
 
-@app.get("/auth/verify")
-def verify(request: Request, token: str, db: Session = Depends(get_session)):
+@app.get("/auth/verify", response_class=HTMLResponse)
+def verify_confirm(request: Request, token: str, db: Session = Depends(get_session)):
+    """Validate but DON'T consume the token — render a confirmation page
+    with a button that POSTs back. Prevents Gmail's link scanner (and
+    similar) from silently consuming the single-use token on delivery."""
+    peek_token(db, token)  # 400 if invalid/expired
+    return render(request, "verify_confirm.html", user=None, token=token)
+
+
+@app.post("/auth/verify")
+def verify(request: Request, token: str = Form(...), db: Session = Depends(get_session)):
     user = consume_token(db, token)
     request.session["user_id"] = user.id
     return RedirectResponse(f"/u/{user.handle}", status_code=303)

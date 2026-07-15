@@ -11,7 +11,9 @@ def _login(client: TestClient, email: str = "alice@example.com") -> None:
     marker = "/auth/verify?token="
     idx = r.text.find(marker)
     end = r.text.find('"', idx)
-    client.get(r.text[idx:end], follow_redirects=False)
+    token = r.text[idx:end].split("token=", 1)[1]
+
+    client.post("/auth/verify", data={"token": token}, follow_redirects=False)
 
 
 def _stub_resolve(monkeypatch, title: str = "Example Feed", site: str = "https://example.com"):

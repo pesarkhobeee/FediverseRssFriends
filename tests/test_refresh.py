@@ -157,7 +157,9 @@ def test_manual_refresh_endpoint_ok(monkeypatch):
     marker = "/auth/verify?token="
     idx = r.text.find(marker)
     end = r.text.find('"', idx)
-    client.get(r.text[idx:end], follow_redirects=False)
+    token = r.text[idx:end].split("token=", 1)[1]
+
+    client.post("/auth/verify", data={"token": token}, follow_redirects=False)
 
     r2 = client.post("/refresh")
     assert r2.status_code == 200

@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Sign in{% endblock %}
+{% block content %}
+<section class="hero stack">
+  <h1>🌟 Almost in</h1>
+  <p class="muted">
+    Click the button below to finish signing in.
+  </p>
+</section>
+
+<section class="login">
+  <form method="post" action="/auth/verify" class="login-form">
+    <input type="hidden" name="token" value="{{ token }}" />
+    <button type="submit" class="btn">Continue signing in</button>
+  </form>
+  <p class="muted" style="margin:.75rem 0 0; font-size:.85rem">
+    This extra click keeps your magic link safe from email scanners
+    that would otherwise consume it before you get to it.
+  </p>
+</section>
+{% endblock %}

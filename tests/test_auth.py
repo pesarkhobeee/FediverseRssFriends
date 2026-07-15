@@ -36,7 +36,8 @@ def test_login_verify_creates_user_and_signs_in(monkeypatch, capsys):
     end = r.text.find('"', idx)
     link = r.text[idx:end]
 
-    r2 = client.get(link, follow_redirects=False)
+    token = link.split("token=", 1)[1]
+    r2 = client.post("/auth/verify", data={"token": token}, follow_redirects=False)
     assert r2.status_code == 303
     # Post-verify lands on the user's own public page (their handle).
     assert r2.headers["location"] == "/u/alice"
@@ -47,6 +48,38 @@ def test_login_verify_creates_user_and_signs_in(monkeypatch, capsys):
     assert "alice@example.com" in r3.text.lower()
 
 
+def test_get_verify_does_not_consume_token():
+    """Gmail's link scanner pre-fetches URLs in emails. That's a GET.
+    A GET on /auth/verify must NOT consume the single-use token, or the
+    real user's click will be rejected. Regression for the bug that hit
+    mertcangurcan on production."""
+    client = _client()
+    r = client.post("/login", data={"email": "eve@example.com"})
+    marker = "/auth/verify?token="
+    idx = r.text.find(marker)
+    end = r.text.find('"', idx)
+    link = r.text[idx:end]
+    token = link.split("token=", 1)[1]
+
+    # Simulate the scanner pre-fetching the link (GET, no POST).
+    scanner = _client()
+    r_scan = scanner.get(link, follow_redirects=False)
+    assert r_scan.status_code == 200
+    assert "Continue signing in" in r_scan.text  # confirmation page
+
+    # The real user's POST from the confirmation button must still work.
+    r_real = client.post("/auth/verify", data={"token": token}, follow_redirects=False)
+    assert r_real.status_code == 303
+    assert r_real.headers["location"] == "/u/eve"
+
+
+def test_get_verify_expired_token_400():
+    """Expired tokens 400 on GET too, so the page doesn't render a
+    misleading Continue button for a dead link."""
+    r = _client().get("/auth/verify?token=nope-never-existed", follow_redirects=False)
+    assert r.status_code == 400
+
+
 def test_token_is_single_use(monkeypatch):
     client = _client()
     r = client.post("/login", data={"email": "bob@example.com"})
@@ -55,12 +88,13 @@ def test_token_is_single_use(monkeypatch):
     end = r.text.find('"', idx)
     link = r.text[idx:end]
 
-    r1 = client.get(link, follow_redirects=False)
+    token = link.split("token=", 1)[1]
+    r1 = client.post("/auth/verify", data={"token": token}, follow_redirects=False)
     assert r1.status_code == 303
 
     # A fresh, unauthenticated client should not be able to reuse the token.
     fresh = _client()
-    r2 = fresh.get(link, follow_redirects=False)
+    r2 = fresh.post("/auth/verify", data={"token": token}, follow_redirects=False)
     assert r2.status_code == 400
 
 
@@ -70,7 +104,9 @@ def test_logout_clears_session():
     marker = "/auth/verify?token="
     idx = r.text.find(marker)
     end = r.text.find('"', idx)
-    client.get(r.text[idx:end], follow_redirects=False)
+    token = r.text[idx:end].split("token=", 1)[1]
+
+    client.post("/auth/verify", data={"token": token}, follow_redirects=False)
 
     assert client.get("/dashboard").status_code == 200
     client.get("/logout", follow_redirects=False)
@@ -84,7 +120,9 @@ def test_handle_collision_gets_suffix():
         marker = "/auth/verify?token="
         idx = r.text.find(marker)
         end = r.text.find('"', idx)
-        client.get(r.text[idx:end], follow_redirects=False)
+        token = r.text[idx:end].split("token=", 1)[1]
+
+        client.post("/auth/verify", data={"token": token}, follow_redirects=False)
         client.get("/logout", follow_redirects=False)
 
     # Second user should be dave-2

@@ -72,6 +72,20 @@ def issue_magic_link(db: Session, email: str) -> tuple[str, str]:
     return token, url
 
 
+def peek_token(db: Session, token: str) -> None:
+    """Validate a magic token without consuming it. Raises 400 if it's
+    missing or expired. Used by the GET confirmation page so that
+    email-link scanners can pre-fetch our URL without killing the
+    token; only the POST from the confirmation button actually
+    consumes it via consume_token()."""
+    row = db.get(MagicToken, token)
+    if not row or _aware(row.expires_at) < _now():
+        if row:
+            db.delete(row)
+            db.commit()
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "invalid or expired link")
+
+
 def consume_token(db: Session, token: str) -> User:
     """Validate and single-use-consume a magic token. Returns the User (creating if new)."""
     row = db.get(MagicToken, token)
