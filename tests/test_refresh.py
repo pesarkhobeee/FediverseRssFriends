@@ -84,6 +84,86 @@ def test_fetch_one_creates_items(monkeypatch):
         assert {i.title for i in items} == {"First post", "Second post"}
 
 
+def test_refresh_does_not_downgrade_previously_deep_resolved_favicon(monkeypatch):
+    """Regression: if a feed's stored favicon_url is a deep-resolved
+    URL (not the generic /favicon.ico for its origin), refreshing must
+    NOT clobber it with the fast-path fallback. This was the "Datadog
+    icon disappearing" bug — every cycle silently downgraded the icon."""
+    _stub_httpx(monkeypatch)
+    import app.db as db_mod
+
+    with Session(db_mod.engine) as s:
+        feed = db_mod.Feed(
+            url="https://example.com/feed.xml",
+            title="Example",
+            site_url="https://example.com",
+            # A CDN-hosted icon — deep-resolved sometime in the past.
+            favicon_url="https://cdn.example.com/img/favicon.ico",
+        )
+        s.add(feed)
+        s.commit()
+        s.refresh(feed)
+        feed_id = feed.id
+
+    from app.refresh import fetch_one
+
+    with Session(db_mod.engine) as s:
+        feed = s.get(db_mod.Feed, feed_id)
+        fetch_one(s, feed)
+        s.commit()
+
+    with Session(db_mod.engine) as s:
+        feed = s.get(db_mod.Feed, feed_id)
+        # Icon preserved — not downgraded to the generic fallback.
+        assert feed.favicon_url == "https://cdn.example.com/img/favicon.ico"
+
+
+def test_refresh_attempts_deep_resolve_when_stored_icon_is_generic(monkeypatch):
+    """When the stored favicon_url is the generic /favicon.ico fallback,
+    refresh opportunistically tries deep resolve — that's how the bug's
+    stale rows heal on the next cycle."""
+    _stub_httpx(monkeypatch)
+    import app.db as db_mod
+    import app.refresh as ref
+
+    calls = []
+    real_resolve = ref.resolve_avatar
+
+    def spy_resolve(feed_url, site_url, feed_meta=None, *, deep=False):
+        calls.append(deep)
+        # Simulate deep resolve finding a better icon.
+        if deep:
+            return "https://cdn.example.com/img/favicon.ico"
+        return real_resolve(feed_url, site_url, feed_meta, deep=deep)
+
+    monkeypatch.setattr(ref, "resolve_avatar", spy_resolve)
+
+    with Session(db_mod.engine) as s:
+        feed = db_mod.Feed(
+            url="https://example.com/feed.xml",
+            title="Example",
+            site_url="https://example.com",
+            favicon_url="https://example.com/favicon.ico",  # generic fallback
+        )
+        s.add(feed)
+        s.commit()
+        s.refresh(feed)
+        feed_id = feed.id
+
+    from app.refresh import fetch_one
+
+    with Session(db_mod.engine) as s:
+        feed = s.get(db_mod.Feed, feed_id)
+        fetch_one(s, feed)
+        s.commit()
+
+    assert True in calls, "expected refresh to try deep resolve on a generic fallback"
+
+    with Session(db_mod.engine) as s:
+        feed = s.get(db_mod.Feed, feed_id)
+        assert feed.favicon_url == "https://cdn.example.com/img/favicon.ico"
+
+
 def test_fetch_one_is_idempotent(monkeypatch):
     _stub_httpx(monkeypatch)
     feed_id = _seed_feed()

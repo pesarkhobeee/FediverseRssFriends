@@ -18,7 +18,7 @@ from sqlmodel import Session, select
 
 from . import config
 from .db import Feed, FeedItem, _now, engine
-from .feeds import USER_AGENT, github_owner, resolve_avatar
+from .feeds import USER_AGENT, _favicon_for, github_owner, resolve_avatar
 
 log = logging.getLogger(__name__)
 
@@ -118,8 +118,26 @@ def fetch_one(db: Session, feed: Feed) -> tuple[int, str | None]:
         feed.title = owner
     # Re-derive the avatar every cycle so newly-supported source types
     # (GitHub owners, feeds that just started serving a channel image)
-    # migrate forward. resolve_avatar handles per-type overrides.
-    feed.favicon_url = resolve_avatar(feed.url, feed.site_url, fmeta)
+    # migrate forward. Two rules matter here:
+    #   1. Never DOWNGRADE — a previously-deep-resolved icon (e.g.
+    #      Datadog's dd-static CDN) beats the generic /favicon.ico
+    #      fallback that the fast path would produce.
+    #   2. When we have nothing better than the generic fallback,
+    #      opportunistically try the deep path (site HTML scrape for
+    #      <link rel="…icon…">). Costs one HTTP GET per affected feed
+    #      per cycle — negligible, and it heals feeds whose icon lives
+    #      somewhere other than /favicon.ico.
+    fast_candidate = resolve_avatar(feed.url, feed.site_url, fmeta)
+    generic_fallback = _favicon_for(feed.site_url, feed.url)
+    stored = feed.favicon_url or ""
+    if fast_candidate == generic_fallback and stored and stored != generic_fallback:
+        # Keep the stored (better) icon — refresh's job isn't to demote.
+        pass
+    elif not stored or stored == generic_fallback:
+        # We have no better answer stored — try harder before falling back.
+        feed.favicon_url = resolve_avatar(feed.url, feed.site_url, fmeta, deep=True)
+    else:
+        feed.favicon_url = fast_candidate
 
     existing_guids = set(
         db.exec(select(FeedItem.guid).where(FeedItem.feed_id == feed.id)).all()
