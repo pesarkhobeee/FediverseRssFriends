@@ -178,6 +178,41 @@ def test_add_without_fields_still_falls_back_to_discovered():
     assert [c.name for c in cats] == ["Discovered"]
 
 
+def test_user_radar_uses_the_same_picker(monkeypatch):
+    """"Add to my radar" on /u/{handle} should open the same category
+    picker as /f/{id} — no more silent-copy of the owner's category."""
+    import app.dashboard
+
+    def fake(url: str) -> dict:
+        return {"title": "Proton Blog", "site_url": "https://proton.me",
+                "favicon_url": "https://proton.me/favicon.ico"}
+    monkeypatch.setattr(app.dashboard, "resolve_feed", fake)
+
+    owner = _client()
+    _login(owner, "farid@e.com")
+    idx = owner.post("/categories", data={"name": "Weblogs"}).text
+    cat_id = int(idx[idx.find('id="category-') + len('id="category-'):].split('"')[0])
+    owner.post(
+        "/feeds", data={"url": "https://proton.me/blog/feed", "category_id": cat_id}
+    )
+    import app.db as db_mod
+    with Session(db_mod.engine) as s:
+        fid = s.exec(
+            select(db_mod.Feed).where(db_mod.Feed.url == "https://proton.me/blog/feed")
+        ).one().id
+
+    visitor = _client()
+    _login(visitor, "bob@e.com")
+    page = visitor.get("/u/farid").text
+    # Button opens the unified picker (same endpoint as /f/{id}).
+    assert f'hx-get="/f/{fid}/add-picker"' in page
+    # If bob later subscribes, the row flips to "Following" — no button.
+    visitor.post(f"/f/{fid}/add", data={"new_category": "Longform"})
+    page2 = visitor.get("/u/farid").text
+    assert "✓ Following" in page2
+    assert f'hx-get="/f/{fid}/add-picker"' not in page2
+
+
 def test_new_category_trimmed_and_case_insensitive_reuse():
     """'  Weblogs  ' should reuse an existing 'weblogs' rather than
     creating a duplicate row."""

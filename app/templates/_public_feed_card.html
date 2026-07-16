@@ -47,14 +47,9 @@
                 hx-swap="outerHTML"
                 hx-confirm="Remove '{{ it.feed.title }}' from your radar?">🗑️ Remove</button>
       {% elif user %}
-        <span id="pick-{{ it.feed.id }}">
-          <button class="btn-ghost"
-                  hx-post="/u/{{ owner.handle }}/subscribe/{{ it.feed.id }}"
-                  hx-target="#pick-{{ it.feed.id }}"
-                  hx-swap="innerHTML">
-            ➕ Add to my radar
-          </button>
-        </span>
+        {% with feed=it.feed, state=("subscribed" if it.feed.id in viewer_subs else "available") %}
+          {% include "_feed_cta.html" %}
+        {% endwith %}
       {% endif %}
     </p>
     {% if it.entries %}

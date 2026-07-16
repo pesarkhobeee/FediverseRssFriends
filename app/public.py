@@ -127,6 +127,7 @@ def _load_public_radar(
     ).all()
 
     viewer_faves: set[int] = set()
+    viewer_subs: set[int] = set()
     if viewer:
         all_item_ids = [
             item.id for items in items_by_feed.values() for item in items
@@ -137,6 +138,18 @@ def _load_public_radar(
                     select(Favorite.feed_item_id)
                     .where(Favorite.user_id == viewer.id)
                     .where(Favorite.feed_item_id.in_(all_item_ids))
+                ).all()
+            )
+        # Which of the shown feeds the viewer already has on their own
+        # radar — drives the CTA state so a "Following" pill replaces
+        # the button on rows they've already added.
+        shown_feed_ids = [f.id for _s, f in subs_rows]
+        if shown_feed_ids:
+            viewer_subs = set(
+                db.exec(
+                    select(Subscription.feed_id)
+                    .where(Subscription.user_id == viewer.id)
+                    .where(Subscription.feed_id.in_(shown_feed_ids))
                 ).all()
             )
 
@@ -170,6 +183,7 @@ def _load_public_radar(
         "active_cat": category_filter or "",
         "total_feeds": len(total_feeds),
         "viewer_faves": viewer_faves,
+        "viewer_subs": viewer_subs,
         "last_updated": last_updated,
         "refresh_interval_minutes": config.REFRESH_INTERVAL_MINUTES,
     }
