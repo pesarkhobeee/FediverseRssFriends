@@ -65,6 +65,11 @@
 <ul class="item-list feed-page-items">
   {% for item in items %}
     <li class="item">
+      {% if user %}
+        {% with item_id=item.id, is_favorited=(item.id in viewer_faves) %}
+          {% include "_star.html" %}
+        {% endwith %}
+      {% endif %}
       <a class="item-title" href="{{ item.link }}" target="_blank" rel="noopener">
         {{ item.title }}
       </a>

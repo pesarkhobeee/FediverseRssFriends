@@ -106,7 +106,7 @@ img.favicon {
 }
 .feed .favicon { width: 20px; height: 20px; flex: 0 0 20px; }
 .feed .title { font-weight: 600; color: var(--fg); text-decoration: none; }
-.feed .spacer { flex: 1; }
+.spacer { flex: 1; }
 .feed .updated { color: var(--muted); font-size: .875rem; }
 
 /* "New" pill — olive-green, matches lovelyRSS */
@@ -524,14 +524,12 @@ img.favicon {
 .feed-hero-title a:hover { text-decoration: underline; }
 
 .feed-cta { display: inline-flex; align-items: center; gap: .35rem; }
+/* Subscribed state — plain muted text, NOT button-shaped, so it's
+   visually obvious the row isn't inviting another add-click. */
 .feed-cta .cta-badge {
-  padding: .4rem .85rem;
-  border-radius: 8px;
-  background: var(--card);
-  border: 1px solid var(--border);
   color: var(--muted);
-  font-weight: 600;
   font-size: .9rem;
+  font-weight: 600;
 }
 
 .feed-page-items .item { padding: .5rem 0; }

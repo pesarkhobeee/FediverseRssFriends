@@ -3,7 +3,7 @@
    target so HTMX can flip it after an add. #}
 <span id="feed-cta-{{ feed.id }}" class="feed-cta">
 {% if state == "subscribed" %}
-  <span class="cta-badge">✓ In your radar</span>
+  <span class="cta-badge">✓ Following</span>
 {% elif state == "available" %}
   <button class="btn"
           hx-post="/f/{{ feed.id }}/add"

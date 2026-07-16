@@ -58,13 +58,11 @@ def _recent_public_users(db: Session) -> list[dict]:
 
 
 def _popular_feeds(db: Session, viewer: User | None) -> list[dict]:
-    # Count subscriptions only from public users so private radars don't
-    # leak popularity signals via discover.
+    # Aggregate count across every subscriber — no visibility leak
+    # because we only expose the total, not who's subscribed.
     rows = db.exec(
         select(Feed, func.count(Subscription.id).label("n"))
         .join(Subscription, Subscription.feed_id == Feed.id)
-        .join(User, User.id == Subscription.user_id)
-        .where(User.visibility == "public")
         .group_by(Feed.id)
         .order_by(func.count(Subscription.id).desc(), Feed.id.desc())
         .limit(LIMIT)

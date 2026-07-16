@@ -103,8 +103,9 @@ def test_popular_feeds_by_subscriber_count():
     assert "1 subscriber" in r.text
 
 
-def test_popular_feeds_ignore_private_user_subs():
-    """A private user's subscriptions don't leak into popularity counts."""
+def test_popular_feeds_count_includes_private_user_subs():
+    """The aggregate popularity count includes every subscriber regardless
+    of visibility — a total N doesn't identify anyone."""
     a = _client()
     _login(a, "public@e.com")
     p = _client()
@@ -136,9 +137,7 @@ def test_popular_feeds_ignore_private_user_subs():
         s.commit()
 
     r = _client().get("/discover")
-    # Only 1 (the public user), not 2.
-    assert "1 subscriber" in r.text
-    assert "2 subscribers" not in r.text
+    assert "2 subscribers" in r.text
 
 
 def test_search_finds_exact_handle():

@@ -17,7 +17,7 @@ from sqlmodel import Session, select
 
 from . import activity
 from .auth import current_user, login_required
-from .db import Feed, FeedItem, Subscription, User, get_session
+from .db import Favorite, Feed, FeedItem, Subscription, User, get_session
 from .importers import add_subscription_by_feed
 from .utils import relative_time
 
@@ -67,14 +67,25 @@ def feed_page(
         .limit(RECENT_ITEMS)
     ).all()
 
-    # How many people on this instance subscribe (public users only,
-    # matches Discover's popular-feeds counting rule).
+    # Total subscribers across the whole instance. Aggregate only —
+    # doesn't identify anyone, so it's safe to include private users.
     subscriber_count = db.exec(
         select(func.count(Subscription.id))
-        .join(User, User.id == Subscription.user_id)
         .where(Subscription.feed_id == feed_id)
-        .where(User.visibility == "public")
     ).one()
+
+    # For signed-in viewers, pre-load which of these items they've already
+    # starred so the star renders in the 'on' state where appropriate.
+    viewer_faves: set[int] = set()
+    if viewer and items:
+        ids = [it.id for it in items]
+        viewer_faves = set(
+            db.exec(
+                select(Favorite.feed_item_id)
+                .where(Favorite.user_id == viewer.id)
+                .where(Favorite.feed_item_id.in_(ids))
+            ).all()
+        )
 
     return templates.TemplateResponse(
         request,
@@ -85,6 +96,7 @@ def feed_page(
             "items": items,
             "subscriber_count": subscriber_count,
             "state": _subscription_state(db, viewer, feed_id),
+            "viewer_faves": viewer_faves,
         },
     )
 

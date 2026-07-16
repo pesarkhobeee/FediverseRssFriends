@@ -72,7 +72,7 @@ def test_add_creates_discovered_category_and_subscription():
 
     r = client.post(f"/f/{feed_id}/add")
     assert r.status_code == 200
-    assert "In your radar" in r.text
+    assert "Following" in r.text
 
     from sqlmodel import Session
 
@@ -121,14 +121,14 @@ def test_signed_in_already_subscribed_sees_in_radar_badge():
 
     r = client.get(f"/f/{feed_id}")
     assert r.status_code == 200
-    assert "In your radar" in r.text
+    assert "Following" in r.text
     assert "Add to my radar" not in r.text
 
 
 def test_discover_popular_shows_state_aware_cta_per_row():
     """Anonymous sees "Sign in to add"
     a signed-in user who's subscribed
-    to one of the popular feeds sees "In your radar" on THAT row and
+    to one of the popular feeds sees "Following" on THAT row and
     "Add to my radar" on the others."""
     # Seed two feeds and give each some subscribers via a shim user so
     # they appear on Discover.
@@ -169,13 +169,13 @@ def test_discover_popular_shows_state_aware_cta_per_row():
     # After alice adds Feed One, only Feed Two still shows "Add".
     alice.post(f"/f/{f1_id}/add")
     r_after = alice.get("/discover")
-    # The subscribed row now shows "In your radar" instead of the button.
-    assert "In your radar" in r_after.text
+    # The subscribed row now shows "Following" instead of the button.
+    assert "Following" in r_after.text
 
 
-def test_feed_page_shows_subscriber_count():
-    """Public users subscribed to a feed bump its subscriber count on
-    /f/{id} the same way they do on Discover."""
+def test_feed_page_subscriber_count_includes_everyone():
+    """The subscriber total counts EVERY user regardless of visibility —
+    aggregate count leaks no identifying info."""
     import app.db as db_mod
 
     with Session(db_mod.engine) as s:
@@ -183,9 +183,10 @@ def test_feed_page_shows_subscriber_count():
         s.add(feed)
         s.commit()
         s.refresh(feed)
-        # Two public subscribers + one private (private shouldn't count).
+        # Mix of visibilities — all should be counted.
         for handle, vis in [
-            ("pub1", "public"), ("pub2", "public"), ("priv", "private")
+            ("pub1", "public"), ("pub2", "public"),
+            ("un", "unlisted"), ("priv", "private"),
         ]:
             u = db_mod.User(email=f"{handle}@e.com", handle=handle, visibility=vis)
             s.add(u)
@@ -202,7 +203,23 @@ def test_feed_page_shows_subscriber_count():
         feed_id = feed.id
 
     r = _client().get(f"/f/{feed_id}")
-    # Template renders the count in a <strong>N</strong> plus the noun
-    # nearby; check the count number and the noun both present.
-    assert "<strong>2</strong>" in r.text
+    assert "<strong>4</strong>" in r.text
     assert "subscribers on this instance" in r.text
+
+
+def test_star_button_on_feed_page_for_signed_in():
+    feed_id = _seed_feed()
+    client = _client()
+    _login(client, "alice@example.com")
+    r = client.get(f"/f/{feed_id}")
+    # Star button rendered next to the item, in the "off" state.
+    assert "☆" in r.text
+    assert 'hx-post="/items/' in r.text
+
+
+def test_no_star_button_on_feed_page_for_anonymous():
+    feed_id = _seed_feed()
+    r = _client().get(f"/f/{feed_id}")
+    assert "☆" not in r.text
+    # Anonymous visitors see the items but can't star them.
+    assert "First post" in r.text
