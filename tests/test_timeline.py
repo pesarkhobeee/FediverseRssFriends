@@ -85,8 +85,10 @@ def test_feed_shows_followee_activity():
     assert "Interesting post" in r.text
 
 
-def test_feed_shows_own_subscription_items():
-    """User sees fresh items from their own subscriptions even without follows."""
+def test_feed_does_not_show_own_subscription_items():
+    """Regression: the timeline is a social feed of followees' activity,
+    NOT a merged reader for your own subscriptions. Fresh items from
+    your subs live on /u/{handle} and /dashboard — not here."""
     import app.db as db_mod
 
     with Session(db_mod.engine) as s:
@@ -117,12 +119,15 @@ def test_feed_shows_own_subscription_items():
 
     r = client.get("/feed")
     assert r.status_code == 200
-    assert "Fresh post" in r.text
-    assert "My Blog" in r.text
+    # With no follows and no external activity, the timeline is empty
+    # regardless of how many items the viewer's own feeds have.
+    assert "Fresh post" not in r.text
+    assert "Your timeline is quiet" in r.text
 
 
-def test_feed_shows_star_state_for_own_items():
-    """A user's already-starred item on the timeline renders with ★ on."""
+def test_star_events_show_up_for_followers():
+    """The social path: when @b stars an item and @a follows @b,
+    @a's timeline shows "@b starred X" — the star is public."""
     import app.db as db_mod
 
     with Session(db_mod.engine) as s:
@@ -131,29 +136,24 @@ def test_feed_shows_star_state_for_own_items():
         s.commit()
         s.refresh(feed)
         item = db_mod.FeedItem(
-            feed_id=feed.id, guid="p1", title="P1",
+            feed_id=feed.id, guid="p1", title="Great post",
+            link="https://x.example/1",
             published_at=datetime.now(UTC) - timedelta(hours=1),
         )
         s.add(item)
         s.commit()
         s.refresh(item)
+        item_id = item.id
 
-    client = _client()
-    _login(client, "u@e.com")
-    with Session(db_mod.engine) as s:
-        user = s.exec(select(db_mod.User).where(db_mod.User.handle == "u")).one()
-        cat = db_mod.Category(user_id=user.id, name="B", sort_order=1)
-        s.add(cat)
-        s.commit()
-        s.refresh(cat)
-        feed = s.exec(select(db_mod.Feed).where(db_mod.Feed.url == "https://x.example/feed")).one()
-        s.add(db_mod.Subscription(
-            user_id=user.id, feed_id=feed.id, category_id=cat.id, sort_order=1
-        ))
-        s.commit()
+    b = _client()
+    _login(b, "b@e.com")
+    b.post(f"/items/{item_id}/favorite")
 
-    # Star the item, then re-fetch the timeline.
-    client.post(f"/items/{item.id}/favorite")
-    r = client.get("/feed")
-    assert "star-on" in r.text
-    assert "★" in r.text
+    a = _client()
+    _login(a, "a@e.com")
+    a.post("/u/b/follow")
+
+    r = a.get("/feed")
+    assert "@b" in r.text
+    assert "starred" in r.text
+    assert "Great post" in r.text

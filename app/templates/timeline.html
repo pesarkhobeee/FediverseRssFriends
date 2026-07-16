@@ -4,85 +4,57 @@
 <section class="hero stack">
   <h1>📜 Timeline</h1>
   <p class="muted">
-    What the {{ n_followees }} {{ 'person' if n_followees == 1 else 'people' }} you follow have been doing,
-    plus fresh items from your {{ n_subscriptions }} subscribed feed{{ '' if n_subscriptions == 1 else 's' }}.
+    What the {{ n_followees }} {{ 'person' if n_followees == 1 else 'people' }} you follow have been
+    starring, adding, and forking lately.
+  </p>
+  <p class="muted" style="font-size:.9rem">
+    Looking for new items from your own feeds?
+    Head to <a href="/u/{{ user.handle }}">your radar</a>.
   </p>
 </section>
 
 {% if entries %}
 <ul class="fav-list">
   {% for e in entries %}
-    {% if e.kind == "activity" %}
-      <li class="fav-item">
-        <div class="fav-head">
-          <span aria-hidden="true">{{ kind_icon.get(e.activity.kind, '') }}</span>
-          <span>
-            {% if e.actor %}
-              <a class="title" href="/u/{{ e.actor.handle }}">@{{ e.actor.handle }}</a>
-            {% else %}
-              <span class="title">someone</span>
-            {% endif %}
-            <span class="muted">{{ kind_verb.get(e.activity.kind, e.activity.kind) }}</span>
-            {% if e.activity.subject_url %}
-              <a class="item-title" href="{{ e.activity.subject_url }}"
-                 {% if e.activity.subject_url.startswith('http') %}target="_blank" rel="noopener"{% endif %}>
-                {{ e.activity.subject }}
-              </a>
-            {% else %}
-              <span class="item-title">{{ e.activity.subject }}</span>
-            {% endif %}
-          </span>
-          <span class="spacer"></span>
-          <span class="muted" style="font-size:.85rem">{{ e.ts|relative_time }}</span>
-        </div>
-      </li>
-    {% else %}
-      <li class="fav-item">
-        <div class="fav-head">
-          {% if e.feed and e.feed.favicon_url %}
-            <img class="favicon" src="{{ e.feed.favicon_url }}" alt="" loading="lazy"
- />
+    <li class="fav-item">
+      <div class="fav-head">
+        <span aria-hidden="true">{{ kind_icon.get(e.activity.kind, '') }}</span>
+        <span>
+          {% if e.actor %}
+            <a class="title" href="/u/{{ e.actor.handle }}">@{{ e.actor.handle }}</a>
           {% else %}
-            <span aria-hidden="true">📡</span>
+            <span class="title">someone</span>
           {% endif %}
-          <span class="fav-source muted">{{ e.feed.title if e.feed else "(unknown feed)" }}</span>
-          <span class="spacer"></span>
-          <span class="muted" style="font-size:.85rem">{{ e.ts|relative_time }}</span>
-        </div>
-        <a class="item-title" href="{{ e.item.link }}" target="_blank" rel="noopener">
-          {{ e.item.title }}
-        </a>
-        <div class="muted item-date">
-          {% with item_id=e.item.id, is_favorited=e.is_favorited %}
-            {% include "_star.html" %}
-          {% endwith %}
-        </div>
-      </li>
-    {% endif %}
+          <span class="muted">{{ kind_verb.get(e.activity.kind, e.activity.kind) }}</span>
+          {% if e.activity.subject_url %}
+            <a class="item-title" href="{{ e.activity.subject_url }}"
+               {% if e.activity.subject_url.startswith('http') %}target="_blank" rel="noopener"{% endif %}>
+              {{ e.activity.subject }}
+            </a>
+          {% else %}
+            <span class="item-title">{{ e.activity.subject }}</span>
+          {% endif %}
+        </span>
+        <span class="spacer"></span>
+        <span class="muted" style="font-size:.85rem">{{ e.ts|relative_time }}</span>
+      </div>
+    </li>
   {% endfor %}
 </ul>
 {% else %}
 <section class="onboard-card">
   <h2 style="margin-top:0">Your timeline is quiet</h2>
   <p class="muted" style="margin:.25rem 0 1rem">
-    It fills up as the people you follow do things (star an item,
-    subscribe to a feed, fork a radar) — and as your own subscribed
-    feeds publish new items. So two paths to a lively timeline:
+    The timeline shows what people you follow are doing — the items
+    they star, the feeds they add, the radars they fork. It fills up
+    once you follow a few curators whose taste you trust.
   </p>
-  <ol class="onboard-steps">
-    <li>
-      <strong>Follow people whose taste you trust.</strong>
-      Their stars and subscribes appear here.
-      <br><a class="btn-ghost" href="/discover">Open Discover</a>
-    </li>
-    <li>
-      <strong>Subscribe to feeds on your own radar.</strong>
-      New items appear here as they publish.
-      <br><a class="btn-ghost" href="/dashboard">Open Dashboard</a>
-    </li>
-  </ol>
+  <p style="margin:.5rem 0">
+    <a class="btn" href="/discover">🔭 Find people to follow</a>
+  </p>
   <p class="muted" style="font-size:.9rem; margin:1rem 0 0">
-    Confused about follow vs subscribe? <a href="/help#follow">Read the short intro →</a>
+    Note: your own stars are visible here to the people who follow you —
+    that's how RSS gets social. New to it? <a href="/help#follow">Short intro →</a>
   </p>
 </section>
 {% endif %}

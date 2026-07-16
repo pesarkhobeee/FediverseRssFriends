@@ -1,10 +1,10 @@
-"""Home timeline at /feed — signed-in users' merged view of:
-  - activity from users they follow (approved), and
-  - fresh items from the feeds they subscribe to.
+"""Home timeline at /feed — signed-in users' view of what the people
+they follow have been doing: starring items, subscribing to feeds,
+following others, forking radars.
 
-Both streams are pulled from the same recent window, interleaved by
-timestamp, newest first. This is the app's default page for signed-in
-users; anonymous visitors keep landing on the marketing/signup page.
+Previously this also merged fresh items from the viewer's own
+subscribed feeds, but that firehose drowned the social signal —
+subscribed-item browsing lives on /u/{handle} and /dashboard.
 """
 
 from datetime import UTC, datetime, timedelta
@@ -15,7 +15,7 @@ from sqlmodel import Session, select
 
 from . import activity
 from .auth import login_required
-from .db import Activity, Favorite, Feed, FeedItem, Follow, Subscription, User, get_session
+from .db import Activity, Follow, User, get_session
 from .templating import make_templates
 
 templates = make_templates()
@@ -43,12 +43,12 @@ def _load_timeline(db: Session, user: User) -> dict:
             .where(Follow.approved_at.is_not(None))
         ).all()
     )
-    handle_by_id = {}
+    handle_by_id: dict[int, User] = {}
     if followee_ids:
         users = db.exec(select(User).where(User.id.in_(followee_ids))).all()
         handle_by_id = {u.id: u for u in users}
 
-    activity_entries: list[dict] = []
+    entries: list[dict] = []
     if followee_ids:
         rows = db.exec(
             select(Activity)
@@ -58,68 +58,16 @@ def _load_timeline(db: Session, user: User) -> dict:
             .limit(FEED_LIMIT)
         ).all()
         for ev in rows:
-            actor = handle_by_id.get(ev.user_id)
-            activity_entries.append({
+            entries.append({
                 "kind": "activity",
                 "ts": _aware(ev.created_at),
-                "actor": actor,
+                "actor": handle_by_id.get(ev.user_id),
                 "activity": ev,
             })
 
-    # Fresh items from my own subscriptions.
-    my_feed_ids = list(
-        db.exec(
-            select(Subscription.feed_id).where(Subscription.user_id == user.id)
-        ).all()
-    )
-    item_entries: list[dict] = []
-    feed_by_id: dict[int, Feed] = {}
-    if my_feed_ids:
-        feed_by_id = {
-            f.id: f for f in db.exec(select(Feed).where(Feed.id.in_(my_feed_ids))).all()
-        }
-        items = db.exec(
-            select(FeedItem)
-            .where(FeedItem.feed_id.in_(my_feed_ids))
-            .where(
-                (FeedItem.published_at.is_(None))
-                | (FeedItem.published_at >= cutoff)
-            )
-            .order_by(
-                FeedItem.published_at.desc().nulls_last(),
-                FeedItem.fetched_at.desc(),
-            )
-            .limit(FEED_LIMIT)
-        ).all()
-        # Which of these has the viewer already starred?
-        item_ids = [i.id for i in items]
-        faves: set[int] = set()
-        if item_ids:
-            faves = set(
-                db.exec(
-                    select(Favorite.feed_item_id)
-                    .where(Favorite.user_id == user.id)
-                    .where(Favorite.feed_item_id.in_(item_ids))
-                ).all()
-            )
-        for it in items:
-            ts = _aware(it.published_at or it.fetched_at)
-            item_entries.append({
-                "kind": "item",
-                "ts": ts,
-                "item": it,
-                "feed": feed_by_id.get(it.feed_id),
-                "is_favorited": it.id in faves,
-            })
-
-    merged = sorted(
-        activity_entries + item_entries, key=lambda e: e["ts"], reverse=True
-    )[:FEED_LIMIT]
-
     return {
-        "entries": merged,
+        "entries": entries,
         "n_followees": len(followee_ids),
-        "n_subscriptions": len(my_feed_ids),
         "kind_icon": activity.KIND_ICON,
         "kind_verb": activity.KIND_VERB,
     }
