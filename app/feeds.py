@@ -143,6 +143,11 @@ def _site_icon_from_html(site_url: str) -> str | None:
     href = hit.group(1).strip()
     if not href:
         return None
+    # Protocol-relative URLs (//cdn.example.com/…) — attach https so we
+    # store a self-contained absolute URL, not something whose meaning
+    # depends on where it's rendered.
+    if href.startswith("//"):
+        return "https:" + href
     return href if urlparse(href).netloc else urljoin(site_url, href)
 
 

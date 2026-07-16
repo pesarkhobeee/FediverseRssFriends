@@ -154,6 +154,28 @@ def test_deep_link_rel_icon_absolute_href(monkeypatch):
     assert got == "https://cdn.example/icon.png"
 
 
+def test_deep_link_rel_icon_protocol_relative_href_gets_https(monkeypatch):
+    """Some CMSes emit href="//cdn.example.com/…" (protocol-relative).
+    We store an absolute URL so the value is self-contained and works
+    outside the browser (e.g. OPML export)."""
+    from app.feeds import resolve_avatar
+
+    site_html = (
+        '<html><head>'
+        '<link rel="shortcut icon" href="//dka575ofm4ao0.cloudfront.net/i.png">'
+        '</head></html>'
+    )
+    _stub_html_fetch(monkeypatch, {"https://status.example.com": site_html})
+
+    got = resolve_avatar(
+        "https://status.example.com/history.rss",
+        "https://status.example.com",
+        {},
+        deep=True,
+    )
+    assert got == "https://dka575ofm4ao0.cloudfront.net/i.png"
+
+
 def test_deep_falls_all_the_way_through_to_favicon_ico(monkeypatch):
     """Every network step is stubbed to None; final fallback is /favicon.ico."""
     _stub_html_fetch(monkeypatch, {})
