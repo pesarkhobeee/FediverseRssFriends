@@ -31,6 +31,10 @@
         <a class="btn-ghost" href="{{ it.feed.site_url }}" target="_blank" rel="noopener">Visit Website</a>
       {% endif %}
       <a class="btn-ghost" href="{{ it.feed.url }}" target="_blank" rel="noopener">Feed XML</a>
+      <a class="btn-ghost" href="/f/{{ it.feed.id }}">📄 Feed page</a>
+      <button type="button" class="btn-ghost"
+              data-copy-url="/f/{{ it.feed.id }}"
+              title="Copy shareable link to clipboard">🔗 Copy link</button>
       {% if is_owner %}
         <button class="btn-ghost"
                 hx-post="/feeds/{{ it.feed.id }}/refresh"

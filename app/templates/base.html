@@ -99,6 +99,31 @@
       });
       window.addEventListener("online", function () { toast.hidden = true; });
     })();
+
+    // Copy-to-clipboard button. Any element with data-copy-url copies
+    // the absolute URL derived from that (possibly relative) path.
+    document.addEventListener("click", function (e) {
+      var b = e.target.closest("[data-copy-url]");
+      if (!b) return;
+      e.preventDefault();
+      var url = new URL(b.dataset.copyUrl, location.origin).href;
+      var restore = b.textContent;
+      var done = function (ok) {
+        b.textContent = ok ? "✓ Copied" : "⚠️ Copy failed";
+        setTimeout(function () { b.textContent = restore; }, 1500);
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(url).then(function () { done(true); }, function () { done(false); });
+      } else {
+        // Fallback for older browsers / non-HTTPS contexts.
+        var t = document.createElement("textarea");
+        t.value = url;
+        t.style.position = "fixed"; t.style.opacity = "0";
+        document.body.appendChild(t); t.select();
+        try { done(document.execCommand("copy")); } catch (_) { done(false); }
+        document.body.removeChild(t);
+      }
+    });
   </script>
 </body>
 </html>

@@ -81,6 +81,28 @@ def test_public_radar_shows_categories_and_feeds(monkeypatch):
     assert "All Feeds (1)" in r.text
 
 
+def test_feed_card_has_feed_page_and_copy_link_buttons(monkeypatch):
+    """Every feed card on a user's radar exposes: the /f/{id} landing
+    page (so visitors can share the feed itself, decoupled from any
+    particular curator) and a copy-link button that JS turns into a
+    clipboard write. The copy button is a plain <button> — no href —
+    so we detect it by its data-copy-url attribute."""
+    _stub_resolve(monkeypatch, title="Proton Blog")
+    owner = _client()
+    _login(owner, "farid@example.com")
+    cat_id = _extract_id(owner.post("/categories", data={"name": "Weblogs"}).text, "category-")
+    owner.post("/feeds", data={"url": "https://proton.me/blog/feed", "category_id": cat_id})
+    page = _client().get("/u/farid").text
+    assert '📄 Feed page' in page
+    assert 'data-copy-url="/f/' in page
+    # Feed-page link resolves to a working feed page.
+    import re
+    m = re.search(r'href="/f/(\d+)"', page)
+    assert m, "expected an /f/{id} link on the radar"
+    fid = int(m.group(1))
+    assert _client().get(f"/f/{fid}").status_code == 200
+
+
 def test_private_radar_blocks_others(monkeypatch):
     owner = _client()
     _login(owner, "priv@example.com")
