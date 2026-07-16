@@ -221,6 +221,76 @@ def unsubscribe(
     return Response(status_code=200)
 
 
+def _get_owned_subscription(db: Session, user: User, sub_id: int) -> Subscription:
+    sub = db.get(Subscription, sub_id)
+    if not sub or sub.user_id != user.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "not found")
+    return sub
+
+
+@router.get("/subscriptions/{sub_id}/move-picker", response_class=HTMLResponse)
+def move_picker(
+    sub_id: int,
+    request: Request,
+    user: User = Depends(login_required),
+    db: Session = Depends(get_session),
+):
+    sub = _get_owned_subscription(db, user, sub_id)
+    categories = db.exec(
+        select(Category)
+        .where(Category.user_id == user.id)
+        .order_by(Category.sort_order, Category.id)
+    ).all()
+    return _partial(request, "_move_picker.html", sub=sub, categories=categories)
+
+
+@router.get("/subscriptions/{sub_id}/actions", response_class=HTMLResponse)
+def subscription_actions(
+    sub_id: int,
+    request: Request,
+    user: User = Depends(login_required),
+    db: Session = Depends(get_session),
+):
+    """Return the default row actions — used by 'Cancel' on the move picker
+    to restore the button strip without a full page reload."""
+    sub = _get_owned_subscription(db, user, sub_id)
+    feed = db.get(Feed, sub.feed_id)
+    return _partial(request, "_feed_actions.html", sub=sub, feed=feed)
+
+
+@router.post("/subscriptions/{sub_id}/move")
+def move_subscription(
+    sub_id: int,
+    category_id: int = Form(...),
+    user: User = Depends(login_required),
+    db: Session = Depends(get_session),
+):
+    """Move a subscription to a different category on the same radar.
+    Both the sub and the target category must belong to the caller."""
+    sub = _get_owned_subscription(db, user, sub_id)
+    target = db.get(Category, category_id)
+    if not target or target.user_id != user.id:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "not your category")
+
+    if sub.category_id != target.id:
+        # Place the moved feed at the end of the destination's list.
+        from sqlalchemy import func
+        max_order = db.exec(
+            select(func.max(Subscription.sort_order))
+            .where(Subscription.user_id == user.id)
+            .where(Subscription.category_id == target.id)
+        ).one() or 0
+        sub.category_id = target.id
+        sub.sort_order = max_order + 1
+        db.add(sub)
+        db.commit()
+
+    # Simplest robust UX for a rare action: tell HTMX to re-fetch the
+    # dashboard so both categories re-render with the moved row in its
+    # new home. No OOB coordination needed.
+    return Response(status_code=204, headers={"HX-Refresh": "true"})
+
+
 MAX_OPML_BYTES = 2 * 1024 * 1024  # 2 MB is huge for OPML
 
 

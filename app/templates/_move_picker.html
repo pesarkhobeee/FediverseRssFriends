@@ -1,0 +1,21 @@
+{# Compact move-to-category picker rendered inside #actions-{sub.id}.
+   Save reloads /dashboard so both source and destination categories
+   reflect the change without any OOB coordination. #}
+<form class="move-picker"
+      hx-post="/subscriptions/{{ sub.id }}/move"
+      hx-target="#actions-{{ sub.id }}"
+      hx-swap="innerHTML">
+  <label class="muted picker-label" for="move-{{ sub.id }}">Move to:</label>
+  <select id="move-{{ sub.id }}" name="category_id" class="input picker-select">
+    {% for c in categories %}
+      <option value="{{ c.id }}" {% if c.id == sub.category_id %}selected{% endif %}>{{ c.name }}</option>
+    {% endfor %}
+  </select>
+  <div class="picker-actions">
+    <button type="submit" class="btn">Save</button>
+    <button type="button" class="btn-ghost"
+            hx-get="/subscriptions/{{ sub.id }}/actions"
+            hx-target="#actions-{{ sub.id }}"
+            hx-swap="innerHTML">Cancel</button>
+  </div>
+</form>

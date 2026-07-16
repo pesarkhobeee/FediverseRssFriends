@@ -1,0 +1,24 @@
+{# Inner HTML of #actions-{sub.id}. Used by "Cancel" on the move picker
+   to restore the default row actions. Kept in sync with _feed_row.html —
+   if you add/remove a button in one, mirror it in the other. #}
+<a class="feed-url muted" href="{{ feed.url }}" target="_blank" rel="noopener" title="Feed URL">
+  rss
+</a>
+<button class="btn-ghost"
+        hx-post="/feeds/{{ feed.id }}/refresh"
+        hx-target="#refresh-{{ feed.id }}"
+        hx-swap="innerHTML"
+        title="Refresh this feed now">🔄</button>
+<span id="refresh-{{ feed.id }}"></span>
+<button class="btn-ghost"
+        hx-get="/subscriptions/{{ sub.id }}/move-picker"
+        hx-target="#actions-{{ sub.id }}"
+        hx-swap="innerHTML"
+        title="Move to another category">📁 Move</button>
+<button class="btn-ghost"
+        hx-delete="/subscriptions/{{ sub.id }}"
+        hx-target="#sub-{{ sub.id }}"
+        hx-swap="delete"
+        hx-confirm="Unsubscribe from '{{ feed.title }}'?">
+  Remove
+</button>

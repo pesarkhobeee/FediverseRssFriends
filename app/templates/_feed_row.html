@@ -16,20 +16,7 @@
     {% if feed.consecutive_failures %} · ⚠️ stale{% endif %}
   </span>
   <span class="spacer"></span>
-  <a class="feed-url muted" href="{{ feed.url }}" target="_blank" rel="noopener" title="Feed URL">
-    rss
-  </a>
-  <button class="btn-ghost"
-          hx-post="/feeds/{{ feed.id }}/refresh"
-          hx-target="#refresh-{{ feed.id }}"
-          hx-swap="innerHTML"
-          title="Refresh this feed now">🔄</button>
-  <span id="refresh-{{ feed.id }}"></span>
-  <button class="btn-ghost"
-          hx-delete="/subscriptions/{{ sub.id }}"
-          hx-target="#sub-{{ sub.id }}"
-          hx-swap="delete"
-          hx-confirm="Unsubscribe from '{{ feed.title }}'?">
-    Remove
-  </button>
+  <span class="feed-actions" id="actions-{{ sub.id }}">
+    {% include "_feed_actions.html" %}
+  </span>
 </li>
