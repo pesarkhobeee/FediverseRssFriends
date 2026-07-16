@@ -160,7 +160,15 @@ def fetch_one(db: Session, feed: Feed) -> tuple[int, str | None]:
         or not _icon_is_reachable(stored)
     )
     if needs_heal:
-        feed.favicon_url = resolve_avatar(feed.url, feed.site_url, fmeta, deep=True)
+        healed = resolve_avatar(feed.url, feed.site_url, fmeta, deep=True)
+        # If deep-resolve returned the same broken URL, the culprit is
+        # the RSS feed's own <image> tag (e.g. Google Cloud Blog: their
+        # RSS <image> URL is stale but wins in resolve_avatar before
+        # the HTML scrape). Retry without feed_meta so we go straight
+        # to <link rel="…icon…"> discovery.
+        if healed == stored and stored:
+            healed = resolve_avatar(feed.url, feed.site_url, None, deep=True)
+        feed.favicon_url = healed
     elif fast_candidate != generic_fallback and fast_candidate != stored:
         # Upgrade only — the fast path found something specific (GitHub
         # owner PNG, feed <image>) that's different from what we have.
