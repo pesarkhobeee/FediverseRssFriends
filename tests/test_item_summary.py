@@ -50,6 +50,21 @@ def test_clean_summary_preserves_safe_tags_and_href():
     assert 'href="https://a.example"' in out
 
 
+def test_clean_summary_strips_headings():
+    """Feeds sometimes embed the article's own <h1> into the summary
+    (GitHub Trending, some Substack exports). Those blow up the visual
+    rhythm of a feed listing where the item title IS the heading — so
+    we strip h1–h6 and keep just their inner text."""
+    src = "<h1>Big Heading</h1><p>body text</p>"
+    out = clean_summary(src)
+    assert "<h1" not in out
+    assert "<h2" not in out
+    assert "<h3" not in out
+    # Inner text must survive.
+    assert "Big Heading" in out
+    assert "body text" in out
+
+
 def test_clean_summary_strips_img_and_iframe():
     dirty = '<p>x</p><img src="x" onerror="alert(1)"><iframe src="/"></iframe>'
     out = clean_summary(dirty)

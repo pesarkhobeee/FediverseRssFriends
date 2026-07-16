@@ -7,14 +7,16 @@ import nh3
 
 # Allow a conservative set of tags: enough for readable prose, nothing
 # that can execute JS, load remote assets, or break layout. `img` is
-# intentionally excluded — tracking pixels + layout jumps aren't worth it
-# on a preview page; users click through for the full post.
+# intentionally excluded — tracking pixels + layout jumps aren't worth
+# it on a preview page; users click through for the full post.
+# Headings (h1–h6) are excluded too — the item title already IS the
+# heading, and feeds that embed a big <h1> from the source article
+# were breaking the visual rhythm.
 _ALLOWED_TAGS: set[str] = {
     "p", "br", "hr",
     "strong", "em", "b", "i", "u", "code", "pre", "blockquote",
     "ul", "ol", "li",
     "a",
-    "h1", "h2", "h3", "h4",
 }
 _ALLOWED_ATTRS: dict[str, set[str]] = {"a": {"href", "title"}}
 

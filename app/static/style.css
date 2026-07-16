@@ -590,28 +590,45 @@ img.favicon {
   font-weight: 600;
 }
 
-.feed-page-items .item { padding: .5rem 0; }
-.item-head { display: flex; align-items: baseline; gap: .4rem; flex-wrap: wrap; }
-.item-head .star { flex: 0 0 auto; }
-.item-head .item-title { flex: 1 1 auto; min-width: 0; word-wrap: break-word; overflow-wrap: anywhere; }
-.item-head .item-date { flex: 0 0 auto; }
+.feed-page-items .item { padding: .75rem 0; }
+.feed-page-items .item + .item { border-top: 1px solid var(--border); margin-top: 0; padding-top: .85rem; }
+.item-head {
+  display: flex;
+  align-items: baseline;
+  gap: .5rem;
+  flex-wrap: wrap;
+  margin-bottom: .2rem;
+}
+.item-head .star { flex: 0 0 auto; align-self: center; }
+.item-head .item-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  word-wrap: break-word;
+  overflow-wrap: anywhere;
+  font-weight: 600;
+}
+.item-head .item-date { flex: 0 0 auto; font-size: .8rem; }
 
-/* Description preview with expand-on-click via native <details>. */
-.item-summary { margin: .35rem 0 0; font-size: .92rem; line-height: 1.55; color: var(--muted); }
+/* Description preview with expand-on-click via native <details>.
+   Kept intentionally small and muted so the item title stays the
+   visual anchor and long summaries don't dominate the page. */
+.item-summary { margin: .15rem 0 0; font-size: .88rem; line-height: 1.5; color: var(--muted); }
 .item-summary summary {
   list-style: none;
   cursor: pointer;
-  padding: .25rem 0;
+  padding: .15rem 0;
   min-height: 1.5em;       /* comfortable tap target on mobile */
   outline: none;
 }
 .item-summary summary::-webkit-details-marker { display: none; }
 .item-summary summary::marker { display: none; content: ""; }
+.item-summary .excerpt { color: var(--muted); }
 .item-summary .more-link {
   color: var(--accent);
-  font-weight: 600;
+  font-weight: 500;
+  font-size: .82rem;
   white-space: nowrap;
-  margin-left: .3rem;
+  margin-left: .35rem;
 }
 .item-summary .more-link::before { content: "· " }
 .item-summary[open] > summary .excerpt,
@@ -619,14 +636,32 @@ img.favicon {
 .item-summary[open] > summary::after {
   content: "Show less";
   color: var(--accent);
-  font-weight: 600;
+  font-weight: 500;
+  font-size: .82rem;
   cursor: pointer;
 }
-.item-summary .full { color: var(--fg); font-size: .95rem; line-height: 1.6; }
-.item-summary .full > *:first-child { margin-top: .2rem; }
+.item-summary .full {
+  color: var(--fg);
+  font-size: .9rem;
+  line-height: 1.6;
+  padding: .1rem 0 .1rem .1rem;
+  border-left: 2px solid var(--border);
+  padding-left: .75rem;
+  margin-top: .35rem;
+}
+.item-summary .full > *:first-child { margin-top: 0; }
 .item-summary .full > *:last-child { margin-bottom: 0; }
-.item-summary .full p { margin: .5rem 0; }
+.item-summary .full p { margin: .45rem 0; }
 .item-summary .full a { color: var(--accent); word-break: break-word; overflow-wrap: anywhere; }
+/* Defensive: if any heading slips through the sanitizer, render it
+   as inline-weight text so it can't visually explode into a giant
+   block heading (as GitHub Trending's <h1> did before). */
+.item-summary .full :is(h1, h2, h3, h4, h5, h6) {
+  font-size: 1em;
+  font-weight: 600;
+  margin: .5rem 0 .25rem;
+  line-height: 1.35;
+}
 .item-summary .full pre,
 .item-summary .full code {
   background: var(--surface);
@@ -634,16 +669,24 @@ img.favicon {
   padding: .1rem .3rem;
   font-size: .85em;
 }
-.item-summary .full pre { padding: .5rem .7rem; overflow-x: auto; white-space: pre-wrap; word-break: break-word; }
+.item-summary .full pre {
+  padding: .5rem .7rem;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
 .item-summary .full blockquote {
-  border-left: 3px solid var(--border);
-  padding-left: .8rem;
-  margin: .5rem 0;
+  border-left: 2px solid var(--border);
+  padding-left: .7rem;
+  margin: .4rem 0;
   color: var(--muted);
 }
+.item-summary .full ul,
+.item-summary .full ol { margin: .35rem 0 .35rem 1.1rem; padding: 0; }
+.item-summary .full li { margin: .1rem 0; }
 
 @media (max-width: 640px) {
-  .item-summary { font-size: .9rem; }
-  .item-summary .full { font-size: .92rem; }
-  .item-summary summary { padding: .4rem 0; }   /* larger tap target */
+  .item-summary { font-size: .86rem; }
+  .item-summary .full { font-size: .88rem; }
+  .item-summary summary { padding: .35rem 0; }   /* larger tap target */
 }
