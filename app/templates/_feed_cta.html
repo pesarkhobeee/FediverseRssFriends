@@ -6,9 +6,9 @@
   <span class="cta-badge">✓ Following</span>
 {% elif state == "available" %}
   <button class="btn"
-          hx-post="/f/{{ feed.id }}/add"
+          hx-get="/f/{{ feed.id }}/add-picker"
           hx-target="#feed-cta-{{ feed.id }}"
-          hx-swap="outerHTML">
+          hx-swap="innerHTML">
     ➕ Add to my radar
   </button>
 {% else %}

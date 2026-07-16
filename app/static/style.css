@@ -558,6 +558,30 @@ img.favicon {
 .feed-hero-title a:hover { text-decoration: underline; }
 
 .feed-cta { display: inline-flex; align-items: center; gap: .35rem; }
+
+/* Inline category picker that opens when a user clicks "Add to my radar". */
+.add-picker {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .35rem .5rem;
+  padding: .5rem .65rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  max-width: 100%;
+}
+.add-picker .picker-label { font-size: .85rem; }
+.add-picker .picker-select { padding: .3rem .5rem; font-size: .9rem; max-width: 180px; }
+.add-picker .picker-new { padding: .3rem .5rem; font-size: .9rem; max-width: 160px; }
+.add-picker .picker-actions { display: inline-flex; gap: .35rem; align-items: center; }
+.add-picker .btn { padding: .35rem .8rem; font-size: .85rem; }
+@media (max-width: 640px) {
+  .add-picker { width: 100%; }
+  .add-picker .picker-select,
+  .add-picker .picker-new { flex: 1 1 100%; max-width: none; }
+  .add-picker .picker-actions { width: 100%; margin-top: .25rem; }
+}
 /* Subscribed state — plain muted text, NOT button-shaped, so it's
    visually obvious the row isn't inviting another add-click. */
 .feed-cta .cta-badge {

@@ -1,0 +1,38 @@
+{# Inline category picker rendered INSIDE #feed-cta-{feed.id}. Submit
+   posts to /f/{id}/add, which returns the "subscribed" CTA partial
+   and swaps the whole feed-cta out. #}
+<form class="add-picker"
+      hx-post="/f/{{ feed.id }}/add"
+      hx-target="#feed-cta-{{ feed.id }}"
+      hx-swap="outerHTML">
+  <label class="muted picker-label" for="picker-cat-{{ feed.id }}">Add to:</label>
+  <select id="picker-cat-{{ feed.id }}" name="category_id" class="input picker-select">
+    {% if categories %}
+      {% for c in categories %}
+        <option value="{{ c.id }}">{{ c.name }}</option>
+      {% endfor %}
+    {% else %}
+      <option value="" disabled selected>— no categories yet —</option>
+    {% endif %}
+  </select>
+  <label class="muted picker-label" for="picker-new-{{ feed.id }}">or new:</label>
+  <input id="picker-new-{{ feed.id }}"
+         name="new_category"
+         class="input picker-new"
+         list="picker-cats-{{ feed.id }}"
+         placeholder="{{ default_name }}"
+         autocomplete="off"
+         spellcheck="false" />
+  {% if categories %}
+    <datalist id="picker-cats-{{ feed.id }}">
+      {% for c in categories %}<option value="{{ c.name }}">{% endfor %}
+    </datalist>
+  {% endif %}
+  <div class="picker-actions">
+    <button type="submit" class="btn">Add</button>
+    <button type="button" class="btn-ghost"
+            hx-get="/f/{{ feed.id }}/cta"
+            hx-target="#feed-cta-{{ feed.id }}"
+            hx-swap="outerHTML">Cancel</button>
+  </div>
+</form>

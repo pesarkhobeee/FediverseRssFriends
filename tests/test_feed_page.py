@@ -62,7 +62,9 @@ def test_signed_in_new_user_sees_add_cta():
     r = client.get(f"/f/{feed_id}")
     assert r.status_code == 200
     assert "Add to my radar" in r.text
-    assert f'hx-post="/f/{feed_id}/add"' in r.text
+    # The button now opens the category picker instead of adding directly —
+    # so users can pick a category or make a new one.
+    assert f'hx-get="/f/{feed_id}/add-picker"' in r.text
 
 
 def test_add_creates_discovered_category_and_subscription():

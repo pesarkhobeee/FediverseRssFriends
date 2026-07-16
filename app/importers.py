@@ -42,25 +42,34 @@ def _next_sub_order(db: Session, user_id: int, category_id: int) -> int:
     return (max_order or 0) + 1
 
 
-def add_subscription_by_feed(
-    db: Session, user: User, feed: Feed, category_name: str
+def add_subscription_to_category(
+    db: Session, user: User, feed: Feed, category: Category
 ) -> bool:
-    """Subscribe user to an existing Feed under category_name. Returns True if new."""
+    """Subscribe user to an existing Feed under an already-resolved Category.
+    Returns True if a new Subscription row was created."""
     if db.exec(
         select(Subscription)
         .where(Subscription.user_id == user.id)
         .where(Subscription.feed_id == feed.id)
     ).first():
         return False
-    cat = find_or_create_category(db, user, category_name)
     sub = Subscription(
         user_id=user.id,
         feed_id=feed.id,
-        category_id=cat.id,
-        sort_order=_next_sub_order(db, user.id, cat.id),
+        category_id=category.id,
+        sort_order=_next_sub_order(db, user.id, category.id),
     )
     db.add(sub)
     return True
+
+
+def add_subscription_by_feed(
+    db: Session, user: User, feed: Feed, category_name: str
+) -> bool:
+    """Subscribe user to an existing Feed under category_name (created if
+    needed). Returns True if new."""
+    cat = find_or_create_category(db, user, category_name)
+    return add_subscription_to_category(db, user, feed, cat)
 
 
 def add_subscription_by_url(

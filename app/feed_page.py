@@ -14,8 +14,8 @@ from sqlmodel import Session, select
 
 from . import activity
 from .auth import current_user, login_required
-from .db import Favorite, Feed, FeedItem, Subscription, User, get_session
-from .importers import add_subscription_by_feed
+from .db import Category, Favorite, Feed, FeedItem, Subscription, User, get_session
+from .importers import add_subscription_to_category, find_or_create_category
 from .templating import make_templates
 
 templates = make_templates()
@@ -96,22 +96,65 @@ def feed_page(
     )
 
 
+@router.get("/f/{feed_id}/add-picker", response_class=HTMLResponse)
+def add_picker(
+    feed_id: int,
+    request: Request,
+    viewer: User = Depends(login_required),
+    db: Session = Depends(get_session),
+):
+    """Inline category picker: user's existing categories in a dropdown
+    + a text input to create a new one. Rendered into #feed-cta-{id}
+    when the user clicks "Add to my radar"."""
+    feed = db.get(Feed, feed_id)
+    if not feed:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "feed not found")
+    categories = db.exec(
+        select(Category)
+        .where(Category.user_id == viewer.id)
+        .order_by(Category.sort_order, Category.id)
+    ).all()
+    return templates.TemplateResponse(
+        request,
+        "_add_to_radar_picker.html",
+        {"feed": feed, "categories": categories, "default_name": DEFAULT_CATEGORY_NAME},
+    )
+
+
 @router.post("/f/{feed_id}/add", response_class=HTMLResponse)
 def add_feed_to_radar(
     feed_id: int,
     request: Request,
-    category: str = Form(DEFAULT_CATEGORY_NAME),
+    category_id: int | None = Form(None),
+    new_category: str = Form(""),
+    # Legacy: some tests / older callers post `category=<name>`. Kept as
+    # a fallback when neither of the new fields is present.
+    category: str = Form(""),
     viewer: User = Depends(login_required),
     db: Session = Depends(get_session),
 ):
-    """One-click add — used by /f/{id} and by Discover. Auto-creates a
-    "Discovered" category the first time. Idempotent: a duplicate add
-    just re-renders the 'subscribed' CTA."""
+    """Subscribe the viewer to the feed. Category resolution order:
+      1. `new_category` (trimmed) — created if not already present.
+      2. `category_id` — must belong to the viewer (else 403).
+      3. `category` name (legacy one-click callers).
+      4. Fallback: DEFAULT_CATEGORY_NAME ("Discovered").
+    Idempotent: adding a feed already on the radar just re-renders the
+    'subscribed' CTA and does NOT move it between categories."""
     feed = db.get(Feed, feed_id)
     if not feed:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "feed not found")
 
-    added = add_subscription_by_feed(db, viewer, feed, category or DEFAULT_CATEGORY_NAME)
+    new_name = (new_category or "").strip()
+    if new_name:
+        cat = find_or_create_category(db, viewer, new_name)
+    elif category_id is not None:
+        cat = db.get(Category, category_id)
+        if not cat or cat.user_id != viewer.id:
+            raise HTTPException(status.HTTP_403_FORBIDDEN, "not your category")
+    else:
+        cat = find_or_create_category(db, viewer, category or DEFAULT_CATEGORY_NAME)
+
+    added = add_subscription_to_category(db, viewer, feed, cat)
     if added:
         activity.record(
             db, viewer, "subscribed", feed.title,
