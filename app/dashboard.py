@@ -4,11 +4,8 @@ All state-changing routes return small HTML fragments so HTMX can swap
 them into the page. Full-page renders live at GET /dashboard.
 """
 
-from pathlib import Path
-
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
 from fastapi.responses import HTMLResponse, Response
-from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select
 
 from . import activity
@@ -18,9 +15,9 @@ from .feeds import normalize_feed_url, resolve_avatar, resolve_feed
 from .importers import add_subscription_by_url
 from .opml import parse_opml
 from .refresh import fetch_one, kick_background_refresh, run_cycle
+from .templating import make_templates
 
-APP_DIR = Path(__file__).resolve().parent
-templates = Jinja2Templates(directory=APP_DIR / "templates")
+templates = make_templates()
 
 router = APIRouter()
 

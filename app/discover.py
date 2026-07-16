@@ -3,20 +3,16 @@ curators. Anonymous-visitable so search engines and unregistered users can
 find their way in."""
 
 from difflib import SequenceMatcher
-from pathlib import Path
 
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, func, or_, select
 
 from .auth import current_user
 from .db import Activity, Feed, Follow, Subscription, User, get_session
-from .utils import relative_time
+from .templating import make_templates
 
-APP_DIR = Path(__file__).resolve().parent
-templates = Jinja2Templates(directory=APP_DIR / "templates")
-templates.env.filters.setdefault("relative_time", relative_time)
+templates = make_templates()
 
 router = APIRouter()
 

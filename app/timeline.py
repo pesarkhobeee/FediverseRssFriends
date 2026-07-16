@@ -8,21 +8,17 @@ users; anonymous visitors keep landing on the marketing/signup page.
 """
 
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select
 
 from . import activity
 from .auth import login_required
 from .db import Activity, Favorite, Feed, FeedItem, Follow, Subscription, User, get_session
-from .utils import relative_time
+from .templating import make_templates
 
-APP_DIR = Path(__file__).resolve().parent
-templates = Jinja2Templates(directory=APP_DIR / "templates")
-templates.env.filters.setdefault("relative_time", relative_time)
+templates = make_templates()
 
 router = APIRouter()
 

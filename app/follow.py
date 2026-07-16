@@ -9,21 +9,16 @@ Approval rules (matches visibility semantics):
 Approved followers of a private user gain view access via can_view().
 """
 
-from pathlib import Path
-
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, func, select
 
 from . import activity, mail
 from .auth import current_user, login_required
 from .db import Follow, User, _now, get_session
-from .utils import relative_time
+from .templating import make_templates
 
-APP_DIR = Path(__file__).resolve().parent
-templates = Jinja2Templates(directory=APP_DIR / "templates")
-templates.env.filters.setdefault("relative_time", relative_time)
+templates = make_templates()
 
 router = APIRouter()
 

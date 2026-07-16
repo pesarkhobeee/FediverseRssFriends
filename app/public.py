@@ -7,12 +7,10 @@ Visibility rules (single dependency, used everywhere a user's radar leaks):
 """
 
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
 from xml.sax.saxutils import escape as xml_escape
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request, status
 from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select
 
 from . import activity, config
@@ -29,13 +27,11 @@ from .db import (
     get_session,
 )
 from .importers import add_subscription_by_feed, fork_from
-from .utils import relative_time
+from .templating import make_templates
 
 NEW_BADGE_WINDOW = timedelta(hours=24)
 
-APP_DIR = Path(__file__).resolve().parent
-templates = Jinja2Templates(directory=APP_DIR / "templates")
-templates.env.filters["relative_time"] = relative_time
+templates = make_templates()
 
 router = APIRouter()
 

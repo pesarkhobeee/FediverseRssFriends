@@ -7,11 +7,8 @@ state-aware "Add to my radar" CTA:
   - anonymous                    → inline login form ("sign in to add")
 """
 
-from pathlib import Path
-
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
 from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy import func
 from sqlmodel import Session, select
 
@@ -19,11 +16,9 @@ from . import activity
 from .auth import current_user, login_required
 from .db import Favorite, Feed, FeedItem, Subscription, User, get_session
 from .importers import add_subscription_by_feed
-from .utils import relative_time
+from .templating import make_templates
 
-APP_DIR = Path(__file__).resolve().parent
-templates = Jinja2Templates(directory=APP_DIR / "templates")
-templates.env.filters.setdefault("relative_time", relative_time)
+templates = make_templates()
 
 router = APIRouter()
 

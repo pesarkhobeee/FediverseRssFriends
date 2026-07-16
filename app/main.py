@@ -7,7 +7,6 @@ from apscheduler.triggers.interval import IntervalTrigger
 from fastapi import Depends, FastAPI, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
 from sqlmodel import Session
 from starlette.middleware.sessions import SessionMiddleware
 
@@ -21,12 +20,13 @@ from .feed_page import router as feed_page_router
 from .follow import router as follow_router
 from .public import router as public_router
 from .refresh import run_cycle
+from .templating import make_templates
 from .timeline import router as timeline_router
 
 log = logging.getLogger(__name__)
 
 APP_DIR = Path(__file__).resolve().parent
-templates = Jinja2Templates(directory=APP_DIR / "templates")
+templates = make_templates()
 
 
 @asynccontextmanager
@@ -57,9 +57,6 @@ async def lifespan(_: FastAPI):
 app = FastAPI(lifespan=lifespan, version=__version__)
 app.add_middleware(SessionMiddleware, secret_key=config.SESSION_SECRET, same_site="lax")
 app.mount("/static", StaticFiles(directory=APP_DIR / "static"), name="static")
-
-# Expose the version to every template (footer, admin, etc.).
-templates.env.globals["app_version"] = __version__
 
 
 def render(request: Request, template: str, **ctx) -> HTMLResponse:

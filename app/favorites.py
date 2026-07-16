@@ -5,22 +5,17 @@ returns the partial for the *opposite* state so HTMX can swap the
 button in place.
 """
 
-from pathlib import Path
-
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select
 
 from . import activity
 from .auth import current_user, login_required
 from .db import Favorite, Feed, FeedItem, User, get_session
 from .public import can_view
-from .utils import relative_time
+from .templating import make_templates
 
-APP_DIR = Path(__file__).resolve().parent
-templates = Jinja2Templates(directory=APP_DIR / "templates")
-templates.env.filters.setdefault("relative_time", relative_time)
+templates = make_templates()
 
 router = APIRouter()
 
