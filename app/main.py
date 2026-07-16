@@ -17,6 +17,7 @@ from .dashboard import router as dashboard_router
 from .db import User, get_session, init_db
 from .discover import router as discover_router
 from .favorites import router as favorites_router
+from .feed_page import router as feed_page_router
 from .follow import router as follow_router
 from .public import router as public_router
 from .refresh import run_cycle
@@ -125,6 +126,7 @@ app.include_router(favorites_router)
 app.include_router(follow_router)
 app.include_router(timeline_router)
 app.include_router(discover_router)
+app.include_router(feed_page_router)
 
 
 @app.get("/help", response_class=HTMLResponse)

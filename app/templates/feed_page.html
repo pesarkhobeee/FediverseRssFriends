@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}{{ feed.title }}{% endblock %}
+{% block content %}
+<section class="feed-hero card">
+  <div class="feed-hero-head">
+    {% if feed.favicon_url %}
+      <img class="favicon feed-hero-icon" src="{{ feed.favicon_url }}" alt="" loading="lazy" />
+    {% else %}
+      <span class="favicon feed-hero-icon" aria-hidden="true">📡</span>
+    {% endif %}
+    <div style="flex:1; min-width:0">
+      <h1 class="feed-hero-title">
+        {% if feed.site_url %}
+          <a href="{{ feed.site_url }}" target="_blank" rel="noopener">{{ feed.title }}</a>
+        {% else %}
+          {{ feed.title }}
+        {% endif %}
+      </h1>
+      <p class="muted" style="margin:.25rem 0 0; font-size:.9rem; word-break:break-all">
+        {{ feed.url }}
+      </p>
+    </div>
+  </div>
+
+  <p class="muted" style="margin:.85rem 0 0; font-size:.9rem">
+    {% if feed.last_fetched_at %}
+      Last checked {{ feed.last_fetched_at|relative_time }}
+    {% endif %}
+    {% if subscriber_count %}
+      · <strong>{{ subscriber_count }}</strong>
+      subscriber{{ '' if subscriber_count == 1 else 's' }} on this instance
+    {% endif %}
+    {% if feed.consecutive_failures %}
+      · ⚠️ this feed has been failing to load
+    {% endif %}
+  </p>
+
+  <p style="margin:1rem 0 0">
+    {% include "_feed_cta.html" %}
+    {% if feed.site_url %}
+      <a class="btn-ghost" href="{{ feed.site_url }}" target="_blank" rel="noopener">Visit website</a>
+    {% endif %}
+    <a class="btn-ghost" href="{{ feed.url }}" target="_blank" rel="noopener">Raw RSS</a>
+  </p>
+</section>
+
+{% if state == "anonymous" %}
+<section class="login">
+  <h3 style="margin:0 0 .5rem">Or sign in with your email</h3>
+  <p class="muted" style="margin:.25rem 0 .75rem; font-size:.9rem">
+    Enter your email — we'll send a magic link. After signing in,
+    click <strong>Add to my radar</strong> above to subscribe.
+    No password required.
+  </p>
+  <form method="post" action="/login" class="login-form">
+    <input type="email" name="email" required autocomplete="email"
+           placeholder="you@example.com" class="input" />
+    <button type="submit" class="btn">Sign in with magic link</button>
+  </form>
+</section>
+{% endif %}
+
+<h2 class="section-title">Latest items</h2>
+{% if items %}
+<ul class="item-list feed-page-items">
+  {% for item in items %}
+    <li class="item">
+      <a class="item-title" href="{{ item.link }}" target="_blank" rel="noopener">
+        {{ item.title }}
+      </a>
+      <div class="muted item-date">
+        {{ item.published_at|relative_time or "recently" }}
+      </div>
+    </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="muted">No items fetched yet — this feed may have just been added, or it's not responding.</p>
+{% endif %}
+{% endblock %}

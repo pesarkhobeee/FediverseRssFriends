@@ -1,0 +1,19 @@
+{# State-aware "Add to my radar" CTA. Expects `feed` and `state` in
+   {anonymous, subscribed, available}. Rendered as an outerHTML swap
+   target so HTMX can flip it after an add. #}
+<span id="feed-cta-{{ feed.id }}" class="feed-cta">
+{% if state == "subscribed" %}
+  <span class="cta-badge">✓ In your radar</span>
+{% elif state == "available" %}
+  <button class="btn"
+          hx-post="/f/{{ feed.id }}/add"
+          hx-target="#feed-cta-{{ feed.id }}"
+          hx-swap="outerHTML">
+    ➕ Add to my radar
+  </button>
+{% else %}
+  <a class="btn" href="/#login" title="Sign in to subscribe">
+    ➕ Sign in to add
+  </a>
+{% endif %}
+</span>

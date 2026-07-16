@@ -57,7 +57,7 @@ def _recent_public_users(db: Session) -> list[dict]:
     ]
 
 
-def _popular_feeds(db: Session) -> list[dict]:
+def _popular_feeds(db: Session, viewer: User | None) -> list[dict]:
     # Count subscriptions only from public users so private radars don't
     # leak popularity signals via discover.
     rows = db.exec(
@@ -69,7 +69,29 @@ def _popular_feeds(db: Session) -> list[dict]:
         .order_by(func.count(Subscription.id).desc(), Feed.id.desc())
         .limit(LIMIT)
     ).all()
-    return [{"feed": feed, "subscribers": n} for feed, n in rows]
+
+    # For each returned feed, tag the CTA state so the template can
+    # render "Add" / "In your radar" / "Sign in to add" per row.
+    feed_ids = [feed.id for feed, _n in rows]
+    subscribed: set[int] = set()
+    if viewer and feed_ids:
+        subscribed = set(
+            db.exec(
+                select(Subscription.feed_id)
+                .where(Subscription.user_id == viewer.id)
+                .where(Subscription.feed_id.in_(feed_ids))
+            ).all()
+        )
+
+    def _state(fid: int) -> str:
+        if viewer is None:
+            return "anonymous"
+        return "subscribed" if fid in subscribed else "available"
+
+    return [
+        {"feed": feed, "subscribers": n, "cta_state": _state(feed.id)}
+        for feed, n in rows
+    ]
 
 
 def _most_forked_curators(db: Session) -> list[dict]:
@@ -141,7 +163,7 @@ def discover(
         {
             "user": viewer,
             "recent_users": _recent_public_users(db),
-            "popular_feeds": _popular_feeds(db),
+            "popular_feeds": _popular_feeds(db, viewer),
             "most_forked": _most_forked_curators(db),
         },
     )

@@ -514,3 +514,24 @@ img.favicon {
   border-radius: 4px; font-size: .95em;
 }
 @media (max-width: 640px) { .help-toc ul { columns: 1; } }
+
+/* Per-feed page — /f/{id} */
+.feed-hero { padding: 1.35rem 1.4rem; }
+.feed-hero-head { display: flex; align-items: center; gap: .85rem; }
+.feed-hero-icon { width: 44px !important; height: 44px !important; flex: 0 0 44px !important; }
+.feed-hero-title { margin: 0; font-size: 1.4rem; }
+.feed-hero-title a { color: var(--fg); text-decoration: none; }
+.feed-hero-title a:hover { text-decoration: underline; }
+
+.feed-cta { display: inline-flex; align-items: center; gap: .35rem; }
+.feed-cta .cta-badge {
+  padding: .4rem .85rem;
+  border-radius: 8px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-weight: 600;
+  font-size: .9rem;
+}
+
+.feed-page-items .item { padding: .5rem 0; }

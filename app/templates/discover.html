@@ -51,19 +51,16 @@
     <li class="fav-item">
       <div class="fav-head">
         {% if p.feed.favicon_url %}
-          <img class="favicon" src="{{ p.feed.favicon_url }}" alt="" loading="lazy"
- />
+          <img class="favicon" src="{{ p.feed.favicon_url }}" alt="" loading="lazy" />
         {% endif %}
-        {% if p.feed.site_url %}
-          <a class="title" href="{{ p.feed.site_url }}" target="_blank" rel="noopener">{{ p.feed.title }}</a>
-        {% else %}
-          <span class="title">{{ p.feed.title }}</span>
-        {% endif %}
-        <a class="feed-url muted" href="{{ p.feed.url }}" target="_blank" rel="noopener" title="Feed URL">rss</a>
+        <a class="title" href="/f/{{ p.feed.id }}">{{ p.feed.title }}</a>
         <span class="spacer"></span>
-        <span class="muted" style="font-size:.85rem">
+        <span class="muted" style="font-size:.85rem; margin-right:.75rem">
           {{ p.subscribers }} subscriber{{ '' if p.subscribers == 1 else 's' }}
         </span>
+        {% with feed=p.feed, state=p.cta_state %}
+          {% include "_feed_cta.html" %}
+        {% endwith %}
       </div>
     </li>
   {% endfor %}
