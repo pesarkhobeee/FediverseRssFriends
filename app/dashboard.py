@@ -5,12 +5,24 @@ them into the page. Full-page renders live at GET /dashboard.
 """
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
-from fastapi.responses import HTMLResponse, Response
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from sqlalchemy import update
 from sqlmodel import Session, select
 
 from . import activity
 from .auth import login_required
-from .db import Category, Feed, FeedItem, Subscription, User, get_session
+from .db import (
+    Activity,
+    Category,
+    Favorite,
+    Feed,
+    FeedItem,
+    Follow,
+    MagicToken,
+    Subscription,
+    User,
+    get_session,
+)
 from .feeds import normalize_feed_url, resolve_avatar, resolve_feed
 from .importers import add_subscription_by_url
 from .opml import parse_opml
@@ -290,6 +302,97 @@ def refresh_single_feed(
         err=err,
         feed=feed,
     )
+
+
+# ---------- Account deletion ----------
+
+
+def _account_footprint(db: Session, user: User) -> dict[str, int]:
+    """Counts we show the user on the confirmation screen so they know
+    exactly what's about to be wiped. Cheap aggregate queries — one
+    row per counter."""
+    def n(stmt) -> int:
+        return db.exec(stmt).one() or 0
+
+    from sqlalchemy import func
+    return {
+        "subscriptions": n(select(func.count(Subscription.id))
+                           .where(Subscription.user_id == user.id)),
+        "categories": n(select(func.count(Category.id))
+                        .where(Category.user_id == user.id)),
+        "favorites": n(select(func.count()).select_from(Favorite)
+                       .where(Favorite.user_id == user.id)),
+        "following": n(select(func.count()).select_from(Follow)
+                       .where(Follow.follower_id == user.id)),
+        "followers": n(select(func.count()).select_from(Follow)
+                       .where(Follow.followee_id == user.id)),
+        "activity": n(select(func.count(Activity.id))
+                      .where(Activity.user_id == user.id)),
+    }
+
+
+def _delete_user_cascade(db: Session, user: User) -> None:
+    """Wipe every row this user owns, and null out foreign references
+    from third-party rows. Feeds/FeedItems are shared and untouched —
+    a feed with zero subscribers just stops being refreshed elsewhere.
+
+    Third-party Activity rows that named this user as `ref_id` (e.g.
+    "@bob forked @alice") keep their denormalized subject text and get
+    `ref_id` set to NULL — so timelines don't dangle-point at a
+    nonexistent row but history remains readable."""
+    uid = user.id
+    email = user.email
+    for stmt in (
+        Favorite.__table__.delete().where(Favorite.user_id == uid),
+        Subscription.__table__.delete().where(Subscription.user_id == uid),
+        Category.__table__.delete().where(Category.user_id == uid),
+        Follow.__table__.delete().where(
+            (Follow.follower_id == uid) | (Follow.followee_id == uid)
+        ),
+        Activity.__table__.delete().where(Activity.user_id == uid),
+        update(Activity).where(
+            Activity.ref_type == "user", Activity.ref_id == uid
+        ).values(ref_id=None),
+        MagicToken.__table__.delete().where(MagicToken.email == email),
+        User.__table__.delete().where(User.id == uid),
+    ):
+        db.exec(stmt)
+    db.commit()
+
+
+@router.get("/account/delete-confirm", response_class=HTMLResponse)
+def delete_confirm(
+    request: Request,
+    user: User = Depends(login_required),
+    db: Session = Depends(get_session),
+):
+    return _partial(
+        request,
+        "_delete_account.html",
+        user=user,
+        footprint=_account_footprint(db, user),
+    )
+
+
+@router.post("/account/delete")
+def delete_account(
+    request: Request,
+    confirm_handle: str = Form(...),
+    user: User = Depends(login_required),
+    db: Session = Depends(get_session),
+):
+    """Destructive. Requires the user to re-type their handle as a
+    second affirmation — the client-side JS already enforces this,
+    but we re-check server-side so a bypassed form can't sneak
+    through."""
+    if confirm_handle.strip().lstrip("@").lower() != user.handle.lower():
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "handle does not match — account not deleted",
+        )
+    _delete_user_cascade(db, user)
+    request.session.clear()
+    return RedirectResponse("/?deleted=1", status_code=status.HTTP_303_SEE_OTHER)
 
 
 @router.post("/refresh", response_class=HTMLResponse)

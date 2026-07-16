@@ -176,6 +176,40 @@ img.favicon {
 }
 .btn-ghost:hover { color: var(--fg); border-color: var(--muted); }
 
+/* Destructive action — visually distinct from the primary olive .btn. */
+.btn-danger {
+  padding: .5rem 1rem;
+  font-size: .9rem;
+  font-weight: 600;
+  color: #fff;
+  background: #b3261e;
+  border: 1px solid #8c1d17;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.btn-danger:hover:not(:disabled) { filter: brightness(1.05); }
+.btn-danger:disabled { opacity: .45; cursor: not-allowed; }
+
+/* Danger zone card + confirmation block on /dashboard. */
+.danger-zone { border-color: #d9a8a4; margin-top: 1.5rem; }
+.danger-zone h2 { color: #b3261e; }
+.danger-confirm {
+  padding: 1.1rem 1.25rem;
+  background: #fdf1ef;
+  border: 1px solid #d9a8a4;
+  border-radius: var(--radius);
+  margin-top: 1.5rem;
+}
+.danger-confirm h3 { color: #b3261e; }
+.delete-list { margin: .25rem 0 .5rem 1.1rem; color: var(--muted); font-size: .9rem; }
+.delete-list li { margin: .1rem 0; }
+.delete-form .btn-danger { margin-right: .5rem; }
+@media (max-width: 640px) {
+  .danger-confirm { padding: 1rem .9rem; }
+  .delete-form .btn-danger,
+  .delete-form .btn-ghost { display: inline-block; margin: .25rem .35rem .25rem 0; }
+}
+
 /* Cards (dashboard building block) */
 .card {
   padding: 1.1rem 1.25rem;

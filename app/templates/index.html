@@ -1,5 +1,10 @@
 {% extends "base.html" %}
 {% block content %}
+{% if deleted %}
+  <section class="card" style="border-color:#d9a8a4; background:#fdf1ef">
+    <p style="margin:0">Your account was deleted. Thanks for trying rssfriends 👋</p>
+  </section>
+{% endif %}
 <section class="hero stack">
   <h1>🌟 Your RSS, with friends.</h1>
   <p class="muted">A social RSS reader — follow the web, share what you read, discover through people.</p>

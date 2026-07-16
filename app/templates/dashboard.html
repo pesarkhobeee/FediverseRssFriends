@@ -74,4 +74,16 @@
     {% include "_category.html" %}
   {% endfor %}
 </div>
+
+<section class="card danger-zone" id="danger-zone">
+  <h2 style="margin-top:0">⚠️ Danger zone</h2>
+  <p class="muted" style="margin:.25rem 0 .75rem">
+    Deleting your account removes your radar, follows, favorites, and
+    activity history. Feeds are shared with everyone else and stay put.
+  </p>
+  <button class="btn-danger"
+          hx-get="/account/delete-confirm"
+          hx-target="#danger-zone"
+          hx-swap="outerHTML">Delete my account…</button>
+</section>
 {% endblock %}

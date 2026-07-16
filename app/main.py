@@ -65,10 +65,14 @@ def render(request: Request, template: str, **ctx) -> HTMLResponse:
 
 
 @app.get("/", response_class=HTMLResponse)
-def index(request: Request, user: User | None = Depends(current_user)):
+def index(
+    request: Request,
+    user: User | None = Depends(current_user),
+    deleted: int = 0,
+):
     if user:
         return RedirectResponse(f"/u/{user.handle}", status_code=303)
-    return render(request, "index.html", user=None)
+    return render(request, "index.html", user=None, deleted=bool(deleted))
 
 
 @app.post("/login", response_class=HTMLResponse)

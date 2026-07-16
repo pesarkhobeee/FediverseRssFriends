@@ -1,0 +1,58 @@
+{# Two-step delete confirmation. Loaded into #danger-zone via HTMX. #}
+<div class="danger-confirm" id="danger-zone">
+  <h3 style="margin-top:0; color: var(--danger, #b3261e)">Delete this account permanently?</h3>
+  <p class="muted" style="margin:.25rem 0 .5rem">
+    This is <strong>immediate and irreversible</strong>. Anyone following
+    <strong>@{{ user.handle }}</strong> will lose access to your radar.
+  </p>
+  <p class="muted" style="margin:.25rem 0 .75rem">
+    The following will be deleted:
+  </p>
+  <ul class="delete-list">
+    <li>{{ footprint.subscriptions }} feed subscription{{ '' if footprint.subscriptions == 1 else 's' }}</li>
+    <li>{{ footprint.categories }} categor{{ 'y' if footprint.categories == 1 else 'ies' }}</li>
+    <li>{{ footprint.favorites }} starred item{{ '' if footprint.favorites == 1 else 's' }}</li>
+    <li>{{ footprint.following }} follow{{ '' if footprint.following == 1 else 's' }} you initiated</li>
+    <li>{{ footprint.followers }} follower{{ '' if footprint.followers == 1 else 's' }}</li>
+    <li>{{ footprint.activity }} activity entr{{ 'y' if footprint.activity == 1 else 'ies' }}</li>
+    <li>Your @{{ user.handle }} handle and account</li>
+  </ul>
+  <p class="muted" style="margin:.75rem 0 .5rem; font-size:.9rem">
+    Feeds themselves aren't deleted — they're shared with other users.
+    If you want a copy of your radar first, grab it from
+    <a href="/u/{{ user.handle }}.opml">📥 OPML</a>.
+  </p>
+
+  <form method="post" action="/account/delete" class="delete-form" id="delete-form">
+    <label for="confirm-handle" class="muted" style="display:block; margin-bottom:.3rem">
+      Type <strong>{{ user.handle }}</strong> to confirm:
+    </label>
+    <input id="confirm-handle" name="confirm_handle" class="input" required
+           autocomplete="off" spellcheck="false" autocapitalize="none"
+           placeholder="{{ user.handle }}" style="max-width:320px" />
+    <div style="margin-top:.75rem">
+      <button type="submit" class="btn-danger" id="delete-submit" disabled>
+        Delete my account forever
+      </button>
+      <button type="button" class="btn-ghost"
+              hx-get="/dashboard"
+              hx-target="body"
+              hx-swap="innerHTML"
+              hx-push-url="/dashboard">Cancel</button>
+    </div>
+  </form>
+
+  <script>
+    (function () {
+      var input = document.getElementById("confirm-handle");
+      var submit = document.getElementById("delete-submit");
+      var target = {{ user.handle|tojson }};
+      function check() {
+        var v = input.value.trim().replace(/^@/, "").toLowerCase();
+        submit.disabled = (v !== target.toLowerCase());
+      }
+      input.addEventListener("input", check);
+      check();
+    })();
+  </script>
+</div>
