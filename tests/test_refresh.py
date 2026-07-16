@@ -91,6 +91,10 @@ def test_refresh_does_not_downgrade_previously_deep_resolved_favicon(monkeypatch
     icon disappearing" bug — every cycle silently downgraded the icon."""
     _stub_httpx(monkeypatch)
     import app.db as db_mod
+    import app.refresh as ref
+
+    # The stored icon is healthy — no heal, no downgrade.
+    monkeypatch.setattr(ref, "_icon_is_reachable", lambda url, timeout=3.0: True)
 
     with Session(db_mod.engine) as s:
         feed = db_mod.Feed(
@@ -116,6 +120,53 @@ def test_refresh_does_not_downgrade_previously_deep_resolved_favicon(monkeypatch
         feed = s.get(db_mod.Feed, feed_id)
         # Icon preserved — not downgraded to the generic fallback.
         assert feed.favicon_url == "https://cdn.example.com/img/favicon.ico"
+
+
+def test_refresh_heals_stored_icon_that_404s(monkeypatch):
+    """Regression: a custom (non-generic) favicon URL that used to work
+    but now returns 404 must be re-derived — otherwise it stays broken
+    forever. This was feed 232 (Google Cloud Blog): the RSS <image>
+    URL had gone stale."""
+    _stub_httpx(monkeypatch)
+    import app.db as db_mod
+    import app.refresh as ref
+
+    monkeypatch.setattr(ref, "_icon_is_reachable", lambda url, timeout=3.0: False)
+
+    calls = []
+    real_resolve = ref.resolve_avatar
+
+    def spy(feed_url, site_url, feed_meta=None, *, deep=False):
+        calls.append(deep)
+        if deep:
+            return "https://cdn.example.com/real-icon.png"
+        return real_resolve(feed_url, site_url, feed_meta, deep=deep)
+
+    monkeypatch.setattr(ref, "resolve_avatar", spy)
+
+    with Session(db_mod.engine) as s:
+        feed = db_mod.Feed(
+            url="https://example.com/feed.xml",
+            title="Example",
+            site_url="https://example.com",
+            # A "custom" stored URL (not the generic fallback) that 404s.
+            favicon_url="https://example.com/old-broken-icon.png",
+        )
+        s.add(feed)
+        s.commit()
+        s.refresh(feed)
+        feed_id = feed.id
+
+    from app.refresh import fetch_one
+    with Session(db_mod.engine) as s:
+        feed = s.get(db_mod.Feed, feed_id)
+        fetch_one(s, feed)
+        s.commit()
+
+    assert True in calls, "expected refresh to deep-resolve a 404 icon"
+    with Session(db_mod.engine) as s:
+        feed = s.get(db_mod.Feed, feed_id)
+        assert feed.favicon_url == "https://cdn.example.com/real-icon.png"
 
 
 def test_refresh_attempts_deep_resolve_when_stored_icon_is_generic(monkeypatch):

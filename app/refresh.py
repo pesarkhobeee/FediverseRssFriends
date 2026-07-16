@@ -32,6 +32,31 @@ def _aware(dt: datetime | None) -> datetime | None:
     return dt.replace(tzinfo=UTC)
 
 
+def _icon_is_reachable(url: str, timeout: float = 3.0) -> bool:
+    """HEAD-probe an icon URL. Treats 2xx as healthy, everything else
+    (including network errors) as broken so we heal them. False
+    negatives just cost one extra deep-resolve — safe."""
+    if not url or not url.startswith(("http://", "https://")):
+        return False
+    try:
+        with httpx.Client(
+            timeout=timeout,
+            follow_redirects=True,
+            headers={"User-Agent": USER_AGENT},
+        ) as client:
+            r = client.head(url)
+            if 200 <= r.status_code < 300:
+                return True
+            # Some CDNs 405/403 on HEAD but 200 on GET. Retry with GET,
+            # streamed so we don't fetch the whole image body.
+            if r.status_code in (403, 405):
+                with client.stream("GET", url) as g:
+                    return 200 <= g.status_code < 300
+            return False
+    except Exception:
+        return False
+
+
 _TAG_RE = re.compile(r"<[^>]+>")
 _WS_RE = re.compile(r"\s+")
 _PUNCT_SPACE_RE = re.compile(r"\s+([.,!?;:])")
@@ -118,25 +143,27 @@ def fetch_one(db: Session, feed: Feed) -> tuple[int, str | None]:
         feed.title = owner
     # Re-derive the avatar every cycle so newly-supported source types
     # (GitHub owners, feeds that just started serving a channel image)
-    # migrate forward. Two rules matter here:
-    #   1. Never DOWNGRADE — a previously-deep-resolved icon (e.g.
-    #      Datadog's dd-static CDN) beats the generic /favicon.ico
-    #      fallback that the fast path would produce.
-    #   2. When we have nothing better than the generic fallback,
-    #      opportunistically try the deep path (site HTML scrape for
-    #      <link rel="…icon…">). Costs one HTTP GET per affected feed
-    #      per cycle — negligible, and it heals feeds whose icon lives
-    #      somewhere other than /favicon.ico.
+    # migrate forward. Three rules:
+    #   1. Never DOWNGRADE — a healthy stored icon beats the generic
+    #      /favicon.ico fallback the fast path would produce.
+    #   2. If the stored icon 404s (checked via HEAD), treat it as
+    #      broken and re-derive via deep resolve. This heals feeds
+    #      whose <image> URL or /favicon.ico goes stale.
+    #   3. If we have nothing but the generic fallback stored, try
+    #      the deep path opportunistically.
     fast_candidate = resolve_avatar(feed.url, feed.site_url, fmeta)
     generic_fallback = _favicon_for(feed.site_url, feed.url)
     stored = feed.favicon_url or ""
-    if fast_candidate == generic_fallback and stored and stored != generic_fallback:
-        # Keep the stored (better) icon — refresh's job isn't to demote.
-        pass
-    elif not stored or stored == generic_fallback:
-        # We have no better answer stored — try harder before falling back.
+    needs_heal = (
+        not stored
+        or stored == generic_fallback
+        or not _icon_is_reachable(stored)
+    )
+    if needs_heal:
         feed.favicon_url = resolve_avatar(feed.url, feed.site_url, fmeta, deep=True)
-    else:
+    elif fast_candidate != generic_fallback and fast_candidate != stored:
+        # Upgrade only — the fast path found something specific (GitHub
+        # owner PNG, feed <image>) that's different from what we have.
         feed.favicon_url = fast_candidate
 
     existing_guids = set(
