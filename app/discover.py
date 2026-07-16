@@ -55,10 +55,16 @@ def _recent_public_users(db: Session) -> list[dict]:
 
 def _popular_feeds(db: Session, viewer: User | None) -> list[dict]:
     # Aggregate count across every subscriber — no visibility leak
-    # because we only expose the total, not who's subscribed.
+    # because we only expose the total, not who's subscribed. But the
+    # feed only appears at all if at least one non-private user subscribes,
+    # so private-only feeds stay off the public Discover surface.
+    non_private_feed_ids = select(Subscription.feed_id).join(
+        User, User.id == Subscription.user_id
+    ).where(User.visibility != "private").distinct()
     rows = db.exec(
         select(Feed, func.count(Subscription.id).label("n"))
         .join(Subscription, Subscription.feed_id == Feed.id)
+        .where(Feed.id.in_(non_private_feed_ids))
         .group_by(Feed.id)
         .order_by(func.count(Subscription.id).desc(), Feed.id.desc())
         .limit(LIMIT)

@@ -140,6 +140,58 @@ def test_popular_feeds_count_includes_private_user_subs():
     assert "2 subscribers" in r.text
 
 
+def test_popular_feeds_hides_feeds_only_subscribed_by_private_users():
+    """A feed followed exclusively by private users should NOT surface
+    on Discover — otherwise anyone can infer that at least one private
+    user follows it. Once any non-private user subscribes, it can
+    appear (and the count includes the private users too)."""
+    p = _client()
+    _login(p, "private@e.com")
+    p.post("/settings/visibility", data={"visibility": "private"}, follow_redirects=False)
+
+    import app.db as db_mod
+
+    with Session(db_mod.engine) as s:
+        hidden = db_mod.Feed(url="https://hidden.example/feed", title="Private-Only Feed")
+        s.add(hidden)
+        s.commit()
+        s.refresh(hidden)
+        pr = s.exec(select(db_mod.User).where(db_mod.User.handle == "private")).one()
+        cat = db_mod.Category(user_id=pr.id, name="c", sort_order=1)
+        s.add(cat)
+        s.commit()
+        s.refresh(cat)
+        s.add(db_mod.Subscription(
+            user_id=pr.id, feed_id=hidden.id, category_id=cat.id, sort_order=1
+        ))
+        s.commit()
+
+    r = _client().get("/discover")
+    assert "Private-Only Feed" not in r.text
+
+    # Now a public user subscribes too — the feed becomes listable.
+    a = _client()
+    _login(a, "public@e.com")
+    with Session(db_mod.engine) as s:
+        pu = s.exec(select(db_mod.User).where(db_mod.User.handle == "public")).one()
+        hidden = s.exec(
+            select(db_mod.Feed).where(db_mod.Feed.title == "Private-Only Feed")
+        ).one()
+        cat_pu = db_mod.Category(user_id=pu.id, name="c", sort_order=1)
+        s.add(cat_pu)
+        s.commit()
+        s.refresh(cat_pu)
+        s.add(db_mod.Subscription(
+            user_id=pu.id, feed_id=hidden.id, category_id=cat_pu.id, sort_order=1
+        ))
+        s.commit()
+
+    r = _client().get("/discover")
+    assert "Private-Only Feed" in r.text
+    # Count reflects BOTH subscribers (private + public).
+    assert "2 subscribers" in r.text
+
+
 def test_search_finds_exact_handle():
     a = _client()
     _login(a, "alice@e.com")
