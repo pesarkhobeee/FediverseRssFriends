@@ -1,6 +1,7 @@
 from collections.abc import Iterator
 from datetime import UTC, datetime
 
+from sqlalchemy import UniqueConstraint
 from sqlmodel import Field, Session, SQLModel, create_engine
 
 from .config import DATABASE_URL
@@ -105,12 +106,33 @@ class Activity(SQLModel, table=True):
 
     id: int | None = Field(default=None, primary_key=True)
     user_id: int = Field(foreign_key="user.id", index=True)
-    kind: str = Field(index=True)  # subscribed | favorited | followed | forked | created_category
+    # kinds: subscribed | favorited | followed | forked | created_category | posted
+    kind: str = Field(index=True)
     subject: str = Field(default="")
     subject_url: str = Field(default="")
     ref_type: str = Field(default="")
     ref_id: int | None = Field(default=None)
     created_at: datetime = Field(default_factory=_now, index=True)
+
+
+class PersonalFeed(SQLModel, table=True):
+    """A feed the user claims as their own — new items from it emit
+    Activity(kind='posted') for that user, so followers see the cross-
+    post on their timeline. Different from Subscription (which means
+    "I read this"); a personal feed means "I authored this"."""
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "feed_id", name="uq_personal_user_feed"),
+    )
+
+    id: int | None = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="user.id", index=True)
+    feed_id: int = Field(foreign_key="feed.id", index=True)
+    label: str = Field(default="")
+    # `connected_at` is the point-in-time cutoff — only feed items
+    # published/fetched AFTER this instant emit Activity for this user.
+    # Prevents historical dumps flooding followers' timelines on connect.
+    connected_at: datetime = Field(default_factory=_now)
 
 
 def _sqlite_column_exists(conn, table: str, column: str) -> bool:

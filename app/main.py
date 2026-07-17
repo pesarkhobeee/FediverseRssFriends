@@ -18,6 +18,7 @@ from .discover import router as discover_router
 from .favorites import router as favorites_router
 from .feed_page import router as feed_page_router
 from .follow import router as follow_router
+from .personal_feeds import router as personal_feeds_router
 from .public import router as public_router
 from .refresh import run_cycle
 from .templating import make_templates
@@ -128,6 +129,7 @@ app.include_router(follow_router)
 app.include_router(timeline_router)
 app.include_router(discover_router)
 app.include_router(feed_page_router)
+app.include_router(personal_feeds_router)
 
 
 @app.get("/help", response_class=HTMLResponse)

@@ -93,11 +93,21 @@ def _load_import_context(db: Session, user: User) -> dict:
     return {}
 
 
+def _load_personal_context(db: Session, user: User) -> dict:
+    from .personal_feeds import _load_personal_feeds
+    return {"personal_feeds": _load_personal_feeds(db, user)}
+
+
 PANELS: dict[str, dict] = {
     "feeds": {
         "label": "📡 Feeds",
         "template": "_panel_feeds.html",
         "loader": _load_feeds_context,
+    },
+    "personal": {
+        "label": "🎙️ My feeds",
+        "template": "_panel_personal.html",
+        "loader": _load_personal_context,
     },
     "settings": {
         "label": "⚙️ Settings",

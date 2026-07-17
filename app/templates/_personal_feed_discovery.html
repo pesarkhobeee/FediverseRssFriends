@@ -1,0 +1,32 @@
+{# Personal-feeds variant of _feed_discovery.html — same shape, different
+   POST target and label semantics. Rendered into #personal-discovery. #}
+<div class="feed-discovery" id="personal-discovery-inner">
+  <p class="muted" style="margin:0 0 .5rem">
+    🔎 That URL isn't a feed itself, but we found
+    <strong>{{ candidates|length }}</strong> feeds on it — pick which
+    to connect as personal:
+  </p>
+  <form hx-post="/personal-feeds/pick"
+        hx-target="#personal-feed-list"
+        hx-swap="beforeend"
+        hx-on::after-request="if(event.detail.successful) this.closest('#personal-discovery-inner').remove()">
+    <input type="hidden" name="label" value="{{ label }}" />
+    <ul class="discovery-list">
+      {% for c in candidates %}
+        <li class="discovery-row">
+          <label>
+            <input type="checkbox" name="urls" value="{{ c.url }}"
+                   {% if loop.first %}checked{% endif %} />
+            <span class="discovery-title">{{ c.title or c.url }}</span>
+            <div class="discovery-url muted">{{ c.url }}</div>
+          </label>
+        </li>
+      {% endfor %}
+    </ul>
+    <div class="discovery-actions">
+      <button type="submit" class="btn">Connect selected</button>
+      <button type="button" class="btn-ghost"
+              onclick="this.closest('#personal-discovery-inner').remove()">Cancel</button>
+    </div>
+  </form>
+</div>

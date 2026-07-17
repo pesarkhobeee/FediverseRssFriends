@@ -603,6 +603,17 @@ img.favicon {
 
 .feed-cta { display: inline-flex; align-items: center; gap: .35rem; }
 
+/* Source domain chip on cross-posted activity items — attribution is
+   self-declared, not verified, so the chip acts as a "from where"
+   signal for readers. */
+.source-chip {
+  background: var(--surface);
+  color: var(--muted);
+  border-color: var(--border);
+  font-family: inherit;
+  font-weight: 500;
+}
+
 /* Tab strip for the dashboard's panel navigation. Progressive-
    enhancement friendly: the tabs are real <a> links, HTMX just makes
    swaps happen without a full reload. */

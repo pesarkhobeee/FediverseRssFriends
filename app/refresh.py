@@ -18,7 +18,7 @@ import httpx
 from sqlmodel import Session, select
 
 from . import config
-from .db import Feed, FeedItem, _now, engine
+from .db import Feed, FeedItem, User, _now, engine
 from .feeds import USER_AGENT, _favicon_for, github_owner, resolve_avatar
 
 log = logging.getLogger(__name__)
@@ -190,6 +190,7 @@ def fetch_one(db: Session, feed: Feed) -> tuple[int, str | None]:
         db.exec(select(FeedItem.guid).where(FeedItem.feed_id == feed.id)).all()
     )
     new = 0
+    newly_added: list[FeedItem] = []
     for entry in (parsed.entries or [])[:MAX_ENTRIES_PER_FEED]:
         guid = _entry_guid(entry)
         if not guid or guid in existing_guids:
@@ -203,6 +204,7 @@ def fetch_one(db: Session, feed: Feed) -> tuple[int, str | None]:
             published_at=_entry_published(entry),
         )
         db.add(item)
+        newly_added.append(item)
         existing_guids.add(guid)
         new += 1
 
@@ -211,10 +213,63 @@ def fetch_one(db: Session, feed: Feed) -> tuple[int, str | None]:
     feed.last_error = ""
     db.add(feed)
     db.commit()
+    for item in newly_added:
+        db.refresh(item)
+
+    if newly_added:
+        _emit_personal_activity(db, feed, newly_added)
 
     if new:
         _trim_history(db, feed.id, config.FEED_ITEM_KEEP)
     return new, None
+
+
+def _emit_personal_activity(
+    db: Session, feed: Feed, items: list[FeedItem]
+) -> None:
+    """For each user who claimed this feed as personal, create an
+    Activity(kind='posted') for every newly-arrived item — that's what
+    makes cross-posts show up on followers' timelines.
+
+    Only items with fetched_at (or published_at) after the user's
+    connected_at count, so registering an already-crowded feed doesn't
+    dump 500 historical items on the world."""
+    from .activity import record
+    from .db import Activity, PersonalFeed
+
+    claimants = db.exec(
+        select(PersonalFeed).where(PersonalFeed.feed_id == feed.id)
+    ).all()
+    if not claimants:
+        return
+
+    for pf in claimants:
+        cutoff = _aware(pf.connected_at) or datetime.min.replace(tzinfo=UTC)
+        for item in items:
+            when = _aware(item.published_at) or _aware(item.fetched_at)
+            if when is None or when < cutoff:
+                continue
+            # Dedup safety: if a previous cycle already recorded this
+            # exact item as posted-activity for this user (rare, only
+            # under mid-cycle crashes), skip.
+            exists = db.exec(
+                select(Activity)
+                .where(Activity.user_id == pf.user_id)
+                .where(Activity.kind == "posted")
+                .where(Activity.ref_type == "external_item")
+                .where(Activity.ref_id == item.id)
+            ).first()
+            if exists:
+                continue
+            actor = db.get(User, pf.user_id)
+            if not actor:
+                continue
+            record(
+                db, actor, "posted", item.title or "(untitled)",
+                subject_url=item.link,
+                ref_type="external_item", ref_id=item.id,
+            )
+    db.commit()
 
 
 def _trim_history(db: Session, feed_id: int, keep: int) -> None:

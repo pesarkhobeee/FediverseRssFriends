@@ -1,0 +1,24 @@
+{# One connected personal feed. Expects `pf` and `feed`. #}
+<li class="feed" id="personal-{{ pf.id }}">
+  {% if feed.favicon_url %}
+    <img class="favicon" src="{{ feed.favicon_url }}" alt="" loading="lazy" />
+  {% else %}
+    <span class="favicon" aria-hidden="true">🔗</span>
+  {% endif %}
+  <span class="title">{{ feed.title or feed.url }}</span>
+  {% if pf.label %}
+    <span class="chip small">{{ pf.label }}</span>
+  {% endif %}
+  <span class="feed-meta muted">
+    connected {{ pf.connected_at|relative_time }}
+  </span>
+  <span class="spacer"></span>
+  <a class="feed-url muted" href="{{ feed.url }}" target="_blank" rel="noopener" title="Feed URL">rss</a>
+  <button class="btn-ghost"
+          hx-delete="/personal-feeds/{{ pf.id }}"
+          hx-target="#personal-{{ pf.id }}"
+          hx-swap="delete"
+          hx-confirm="Disconnect '{{ feed.title or feed.url }}'? Past posts stay in your activity — only future items stop being cross-posted.">
+    Disconnect
+  </button>
+</li>

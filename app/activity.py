@@ -61,6 +61,7 @@ KIND_ICON = {
     "followed": "👤",
     "forked": "🍴",
     "created_category": "📁",
+    "posted": "🔊",
 }
 
 
@@ -70,4 +71,5 @@ KIND_VERB = {
     "followed": "followed",
     "forked": "forked",
     "created_category": "created category",
+    "posted": "posted",
 }

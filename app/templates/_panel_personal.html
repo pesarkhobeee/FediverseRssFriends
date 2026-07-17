@@ -1,0 +1,42 @@
+{# 🎙️ My feeds — external feeds the user claims as their own. Items
+   from these become "posted" activity on their timeline, visible to
+   followers. #}
+<section class="card">
+  <h2 style="margin-top:0">🎙️ My feeds</h2>
+  <p class="muted" style="margin:.25rem 0 .5rem">
+    Connect your own RSS/Atom feeds — Mastodon, YouTube, a personal
+    blog — so new posts appear in your <a href="/u/{{ user.handle }}/activity">public activity</a>
+    and on your followers' <a href="/feed">timelines</a>.
+  </p>
+  <p class="muted" style="margin:.25rem 0 .75rem; font-size:.9rem">
+    Only <em>new</em> posts from the moment you connect count — no
+    historical dump of your Mastodon archive. Attribution isn't
+    verified; followers see the source domain next to each post.
+  </p>
+
+  <div id="personal-discovery"></div>
+
+  <form class="login-form"
+        hx-post="/personal-feeds"
+        hx-target="#personal-feed-list"
+        hx-swap="beforeend"
+        hx-on::after-request="if(event.detail.successful) this.reset()">
+    <input class="input" type="url" name="url" required
+           placeholder="https://hachyderm.io/@you.rss" />
+    <input class="input" type="text" name="label" maxlength="40"
+           style="max-width:200px"
+           placeholder="Optional label (e.g. Mastodon)" />
+    <button class="btn" type="submit">Connect</button>
+  </form>
+</section>
+
+<ul class="feed-list" id="personal-feed-list">
+  <li class="empty-feeds muted">
+    No personal feeds connected yet. Paste one above.
+  </li>
+  {% for it in personal_feeds %}
+    {% with pf=it.pf, feed=it.feed %}
+      {% include "_personal_feed_row.html" %}
+    {% endwith %}
+  {% endfor %}
+</ul>

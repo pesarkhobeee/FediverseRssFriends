@@ -55,6 +55,18 @@ def relative_time(dt: datetime | None) -> str:
     return f"{years} year{'s' if years != 1 else ''} ago"
 
 
+def source_domain(url: str | None) -> str:
+    """Return the host portion of a URL, stripping leading 'www.'. Used
+    as a source attribution chip on cross-posted activity items."""
+    if not url:
+        return ""
+    from urllib.parse import urlparse
+    host = urlparse(url).netloc.lower()
+    if host.startswith("www."):
+        host = host[4:]
+    return host
+
+
 def clean_summary(html: str | None) -> str:
     """Sanitize feed-provided HTML for safe rendering.
 

@@ -11,7 +11,13 @@ from pathlib import Path
 from fastapi.templating import Jinja2Templates
 
 from . import __version__
-from .utils import clean_summary, relative_time, summary_excerpt, summary_was_truncated
+from .utils import (
+    clean_summary,
+    relative_time,
+    source_domain,
+    summary_excerpt,
+    summary_was_truncated,
+)
 
 APP_DIR = Path(__file__).resolve().parent
 
@@ -22,5 +28,6 @@ def make_templates() -> Jinja2Templates:
     t.env.filters.setdefault("clean_summary", clean_summary)
     t.env.filters.setdefault("summary_excerpt", summary_excerpt)
     t.env.filters.setdefault("summary_was_truncated", summary_was_truncated)
+    t.env.filters.setdefault("source_domain", source_domain)
     t.env.globals["app_version"] = __version__
     return t

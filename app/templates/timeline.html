@@ -25,6 +25,12 @@
           {% else %}
             <span class="title">someone</span>
           {% endif %}
+          {# For "posted" activity (personal feed cross-post), show the
+             source domain as a small chip so followers see where it came
+             from — attribution is self-declared, not verified. #}
+          {% if e.activity.kind == "posted" and e.activity.subject_url %}
+            <span class="chip small source-chip">{{ e.activity.subject_url|source_domain }}</span>
+          {% endif %}
           <span class="muted">{{ kind_verb.get(e.activity.kind, e.activity.kind) }}</span>
           {% if e.activity.subject_url %}
             <a class="item-title" href="{{ e.activity.subject_url }}"
