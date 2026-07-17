@@ -169,6 +169,84 @@ def test_refresh_heals_stored_icon_that_404s(monkeypatch):
         assert feed.favicon_url == "https://cdn.example.com/real-icon.png"
 
 
+def test_refresh_normalizes_relative_site_link(monkeypatch):
+    """Regression: some feeds publish <link>/</link> as their site URL.
+    Storing that verbatim breaks every downstream URL derivation.
+    Refresh must resolve it against the feed URL."""
+    body = b"""<?xml version="1.0"?>
+    <feed xmlns="http://www.w3.org/2005/Atom">
+      <title>Chacon</title>
+      <link href="/"/>
+      <updated>2026-06-01T12:00:00Z</updated>
+      <entry>
+        <title>x</title>
+        <link href="https://scottchacon.com/x"/>
+        <id>urn:1</id>
+        <updated>2026-06-01T12:00:00Z</updated>
+      </entry>
+    </feed>"""
+    _stub_httpx(monkeypatch, body=body)
+    import app.db as db_mod
+
+    with Session(db_mod.engine) as s:
+        feed = db_mod.Feed(url="https://scottchacon.com/atom.xml", title="")
+        s.add(feed)
+        s.commit()
+        s.refresh(feed)
+        feed_id = feed.id
+
+    from app.refresh import fetch_one
+    with Session(db_mod.engine) as s:
+        feed = s.get(db_mod.Feed, feed_id)
+        fetch_one(s, feed)
+        s.commit()
+
+    with Session(db_mod.engine) as s:
+        feed = s.get(db_mod.Feed, feed_id)
+    assert feed.site_url == "https://scottchacon.com/", (
+        f"expected absolute site_url, got {feed.site_url!r}"
+    )
+
+
+def test_refresh_does_not_blank_a_working_icon_on_empty_resolve(monkeypatch):
+    """If the stored icon 404s but deep-resolve can't find a
+    replacement (returns ""), keep the old value rather than blanking
+    the icon. Better a broken URL than no URL — the browser fallback
+    JS can still try /favicon.png etc."""
+    _stub_httpx(monkeypatch)
+    import app.db as db_mod
+    import app.refresh as ref
+
+    monkeypatch.setattr(ref, "_icon_is_reachable", lambda url, timeout=3.0: False)
+    monkeypatch.setattr(
+        ref, "resolve_avatar",
+        lambda feed_url, site_url, feed_meta=None, *, deep=False: "",
+    )
+
+    with Session(db_mod.engine) as s:
+        feed = db_mod.Feed(
+            url="https://example.com/feed.xml",
+            title="X",
+            site_url="https://example.com",
+            favicon_url="https://example.com/some-icon.png",
+        )
+        s.add(feed)
+        s.commit()
+        s.refresh(feed)
+        feed_id = feed.id
+
+    from app.refresh import fetch_one
+    with Session(db_mod.engine) as s:
+        feed = s.get(db_mod.Feed, feed_id)
+        fetch_one(s, feed)
+        s.commit()
+
+    with Session(db_mod.engine) as s:
+        feed = s.get(db_mod.Feed, feed_id)
+    # Original icon preserved — refresh refused to blank it.
+    assert feed.favicon_url == "https://example.com/some-icon.png"
+
+
 def test_refresh_attempts_deep_resolve_when_stored_icon_is_generic(monkeypatch):
     """When the stored favicon_url is the generic /favicon.ico fallback,
     refresh opportunistically tries deep resolve — that's how the bug's

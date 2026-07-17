@@ -211,7 +211,11 @@ def feed_image_href(fmeta) -> str:
 
 
 def _favicon_for(site_url: str, feed_url: str) -> str:
-    origin = urlparse(site_url or feed_url)
+    # Prefer site_url only when it's actually absolute (has a netloc).
+    # Some feeds publish <link>/</link> which is "truthy" but has no
+    # host — we must not treat that as the origin.
+    parsed_site = urlparse(site_url or "")
+    origin = parsed_site if parsed_site.netloc else urlparse(feed_url)
     if not origin.netloc:
         return ""
     return f"{origin.scheme or 'https'}://{origin.netloc}/favicon.ico"

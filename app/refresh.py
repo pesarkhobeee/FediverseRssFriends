@@ -11,6 +11,7 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
 from typing import Any
+from urllib.parse import urljoin, urlparse
 
 import feedparser
 import httpx
@@ -133,7 +134,13 @@ def fetch_one(db: Session, feed: Feed) -> tuple[int, str | None]:
     if fmeta.get("title"):
         feed.title = fmeta["title"].strip()
     if fmeta.get("link"):
-        feed.site_url = fmeta["link"].strip()
+        link = fmeta["link"].strip()
+        # Some feeds publish a relative site URL (e.g. <link>/</link>);
+        # resolve against the feed URL so we always store an absolute
+        # URL. Mirrors the same fix in resolve_feed.
+        if link and not urlparse(link).netloc:
+            link = urljoin(feed.url, link)
+        feed.site_url = link
     # For GitHub user/org feeds, ignore the generic upstream title
     # ("Github Public timeline feed") and use the username instead —
     # otherwise every GitHub feed refresh would flip the good title
@@ -168,7 +175,12 @@ def fetch_one(db: Session, feed: Feed) -> tuple[int, str | None]:
         # to <link rel="…icon…"> discovery.
         if healed == stored and stored:
             healed = resolve_avatar(feed.url, feed.site_url, None, deep=True)
-        feed.favicon_url = healed
+        # Never REPLACE a non-empty icon with an empty one. Deep resolve
+        # can return "" if the feed has no <image> and _favicon_for
+        # couldn't derive an origin (e.g. broken site_url). Keeping the
+        # old value beats blanking the icon.
+        if healed or not stored:
+            feed.favicon_url = healed
     elif fast_candidate != generic_fallback and fast_candidate != stored:
         # Upgrade only — the fast path found something specific (GitHub
         # owner PNG, feed <image>) that's different from what we have.
