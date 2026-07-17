@@ -15,7 +15,7 @@ from sqlmodel import Session, select
 
 from . import activity
 from .auth import login_required
-from .db import Activity, Follow, User, get_session
+from .db import Activity, Category, CategoryFollow, Follow, Subscription, User, get_session
 from .templating import make_templates
 
 templates = make_templates()
@@ -48,6 +48,7 @@ def _load_timeline(db: Session, user: User) -> dict:
         users = db.exec(select(User).where(User.id.in_(followee_ids))).all()
         handle_by_id = {u.id: u for u in users}
 
+    seen_activity_ids: set[int] = set()
     entries: list[dict] = []
     if followee_ids:
         rows = db.exec(
@@ -58,6 +59,7 @@ def _load_timeline(db: Session, user: User) -> dict:
             .limit(FEED_LIMIT)
         ).all()
         for ev in rows:
+            seen_activity_ids.add(ev.id)
             entries.append({
                 "kind": "activity",
                 "ts": _aware(ev.created_at),
@@ -65,9 +67,75 @@ def _load_timeline(db: Session, user: User) -> dict:
                 "activity": ev,
             })
 
+    # Category-level follows: pull item-scoped activity (subscribed +
+    # favorited) whose referenced feed lives in a Subscription of that
+    # category on the followee's own radar. Person-scoped kinds
+    # (followed/forked/created_category/posted) don't fit a category
+    # scope and only reach the viewer via whole-user Follow.
+    cat_follow_rows = db.exec(
+        select(CategoryFollow, Category)
+        .join(Category, Category.id == CategoryFollow.category_id)
+        .where(CategoryFollow.follower_id == user.id)
+    ).all()
+    n_cat_follows = len(cat_follow_rows)
+    for _cf, cat in cat_follow_rows:
+        # Feed ids in that category, on the category owner's radar.
+        feed_ids = list(db.exec(
+            select(Subscription.feed_id)
+            .where(Subscription.user_id == cat.user_id)
+            .where(Subscription.category_id == cat.id)
+        ).all())
+        if not feed_ids:
+            continue
+        # Owner's item-scoped activity referencing any of those feeds.
+        # For favorited (ref_type='item'), ref_id is a FeedItem — we need
+        # to filter by item.feed_id. For subscribed (ref_type='feed'),
+        # ref_id IS the feed_id.
+        subs_rows = db.exec(
+            select(Activity)
+            .where(Activity.user_id == cat.user_id)
+            .where(Activity.kind == "subscribed")
+            .where(Activity.ref_type == "feed")
+            .where(Activity.ref_id.in_(feed_ids))
+            .where(Activity.created_at >= cutoff)
+            .order_by(Activity.created_at.desc())
+            .limit(FEED_LIMIT)
+        ).all()
+        from .db import FeedItem
+        fav_rows = db.exec(
+            select(Activity)
+            .join(FeedItem, FeedItem.id == Activity.ref_id)
+            .where(Activity.user_id == cat.user_id)
+            .where(Activity.kind == "favorited")
+            .where(Activity.ref_type == "item")
+            .where(FeedItem.feed_id.in_(feed_ids))
+            .where(Activity.created_at >= cutoff)
+            .order_by(Activity.created_at.desc())
+            .limit(FEED_LIMIT)
+        ).all()
+        actor = handle_by_id.get(cat.user_id)
+        if actor is None:
+            actor = db.get(User, cat.user_id)
+            if actor:
+                handle_by_id[cat.user_id] = actor
+        for ev in list(subs_rows) + list(fav_rows):
+            if ev.id in seen_activity_ids:
+                continue
+            seen_activity_ids.add(ev.id)
+            entries.append({
+                "kind": "activity",
+                "ts": _aware(ev.created_at),
+                "actor": actor,
+                "activity": ev,
+            })
+
+    entries.sort(key=lambda e: e["ts"], reverse=True)
+    entries = entries[:FEED_LIMIT]
+
     return {
         "entries": entries,
         "n_followees": len(followee_ids),
+        "n_category_follows": n_cat_follows,
         "kind_icon": activity.KIND_ICON,
         "kind_verb": activity.KIND_VERB,
     }

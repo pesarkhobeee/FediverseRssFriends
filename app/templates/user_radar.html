@@ -59,6 +59,17 @@
 </div>
 {% endif %}
 
+{% if active_category and user and user.id != owner.id %}
+<p class="category-follow-line muted" style="margin:.5rem 0 .75rem; font-size:.9rem">
+  Just interested in this category?
+  {% with category=active_category, owner_handle=owner.handle, state=category_follow_states.get(active_category.id, "none") %}
+    {% include "_category_follow_button.html" %}
+  {% endwith %}
+  <a class="btn-ghost" href="/u/{{ owner.handle }}/c/{{ active_category.name }}.rss"
+     title="Subscribe to just this category in any RSS reader">🔗 RSS</a>
+</p>
+{% endif %}
+
 <div class="stack" style="margin-top:1rem">
   {% if not active_cat %}
     {# Flat view — every feed on the radar sorted by newest item. #}

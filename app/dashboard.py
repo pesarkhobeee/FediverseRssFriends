@@ -14,6 +14,7 @@ from .auth import login_required
 from .db import (
     Activity,
     Category,
+    CategoryFollow,
     Favorite,
     Feed,
     FeedItem,
@@ -187,14 +188,18 @@ def delete_category(
     if not cat or cat.user_id != user.id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "not found")
     # Cascade the user's subscriptions in this category. Feed rows are global
-    # and stay untouched.
+    # and stay untouched. Also drop any CategoryFollow rows pointed here
+    # so we don't leave dangling FKs.
     for sub in db.exec(
         select(Subscription)
         .where(Subscription.user_id == user.id)
         .where(Subscription.category_id == cat_id)
     ).all():
         db.delete(sub)
-    db.flush()  # ensure sub rows are gone before the FK-owning parent
+    db.exec(
+        CategoryFollow.__table__.delete().where(CategoryFollow.category_id == cat_id)
+    )
+    db.flush()  # ensure child rows are gone before the FK-owning parent
     db.delete(cat)
     db.commit()
     # HTMX will hx-swap the target with the empty body.
@@ -772,7 +777,17 @@ def _delete_user_cascade(db: Session, user: User) -> None:
     nonexistent row but history remains readable."""
     uid = user.id
     email = user.email
+    # Category-follows first: they FK to Category (which we drop below)
+    # and to User (as follower). Cover both sides:
+    #   - rows where the deleted user is the follower
+    #   - rows on categories owned by the deleted user
     for stmt in (
+        CategoryFollow.__table__.delete().where(CategoryFollow.follower_id == uid),
+        CategoryFollow.__table__.delete().where(
+            CategoryFollow.category_id.in_(
+                select(Category.id).where(Category.user_id == uid)
+            )
+        ),
         Favorite.__table__.delete().where(Favorite.user_id == uid),
         Subscription.__table__.delete().where(Subscription.user_id == uid),
         Category.__table__.delete().where(Category.user_id == uid),

@@ -1,0 +1,18 @@
+{# One button per category on /u/{handle}. Expects category, owner_handle,
+   state ('following' | 'none'). Rendered as an outerHTML swap target so
+   it can flip in place. #}
+<span class="category-follow" id="catfollow-{{ category.id }}">
+{% if state == "following" %}
+  <button class="btn-ghost"
+          hx-delete="/u/{{ owner_handle }}/c/{{ category.id }}/follow"
+          hx-target="#catfollow-{{ category.id }}"
+          hx-swap="outerHTML"
+          title="Stop following just this category">✓ Following category</button>
+{% else %}
+  <button class="btn-ghost"
+          hx-post="/u/{{ owner_handle }}/c/{{ category.id }}/follow"
+          hx-target="#catfollow-{{ category.id }}"
+          hx-swap="outerHTML"
+          title="Only see this category's activity on your timeline">🔔 Follow category</button>
+{% endif %}
+</span>

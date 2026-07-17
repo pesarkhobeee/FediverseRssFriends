@@ -175,12 +175,37 @@ def _load_public_radar(
             })
         flat_subs.sort(key=lambda x: _sort_key(x["entries"]), reverse=True)
 
+    # Which of the OWNER's categories does the viewer already
+    # follow at the category level? Drives the follow-button state on
+    # the per-category chip UI. Empty dict for anon/owner.
+    category_follow_states: dict[int, str] = {}
+    if viewer and viewer.id != owner.id and all_categories:
+        from .db import CategoryFollow
+        followed_cat_ids = set(db.exec(
+            select(CategoryFollow.category_id)
+            .where(CategoryFollow.follower_id == viewer.id)
+            .where(CategoryFollow.category_id.in_([c.id for c in all_categories]))
+        ).all())
+        category_follow_states = {
+            c.id: ("following" if c.id in followed_cat_ids else "none")
+            for c in all_categories
+        }
+
+    active_category = None
+    if category_filter:
+        for c in all_categories:
+            if c.name.lower() == category_filter.lower():
+                active_category = c
+                break
+
     return {
         "owner": owner,
         "categories_view": [{"category": c, "subs": by_cat.get(c.id, [])} for c in categories],
         "flat_subs": flat_subs,
         "all_categories": all_categories,
         "active_cat": category_filter or "",
+        "active_category": active_category,
+        "category_follow_states": category_follow_states,
         "total_feeds": len(total_feeds),
         "viewer_faves": viewer_faves,
         "viewer_subs": viewer_subs,
@@ -270,6 +295,83 @@ def user_reading_rss(
         f"    <link>{base}/u/{xml_escape(owner.handle)}</link>\n"
         f"    <description>Every item across every feed "
         f"@{xml_escape(owner.handle)} subscribes to, newest first.</description>\n"
+        + "\n".join(entries) + "\n"
+        "  </channel>\n"
+        "</rss>\n"
+    )
+    return PlainTextResponse(body, media_type="application/rss+xml; charset=utf-8")
+
+
+@router.get("/u/{handle}/c/{cat_name}.rss", response_class=PlainTextResponse)
+def user_category_rss(
+    handle: str,
+    cat_name: str,
+    request: Request,
+    viewer: User | None = Depends(current_user),
+    db: Session = Depends(get_session),
+):
+    """Items scoped to a single category on this user's radar. The
+    "every category is an RSS feed" surface — subscribe in any RSS
+    reader to get just that curatorial slice, not the whole radar."""
+    owner = db.exec(select(User).where(User.handle == handle)).first()
+    if not owner:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "user not found")
+    if not can_view(viewer, owner, db=db):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "this radar is private")
+
+    cat = db.exec(
+        select(Category)
+        .where(Category.user_id == owner.id)
+        .where(Category.name == cat_name)
+    ).first()
+    if not cat:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "category not found")
+
+    items = db.exec(
+        select(FeedItem, Feed)
+        .join(Feed, Feed.id == FeedItem.feed_id)
+        .join(Subscription, Subscription.feed_id == Feed.id)
+        .where(Subscription.user_id == owner.id)
+        .where(Subscription.category_id == cat.id)
+        .order_by(FeedItem.published_at.desc().nulls_last(), FeedItem.fetched_at.desc())
+        .limit(100)
+    ).all()
+
+    base = str(request.base_url).rstrip("/")
+
+    def _rfc822(dt: datetime | None) -> str:
+        if dt is None:
+            return ""
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=UTC)
+        return dt.strftime("%a, %d %b %Y %H:%M:%S +0000")
+
+    entries = []
+    for item, feed in items:
+        pubdate = _rfc822(item.published_at or item.fetched_at)
+        title_prefix = f"[{feed.title}] " if feed.title else ""
+        entries.append(
+            "    <item>\n"
+            f"      <title>{xml_escape(title_prefix + (item.title or '(untitled)'))}</title>\n"
+            f"      <link>{xml_escape(item.link or feed.url)}</link>\n"
+            f"      <guid isPermaLink=\"false\">item-{item.id}</guid>\n"
+            f"      <source url=\"{xml_escape(feed.url)}\">{xml_escape(feed.title)}</source>\n"
+            + (f"      <pubDate>{pubdate}</pubDate>\n" if pubdate else "")
+            + (
+                f"      <description>{xml_escape(item.summary)}</description>\n"
+                if item.summary else ""
+            )
+            + "    </item>"
+        )
+
+    body = (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<rss version="2.0">\n'
+        "  <channel>\n"
+        f"    <title>@{xml_escape(owner.handle)}'s {xml_escape(cat.name)} feeds</title>\n"
+        f"    <link>{base}/u/{xml_escape(owner.handle)}?cat={xml_escape(cat.name)}</link>\n"
+        f"    <description>Items from @{xml_escape(owner.handle)}'s "
+        f"'{xml_escape(cat.name)}' category, newest first.</description>\n"
         + "\n".join(entries) + "\n"
         "  </channel>\n"
         "</rss>\n"

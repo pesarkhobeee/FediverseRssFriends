@@ -5,7 +5,7 @@
   <h1>📜 Timeline</h1>
   <p class="muted">
     What the {{ n_followees }} {{ 'person' if n_followees == 1 else 'people' }} you follow have been
-    starring, adding, and forking lately.
+    starring, adding, and forking lately{% if n_category_follows %}, plus {{ n_category_follows }} categor{{ 'y' if n_category_follows == 1 else 'ies' }} you follow{% endif %}.
   </p>
   <p class="muted" style="font-size:.9rem">
     Looking for new items from your own feeds?

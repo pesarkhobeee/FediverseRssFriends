@@ -115,6 +115,24 @@ class Activity(SQLModel, table=True):
     created_at: datetime = Field(default_factory=_now, index=True)
 
 
+class CategoryFollow(SQLModel, table=True):
+    """A directed follow scoped to a single category on someone else's
+    radar — a finer-grained alternative to whole-user Follow. Only
+    item-scoped activity (subscribed/favorited) whose feed lives in
+    this category surfaces on the follower's timeline via this row.
+    Person-scoped activity (followed/forked/created_category/posted)
+    only reaches followers via a whole-user Follow."""
+
+    __table_args__ = (
+        UniqueConstraint("follower_id", "category_id", name="uq_catfollow_follower_cat"),
+    )
+
+    id: int | None = Field(default=None, primary_key=True)
+    follower_id: int = Field(foreign_key="user.id", index=True)
+    category_id: int = Field(foreign_key="category.id", index=True)
+    created_at: datetime = Field(default_factory=_now, index=True)
+
+
 class PersonalFeed(SQLModel, table=True):
     """A feed the user claims as their own — new items from it emit
     Activity(kind='posted') for that user, so followers see the cross-

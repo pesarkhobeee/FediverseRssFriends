@@ -15,7 +15,7 @@ from sqlmodel import Session, func, select
 
 from . import activity, mail
 from .auth import current_user, login_required
-from .db import Follow, User, _now, get_session
+from .db import Category, CategoryFollow, Follow, User, _now, get_session
 from .templating import make_templates
 
 templates = make_templates()
@@ -122,6 +122,93 @@ def unfollow(
         db.delete(row)
         db.commit()
     return _button_partial(request, target, "none")
+
+
+# ---------- Category follows ----------
+
+
+def category_follow_state(db: Session, viewer_id: int, category_id: int) -> str:
+    """'following' if this viewer follows this specific category,
+    else 'none'. Doesn't inspect whole-user follow state — the two
+    graphs are independent (following the whole person is a strict
+    superset of following one of their categories)."""
+    row = db.exec(
+        select(CategoryFollow)
+        .where(CategoryFollow.follower_id == viewer_id)
+        .where(CategoryFollow.category_id == category_id)
+    ).first()
+    return "following" if row else "none"
+
+
+def _category_follow_partial(
+    request: Request, category: Category, owner_handle: str, state: str
+) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request, "_category_follow_button.html",
+        {"category": category, "owner_handle": owner_handle, "state": state},
+    )
+
+
+@router.post("/u/{handle}/c/{cat_id}/follow", response_class=HTMLResponse)
+def follow_category(
+    handle: str,
+    cat_id: int,
+    request: Request,
+    viewer: User = Depends(login_required),
+    db: Session = Depends(get_session),
+):
+    """Follow one specific category on someone else's radar. Requires
+    the follower to have view access (same can_view rule) — public and
+    unlisted work directly; private users need an approved whole-user
+    follow first."""
+    from .public import can_view
+
+    owner = db.exec(select(User).where(User.handle == handle)).first()
+    if not owner:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "user not found")
+    if owner.id == viewer.id:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "can't follow your own category")
+    if not can_view(viewer, owner, db=db):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "no access to this radar")
+
+    cat = db.get(Category, cat_id)
+    if not cat or cat.user_id != owner.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "category not found")
+
+    existing = db.exec(
+        select(CategoryFollow)
+        .where(CategoryFollow.follower_id == viewer.id)
+        .where(CategoryFollow.category_id == cat_id)
+    ).first()
+    if not existing:
+        db.add(CategoryFollow(follower_id=viewer.id, category_id=cat_id))
+        db.commit()
+    return _category_follow_partial(request, cat, owner.handle, "following")
+
+
+@router.delete("/u/{handle}/c/{cat_id}/follow", response_class=HTMLResponse)
+def unfollow_category(
+    handle: str,
+    cat_id: int,
+    request: Request,
+    viewer: User = Depends(login_required),
+    db: Session = Depends(get_session),
+):
+    owner = db.exec(select(User).where(User.handle == handle)).first()
+    if not owner:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "user not found")
+    cat = db.get(Category, cat_id)
+    if not cat or cat.user_id != owner.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "category not found")
+    row = db.exec(
+        select(CategoryFollow)
+        .where(CategoryFollow.follower_id == viewer.id)
+        .where(CategoryFollow.category_id == cat_id)
+    ).first()
+    if row:
+        db.delete(row)
+        db.commit()
+    return _category_follow_partial(request, cat, owner.handle, "none")
 
 
 @router.get("/follow-requests", response_class=HTMLResponse)
