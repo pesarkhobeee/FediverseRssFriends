@@ -695,15 +695,23 @@ def refresh_single_feed(
     user: User = Depends(login_required),
     db: Session = Depends(get_session),
 ):
-    """Force a synchronous refresh of a single feed. The caller must be
-    subscribed — feeds are global, so any subscriber can trigger a refetch."""
-    sub = db.exec(
+    """Force a synchronous refresh of a single feed. The caller must
+    either be subscribed to the feed OR have it registered as one of
+    their personal feeds — feeds are global, so any authorized user
+    can trigger a refetch."""
+    from .db import PersonalFeed
+
+    authorized = db.exec(
         select(Subscription)
         .where(Subscription.user_id == user.id)
         .where(Subscription.feed_id == feed_id)
+    ).first() or db.exec(
+        select(PersonalFeed)
+        .where(PersonalFeed.user_id == user.id)
+        .where(PersonalFeed.feed_id == feed_id)
     ).first()
-    if not sub:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "not subscribed")
+    if not authorized:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "not authorized")
     feed = db.get(Feed, feed_id)
     if not feed:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "feed not found")

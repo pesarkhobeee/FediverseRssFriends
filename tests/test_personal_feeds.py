@@ -366,6 +366,67 @@ def test_personal_feeds_do_not_count_toward_discover_popularity():
     assert "Toots-Unique-XYZ" not in r.text
 
 
+def test_manual_refresh_allowed_for_personal_feed_owner(monkeypatch):
+    """The /feeds/{id}/refresh endpoint accepts a caller who owns the
+    feed as a PersonalFeed — not just Subscription subscribers."""
+    import app.dashboard as dash
+
+    def fake_fetch(db, feed):
+        return 0, None
+    monkeypatch.setattr(dash, "fetch_one", fake_fetch)
+    monkeypatch.setattr(
+        dash, "resolve_avatar",
+        lambda *a, **kw: None,  # skip deep resolve to keep test hermetic
+    )
+
+    c = _client()
+    _login(c, "farid@e.com")
+    feed_id = _seed_feed("https://mastodon.example/@farid.rss", title="Own")
+    import app.db as db_mod
+    with Session(db_mod.engine) as s:
+        pf = db_mod.PersonalFeed(user_id=_user_id("farid"), feed_id=feed_id)
+        s.add(pf)
+        s.commit()
+
+    r = c.post(f"/feeds/{feed_id}/refresh")
+    assert r.status_code == 200
+
+
+def test_manual_refresh_rejects_unauthorized_caller():
+    """Foreign user with no relationship to the feed is 404'd — same
+    contract regardless of ownership shape."""
+    c = _client()
+    _login(c, "farid@e.com")
+    feed_id = _seed_feed("https://mastodon.example/@farid.rss")
+    import app.db as db_mod
+    with Session(db_mod.engine) as s:
+        pf = db_mod.PersonalFeed(user_id=_user_id("farid"), feed_id=feed_id)
+        s.add(pf)
+        s.commit()
+
+    bob = _client()
+    _login(bob, "bob@e.com")
+    r = bob.post(f"/feeds/{feed_id}/refresh")
+    assert r.status_code == 404
+
+
+def test_personal_feed_row_has_refresh_button():
+    """Confirms the 🔄 button is rendered on each personal feed row."""
+    c = _client()
+    _login(c, "farid@e.com")
+    feed_id = _seed_feed("https://mastodon.example/@farid.rss")
+    import app.db as db_mod
+    with Session(db_mod.engine) as s:
+        pf = db_mod.PersonalFeed(user_id=_user_id("farid"), feed_id=feed_id)
+        s.add(pf)
+        s.commit()
+
+    r = c.get("/dashboard?panel=personal")
+    assert r.status_code == 200
+    assert f'hx-post="/feeds/{feed_id}/refresh"' in r.text
+    assert "🔄" in r.text
+
+
 def test_cap_at_max_personal_feeds(monkeypatch):
     import app.personal_feeds as pf_mod
     monkeypatch.setattr(

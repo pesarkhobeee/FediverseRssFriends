@@ -15,6 +15,12 @@
   <span class="spacer"></span>
   <a class="feed-url muted" href="{{ feed.url }}" target="_blank" rel="noopener" title="Feed URL">rss</a>
   <button class="btn-ghost"
+          hx-post="/feeds/{{ feed.id }}/refresh"
+          hx-target="#personal-refresh-{{ feed.id }}"
+          hx-swap="innerHTML"
+          title="Refresh this feed now">🔄</button>
+  <span id="personal-refresh-{{ feed.id }}"></span>
+  <button class="btn-ghost"
           hx-delete="/personal-feeds/{{ pf.id }}"
           hx-target="#personal-{{ pf.id }}"
           hx-swap="delete"
