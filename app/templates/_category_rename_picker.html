@@ -2,6 +2,7 @@
    #category-head-{id}. Save reloads /dashboard so the new name shows up
    everywhere it's referenced. #}
 <form class="rename-picker"
+      onclick="event.stopPropagation()"
       hx-post="/categories/{{ category.id }}/rename"
       hx-target="#category-head-{{ category.id }}"
       hx-swap="innerHTML">

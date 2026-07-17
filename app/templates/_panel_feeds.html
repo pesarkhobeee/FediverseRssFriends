@@ -17,15 +17,18 @@
 
 <div class="section-head">
   <h2 class="section-title" style="margin:0">2. Subscribe to feeds</h2>
-  <div>
-    <button class="btn-ghost"
+  <div class="section-head-actions">
+    <button type="button" class="btn-ghost" id="toggle-all-cats"
+            onclick="toggleAllCategories(this)"
+            title="Collapse or expand every category at once">▾ Collapse all</button>
+    <button class="btn"
             hx-post="/refresh"
             hx-target="#refresh-status"
             hx-swap="innerHTML"
             hx-indicator="#refresh-status">
-      Refresh now
+      🔄 Refresh now
     </button>
-    <span id="refresh-status"></span>
+    <span id="refresh-status" class="refresh-status"></span>
   </div>
 </div>
 <div id="categories" class="stack">
@@ -34,3 +37,16 @@
     {% include "_category.html" %}
   {% endfor %}
 </div>
+
+<script>
+  // Toggle every category card at once. Flips based on current state:
+  // if anything is open, collapse everything; otherwise expand everything.
+  // Label mirrors the ACTION the button will take, not the current state.
+  function toggleAllCategories(btn) {
+    const details = document.querySelectorAll('#categories details.category');
+    if (!details.length) return;
+    const anyOpen = Array.from(details).some(d => d.open);
+    details.forEach(d => d.open = !anyOpen);
+    btn.textContent = anyOpen ? '▸ Expand all' : '▾ Collapse all';
+  }
+</script>

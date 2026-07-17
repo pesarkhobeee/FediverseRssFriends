@@ -130,7 +130,15 @@ img.favicon {
   gap: 1rem;
   margin: 2rem 0 .75rem;
 }
+.section-head-actions {
+  display: inline-flex;
+  gap: .5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
 .feed-meta { font-size: .85rem; }
+.refresh-status { font-size: .85rem; color: var(--muted); min-width: 0; }
+.htmx-request .refresh-status::before,
 .htmx-request#refresh-status::before { content: "Refreshing…"; color: var(--muted); }
 
 /* Login card */
@@ -218,7 +226,41 @@ img.favicon {
   border-radius: var(--radius);
 }
 
-/* Category card */
+/* Category card — a <details> so the whole card can be collapsed to
+   just its header. The <summary> holds the header row + chevron. */
+.category {
+  /* Keep the .card look and feel even though it's a <details>. */
+  display: block;
+}
+.category > .category-summary {
+  list-style: none;      /* hide default triangle marker */
+  cursor: pointer;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+}
+.category > .category-summary::-webkit-details-marker { display: none; }
+.category > .category-summary::marker { content: ""; display: none; }
+.category-chevron {
+  color: var(--muted);
+  font-size: .9rem;
+  transition: transform 150ms ease;
+  transform: rotate(0deg);
+  flex: 0 0 auto;
+  user-select: none;
+}
+.category:not([open]) > .category-summary .category-chevron {
+  transform: rotate(-90deg);
+}
+.category:not([open]) > .category-summary .category-head {
+  margin-bottom: 0;
+}
+.category-body {
+  margin-top: .5rem;
+}
+
 .category .category-head {
   display: flex;
   align-items: center;
@@ -226,6 +268,8 @@ img.favicon {
   gap: .75rem;
   margin-bottom: .5rem;
   text-align: left;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 .category .category-name {
   margin: 0;

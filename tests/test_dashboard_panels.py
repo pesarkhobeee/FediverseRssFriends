@@ -183,6 +183,33 @@ def test_rename_button_appears_on_dashboard():
     assert f'hx-get="/categories/{cid}/rename-picker"' in r.text
 
 
+def test_feeds_panel_has_collapse_all_and_prominent_refresh():
+    c = _client()
+    _login(c, "alice@e.com")
+    r = c.get("/dashboard?panel=feeds")
+    assert r.status_code == 200
+    # Refresh is now the primary solid button, not a ghost.
+    assert "🔄 Refresh now" in r.text
+    # Collapse-all toggle is present.
+    assert 'id="toggle-all-cats"' in r.text
+    assert "Collapse all" in r.text
+    # toggleAllCategories JS shipped inline.
+    assert "toggleAllCategories" in r.text
+
+
+def test_category_renders_as_details_wrapper():
+    """Each category card is a native <details> so users can collapse
+    it individually by clicking its header."""
+    c = _client()
+    _login(c, "alice@e.com")
+    _cat(c, "Weblogs")
+    r = c.get("/dashboard?panel=feeds")
+    assert '<details class="card category"' in r.text
+    assert 'class="category-summary"' in r.text
+    # Categories start expanded (open) by default.
+    assert 'category" id="category-' in r.text and " open>" in r.text
+
+
 def test_category_name_endpoint_restores_header():
     """Cancel on the rename picker hits this to restore the default
     header without a full reload."""

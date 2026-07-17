@@ -1,10 +1,12 @@
 {# Inner HTML of the category header. Restored by "Cancel" on the
-   rename picker. Expects `category`. #}
+   rename picker. Expects `category`. Lives inside <summary>, so the
+   actions block stops click-propagation to prevent the browser's
+   default details-toggle when you hit Rename/Delete. #}
 <h3 class="category-name">
   <span class="category-badge">Category</span>
   {{ category.name }}
 </h3>
-<div class="category-head-actions">
+<div class="category-head-actions" onclick="event.stopPropagation()">
   <button class="btn-ghost"
           hx-get="/categories/{{ category.id }}/rename-picker"
           hx-target="#category-head-{{ category.id }}"

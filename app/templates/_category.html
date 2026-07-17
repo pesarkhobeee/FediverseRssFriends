@@ -1,32 +1,39 @@
-{# One category card. Expects `entry = {category, subs[]}`. #}
-<section class="card category" id="category-{{ entry.category.id }}">
-  <header class="category-head" id="category-head-{{ entry.category.id }}">
-    {% with category=entry.category %}
-      {% include "_category_header.html" %}
-    {% endwith %}
-  </header>
-
-  <ul class="feed-list" id="feeds-{{ entry.category.id }}">
-    <li class="empty-feeds muted">No feeds in this category yet — paste one below.</li>
-    {% for it in entry.subs %}
-      {% with sub=it.sub, feed=it.feed, item_count=it.item_count %}
-        {% include "_feed_row.html" %}
+{# One category card. Wrapped in <details open> so the whole card can
+   be collapsed to just its header — one click on the summary toggles.
+   Expects `entry = {category, subs[]}`. #}
+<details class="card category" id="category-{{ entry.category.id }}" open>
+  <summary class="category-summary">
+    <span class="category-chevron" aria-hidden="true">▾</span>
+    <div class="category-head" id="category-head-{{ entry.category.id }}">
+      {% with category=entry.category %}
+        {% include "_category_header.html" %}
       {% endwith %}
-    {% endfor %}
-  </ul>
+    </div>
+  </summary>
 
-  {# Slot the discovery picker renders into when POST /feeds returns
-     multiple candidates (server sets HX-Retarget). #}
-  <div id="discovery-{{ entry.category.id }}"></div>
+  <div class="category-body">
+    <ul class="feed-list" id="feeds-{{ entry.category.id }}">
+      <li class="empty-feeds muted">No feeds in this category yet — paste one below.</li>
+      {% for it in entry.subs %}
+        {% with sub=it.sub, feed=it.feed, item_count=it.item_count %}
+          {% include "_feed_row.html" %}
+        {% endwith %}
+      {% endfor %}
+    </ul>
 
-  <form class="login-form"
-        hx-post="/feeds"
-        hx-target="#feeds-{{ entry.category.id }}"
-        hx-swap="beforeend"
-        hx-on::after-request="if(event.detail.successful) this.reset()">
-    <input type="hidden" name="category_id" value="{{ entry.category.id }}" />
-    <input class="input" type="url" name="url" required
-           placeholder="https://example.com/feed.xml" />
-    <button class="btn" type="submit">Subscribe to feed</button>
-  </form>
-</section>
+    {# Slot the discovery picker renders into when POST /feeds returns
+       multiple candidates (server sets HX-Retarget). #}
+    <div id="discovery-{{ entry.category.id }}"></div>
+
+    <form class="login-form"
+          hx-post="/feeds"
+          hx-target="#feeds-{{ entry.category.id }}"
+          hx-swap="beforeend"
+          hx-on::after-request="if(event.detail.successful) this.reset()">
+      <input type="hidden" name="category_id" value="{{ entry.category.id }}" />
+      <input class="input" type="url" name="url" required
+             placeholder="https://example.com/feed.xml" />
+      <button class="btn" type="submit">Subscribe to feed</button>
+    </form>
+  </div>
+</details>
