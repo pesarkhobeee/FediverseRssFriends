@@ -218,10 +218,14 @@ def _favicon_for(site_url: str, feed_url: str) -> str:
 
 
 def resolve_feed(url: str) -> dict:
-    """Return {title, site_url, favicon_url} for a feed URL. Never raises."""
+    """Return {title, site_url, favicon_url, is_feed} for a feed URL.
+    Never raises. `is_feed` reports whether the URL actually parsed as
+    a feed (title in <channel>/<feed>, or at least one entry) — callers
+    that want to distinguish "user pasted a homepage" from "valid feed
+    with sparse metadata" use it to trigger discovery."""
     url = normalize_feed_url(url.strip())
     if not url:
-        return {"title": "", "site_url": "", "favicon_url": ""}
+        return {"title": "", "site_url": "", "favicon_url": "", "is_feed": False}
 
     try:
         with httpx.Client(
@@ -237,9 +241,13 @@ def resolve_feed(url: str) -> dict:
             "title": _fallback_title(url),
             "site_url": "",
             "favicon_url": resolve_avatar(url, "", feed_meta=None),
+            "is_feed": False,
         }
 
     feed_meta = getattr(parsed, "feed", {}) or {}
+    entries = getattr(parsed, "entries", None) or []
+    has_feed_title = bool((feed_meta.get("title") or "").strip())
+    is_feed = has_feed_title or len(entries) > 0
     title = (feed_meta.get("title") or "").strip() or _fallback_title(url)
     # GitHub user/org feeds all ship the generic
     # "Github Public timeline feed" (or similar) title. Prefer the
@@ -256,4 +264,158 @@ def resolve_feed(url: str) -> dict:
         "title": title,
         "site_url": site_url,
         "favicon_url": resolve_avatar(url, site_url, feed_meta, deep=True),
+        "is_feed": is_feed,
     }
+
+
+# ------------------------------ Feed discovery ------------------------------
+# When a user pastes a homepage URL instead of a feed URL, find candidate
+# feeds by parsing <link rel="alternate"> and probing well-known paths.
+
+_ALTERNATE_LINK_RE = re.compile(
+    r'<link\b[^>]*\brel=["\']?alternate["\']?[^>]*>',
+    re.IGNORECASE,
+)
+_LINK_ATTR_RE = re.compile(
+    r'\b(type|href|title)\s*=\s*(?:"([^"]*)"|\'([^\']*)\'|(\S+))',
+    re.IGNORECASE,
+)
+_FEED_TYPES = {
+    "application/rss+xml": "rss",
+    "application/atom+xml": "atom",
+    "application/feed+json": "json",
+    "application/json": "json",
+}
+
+# Only tried when <link rel="alternate"> discovery finds nothing AND the
+# input URL is "root-ish" (empty path or /). Blogger, WordPress, Ghost,
+# Hugo, Jekyll all serve at least one of these.
+_COMMON_FEED_PATHS = (
+    "/feed",
+    "/feed/",
+    "/rss",
+    "/rss.xml",
+    "/atom.xml",
+    "/index.xml",
+    "/feed.xml",
+    "/feed.atom",
+    "/feeds/posts/default",
+)
+
+_DISCOVERY_MAX_CANDIDATES = 10
+_DISCOVERY_PROBE_TIMEOUT = 2.5
+
+
+def _parse_link_attrs(tag: str) -> dict[str, str]:
+    attrs: dict[str, str] = {}
+    for m in _LINK_ATTR_RE.finditer(tag):
+        key = m.group(1).lower()
+        val = m.group(2) or m.group(3) or m.group(4) or ""
+        attrs[key] = val
+    return attrs
+
+
+def _looks_like_feed(body: bytes, content_type: str) -> bool:
+    """Cheap sanity-check: content-type mentions xml/rss/atom/json OR the
+    body starts with a plausible feed root element."""
+    ct = (content_type or "").lower()
+    if any(t in ct for t in ("xml", "rss", "atom", "feed+json", "application/json")):
+        return True
+    head = body[:512].lstrip().lower()
+    return (
+        head.startswith(b"<?xml")
+        or b"<rss" in head
+        or b"<feed" in head
+        or (head.startswith(b"{") and b"jsonfeed" in body[:1024].lower())
+    )
+
+
+def _probe_candidate(url: str) -> tuple[bool, str]:
+    """Try HEAD first, GET if the server refuses HEAD. Returns
+    (is_feed, discovered_title). Title is best-effort — we peek at
+    the first ~2KB and pull <title> if it's XML."""
+    try:
+        with httpx.Client(
+            timeout=_DISCOVERY_PROBE_TIMEOUT,
+            follow_redirects=True,
+            headers={"User-Agent": USER_AGENT},
+        ) as client:
+            r = client.head(url)
+            if r.status_code in (403, 405, 501) or (
+                r.status_code == 200 and not (r.headers.get("content-type") or "")
+            ):
+                # Some servers 405 HEAD but 200 GET; retry with GET.
+                r = client.get(url)
+            if not (200 <= r.status_code < 300):
+                return False, ""
+            ct = r.headers.get("content-type", "")
+            body = getattr(r, "content", b"") or b""
+            if not body and r.status_code == 200:
+                r = client.get(url)
+                body = r.content
+                ct = r.headers.get("content-type", ct)
+            if not _looks_like_feed(body, ct):
+                return False, ""
+            title = ""
+            m = re.search(rb"<title[^>]*>([^<]{0,200})</title>", body[:4096])
+            if m:
+                title = m.group(1).decode("utf-8", errors="replace").strip()
+            return True, title
+    except Exception:
+        return False, ""
+
+
+def discover_feeds(source_url: str) -> list[dict]:
+    """Given an arbitrary URL, return candidate feeds found by:
+      1. <link rel="alternate" type="application/rss+xml|atom+xml|feed+json">
+      2. If none, well-known paths on a root-ish URL.
+    Each result: {"url", "title", "type"}. Deduped, verified reachable,
+    capped at _DISCOVERY_MAX_CANDIDATES."""
+    if not source_url:
+        return []
+    source_url = source_url.strip()
+    html = _http_get_text(source_url, timeout=FETCH_TIMEOUT)
+
+    candidates: list[dict] = []
+    seen: set[str] = set()
+
+    def _add(url: str, title: str, kind: str) -> None:
+        if not url:
+            return
+        # Normalize + drop fragments for dedup.
+        url = urljoin(source_url, url).split("#", 1)[0]
+        if url in seen or len(candidates) >= _DISCOVERY_MAX_CANDIDATES:
+            return
+        seen.add(url)
+        candidates.append({"url": url, "title": title, "type": kind})
+
+    if html:
+        for tag in _ALTERNATE_LINK_RE.findall(html):
+            attrs = _parse_link_attrs(tag)
+            kind = _FEED_TYPES.get((attrs.get("type") or "").lower())
+            if not kind:
+                continue
+            _add(attrs.get("href", ""), attrs.get("title", ""), kind)
+
+    # Fallback: probe common paths if HTML discovery drew a blank.
+    if not candidates:
+        parsed = urlparse(source_url)
+        # "Root-ish" heuristic: path is empty, "/", or a single segment.
+        # Don't blindly probe /feed at the root when the user pasted a
+        # subpath like https://example.com/blog/some-post.
+        path = parsed.path or "/"
+        if path in ("", "/") and parsed.netloc:
+            base = f"{parsed.scheme or 'https'}://{parsed.netloc}"
+            for suffix in _COMMON_FEED_PATHS:
+                _add(base + suffix, "", "rss")
+
+    # Verify each candidate is actually reachable + feed-shaped.
+    verified: list[dict] = []
+    for c in candidates:
+        ok, discovered_title = _probe_candidate(c["url"])
+        if not ok:
+            continue
+        if not c["title"]:
+            c["title"] = discovered_title or _fallback_title(c["url"])
+        verified.append(c)
+    return verified

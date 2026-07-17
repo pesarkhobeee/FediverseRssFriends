@@ -23,7 +23,7 @@ from .db import (
     User,
     get_session,
 )
-from .feeds import normalize_feed_url, resolve_avatar, resolve_feed
+from .feeds import discover_feeds, normalize_feed_url, resolve_avatar, resolve_feed
 from .importers import add_subscription_by_url
 from .opml import parse_opml
 from .refresh import fetch_one, kick_background_refresh, run_cycle
@@ -145,26 +145,15 @@ def delete_category(
 # ---------- Subscriptions ----------
 
 
-@router.post("/feeds", response_class=HTMLResponse)
-def subscribe(
-    request: Request,
-    url: str = Form(...),
-    category_id: int = Form(...),
-    user: User = Depends(login_required),
-    db: Session = Depends(get_session),
-):
-    url = normalize_feed_url(url.strip())
-    if not url:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "url required")
-
-    cat = db.get(Category, category_id)
-    if not cat or cat.user_id != user.id:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "category not found")
-
-    # Global Feed row, deduped by URL.
+def _subscribe_to_url(
+    db: Session, user: User, category_id: int, url: str, meta: dict | None = None
+) -> tuple[Subscription, Feed]:
+    """Shared logic: given a resolved URL, ensure a Feed row exists and
+    create the Subscription. Returns (sub, feed). Raises 409 on duplicate."""
     feed = db.exec(select(Feed).where(Feed.url == url)).first()
     if not feed:
-        meta = resolve_feed(url)
+        if meta is None:
+            meta = resolve_feed(url)
         feed = Feed(
             url=url,
             title=meta["title"],
@@ -175,7 +164,6 @@ def subscribe(
         db.commit()
         db.refresh(feed)
 
-    # Already subscribed? (unique per user, feed)
     existing = db.exec(
         select(Subscription)
         .where(Subscription.user_id == user.id)
@@ -204,7 +192,106 @@ def subscribe(
     )
     db.commit()
     db.refresh(sub)
+    return sub, feed
+
+
+@router.post("/feeds", response_class=HTMLResponse)
+def subscribe(
+    request: Request,
+    url: str = Form(...),
+    category_id: int = Form(...),
+    user: User = Depends(login_required),
+    db: Session = Depends(get_session),
+):
+    """Subscribe by URL. If the pasted URL isn't a feed, run feed
+    discovery (parse <link rel="alternate"> + common paths):
+      - 0 hits → 400 with a friendly message
+      - 1 hit  → silently promote the discovered URL and subscribe
+      - N hits → return an inline picker so the user can pick which
+    """
+    url = normalize_feed_url(url.strip())
+    if not url:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "url required")
+
+    cat = db.get(Category, category_id)
+    if not cat or cat.user_id != user.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "category not found")
+
+    # If we've never seen this URL, check whether it's actually a feed.
+    # If not, try discovery before creating a broken Feed row.
+    if not db.exec(select(Feed).where(Feed.url == url)).first():
+        meta = resolve_feed(url)
+        # Default to True for backwards compat with older stubs / callers
+        # that don't set is_feed; real resolve_feed always sets it.
+        if not meta.get("is_feed", True):
+            candidates = discover_feeds(url)
+            if not candidates:
+                raise HTTPException(
+                    status.HTTP_400_BAD_REQUEST,
+                    "Couldn't find an RSS feed at that URL. "
+                    "Try pasting the feed URL directly.",
+                )
+            if len(candidates) > 1:
+                # Retarget the swap: the form's default target is the
+                # feed <ul>; the picker belongs in its own slot next
+                # to the form. HTMX honors these response headers.
+                resp = _partial(
+                    request, "_feed_discovery.html",
+                    candidates=candidates,
+                    source_url=url,
+                    category=cat,
+                )
+                resp.headers["HX-Retarget"] = f"#discovery-{cat.id}"
+                resp.headers["HX-Reswap"] = "innerHTML"
+                return resp
+            # Exactly one hit — auto-promote and fall through to subscribe.
+            url = normalize_feed_url(candidates[0]["url"])
+            meta = None  # let _subscribe_to_url re-resolve fresh
+        sub, feed = _subscribe_to_url(db, user, category_id, url, meta=meta)
+    else:
+        sub, feed = _subscribe_to_url(db, user, category_id, url)
     return _partial(request, "_feed_row.html", sub=sub, feed=feed, item_count=0)
+
+
+@router.post("/feeds/pick", response_class=HTMLResponse)
+def subscribe_selected(
+    request: Request,
+    category_id: int = Form(...),
+    urls: list[str] = Form([]),
+    user: User = Depends(login_required),
+    db: Session = Depends(get_session),
+):
+    """Subscribe to a set of URLs the user picked from the discovery
+    partial. Silently skips duplicates so partial re-submits don't fail."""
+    cat = db.get(Category, category_id)
+    if not cat or cat.user_id != user.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "category not found")
+
+    added_rows: list[tuple[Subscription, Feed]] = []
+    seen: set[str] = set()
+    for raw in urls:
+        u = normalize_feed_url((raw or "").strip())
+        if not u or u in seen:
+            continue
+        seen.add(u)
+        try:
+            added_rows.append(_subscribe_to_url(db, user, category_id, u))
+        except HTTPException as e:
+            if e.status_code == status.HTTP_409_CONFLICT:
+                continue
+            raise
+
+    # Return each added feed row so HTMX appends them to the category list.
+    # If nothing was added, return an empty response so the picker just
+    # closes (the user un-checked everything before submitting).
+    if not added_rows:
+        return HTMLResponse("")
+    fragments = []
+    for sub, feed in added_rows:
+        fragments.append(templates.get_template("_feed_row.html").render(
+            {"sub": sub, "feed": feed, "item_count": 0, "request": request},
+        ))
+    return HTMLResponse("\n".join(fragments))
 
 
 @router.delete("/subscriptions/{sub_id}")

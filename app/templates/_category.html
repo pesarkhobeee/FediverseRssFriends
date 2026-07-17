@@ -23,6 +23,10 @@
     {% endfor %}
   </ul>
 
+  {# Slot the discovery picker renders into when POST /feeds returns
+     multiple candidates (server sets HX-Retarget). #}
+  <div id="discovery-{{ entry.category.id }}"></div>
+
   <form class="login-form"
         hx-post="/feeds"
         hx-target="#feeds-{{ entry.category.id }}"

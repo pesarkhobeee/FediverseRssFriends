@@ -559,6 +559,25 @@ img.favicon {
 
 .feed-cta { display: inline-flex; align-items: center; gap: .35rem; }
 
+/* Feed discovery panel — shown when a pasted URL isn't itself a feed
+   but the site advertises multiple. Lives between the feed list and
+   the URL-add form on the dashboard. */
+.feed-discovery {
+  margin: .5rem 0 .75rem;
+  padding: .75rem .9rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.discovery-list { list-style: none; padding: 0; margin: .5rem 0; }
+.discovery-row { padding: .35rem 0; border-top: 1px solid var(--border); }
+.discovery-row:first-child { border-top: none; }
+.discovery-row label { display: block; cursor: pointer; }
+.discovery-row input[type="checkbox"] { margin-right: .5rem; vertical-align: middle; }
+.discovery-title { font-weight: 500; }
+.discovery-url { font-size: .8rem; word-break: break-all; overflow-wrap: anywhere; margin-left: 1.5rem; }
+.discovery-actions { display: flex; gap: .5rem; margin-top: .5rem; }
+
 /* Inline pickers: shared layout for "Add to my radar", "Move",
    and "Edit URL". Same shape, different intent. */
 .add-picker,
