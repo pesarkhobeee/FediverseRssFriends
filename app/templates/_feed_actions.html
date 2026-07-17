@@ -11,6 +11,11 @@
         title="Refresh this feed now">🔄</button>
 <span id="refresh-{{ feed.id }}"></span>
 <button class="btn-ghost"
+        hx-get="/subscriptions/{{ sub.id }}/edit-url-picker"
+        hx-target="#actions-{{ sub.id }}"
+        hx-swap="innerHTML"
+        title="Edit the feed's URL">✏️ Edit URL</button>
+<button class="btn-ghost"
         hx-get="/subscriptions/{{ sub.id }}/move-picker"
         hx-target="#actions-{{ sub.id }}"
         hx-swap="innerHTML"

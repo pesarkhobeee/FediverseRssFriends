@@ -258,6 +258,144 @@ def subscription_actions(
     return _partial(request, "_feed_actions.html", sub=sub, feed=feed)
 
 
+@router.get("/subscriptions/{sub_id}/edit-url-picker", response_class=HTMLResponse)
+def edit_url_picker(
+    sub_id: int,
+    request: Request,
+    user: User = Depends(login_required),
+    db: Session = Depends(get_session),
+):
+    sub = _get_owned_subscription(db, user, sub_id)
+    feed = db.get(Feed, sub.feed_id)
+    return _partial(request, "_edit_url_picker.html", sub=sub, feed=feed)
+
+
+@router.post("/subscriptions/{sub_id}/edit-url")
+def edit_subscription_url(
+    sub_id: int,
+    url: str = Form(...),
+    user: User = Depends(login_required),
+    db: Session = Depends(get_session),
+):
+    """Re-point a subscription at a different feed URL. Never mutates
+    the feed for OTHER subscribers.
+
+    Three cases, in order of check:
+      1. Normalized new URL matches current → 204 no-op.
+      2. A Feed already exists at the new URL → migrate the user's
+         subscription to that Feed. If the user already had another
+         subscription to it → 409 (duplicate). If the OLD Feed becomes
+         orphaned (no remaining subscribers), delete it and its items
+         so we don't accumulate zero-subscriber rows.
+      3. No Feed at the new URL exists yet →
+         a. If the old Feed had NO other subscribers, mutate its URL
+            in place (avoids orphan; requested optimization).
+         b. If others still use the old Feed, create a new Feed row
+            for the new URL and re-point only this user's subscription.
+    """
+    from sqlalchemy import func
+
+    from .feeds import _fallback_title, normalize_feed_url
+
+    sub = _get_owned_subscription(db, user, sub_id)
+    old_feed = db.get(Feed, sub.feed_id)
+
+    new_url = normalize_feed_url((url or "").strip())
+    if not new_url:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "url required")
+    if new_url == old_feed.url:
+        return Response(status_code=204)  # no-op
+
+    existing_at_new_url = db.exec(
+        select(Feed).where(Feed.url == new_url)
+    ).first()
+
+    if existing_at_new_url:
+        # User can't accidentally end up with two subscriptions to the
+        # same feed — schema-level composite index guards this too,
+        # but a 409 gives a clean HTMX flow instead of a 500.
+        dup = db.exec(
+            select(Subscription)
+            .where(Subscription.user_id == user.id)
+            .where(Subscription.feed_id == existing_at_new_url.id)
+        ).first()
+        if dup and dup.id != sub.id:
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                "you already subscribe to that feed",
+            )
+        sub.feed_id = existing_at_new_url.id
+        db.add(sub)
+        # If nothing points at the old feed any more, drop it (and its
+        # items and any starred items from it) to avoid orphan rows.
+        _delete_feed_if_orphaned(db, old_feed, exclude_sub_id=sub.id)
+    else:
+        others = db.exec(
+            select(func.count(Subscription.id))
+            .where(Subscription.feed_id == old_feed.id)
+            .where(Subscription.id != sub.id)
+        ).one() or 0
+        if others == 0:
+            # Requested optimization: mutate the old feed in place.
+            # No one else depends on its URL, so this avoids creating
+            # a zero-subscriber orphan of the mistyped feed.
+            old_feed.url = new_url
+            # Blow away metadata that came from the old (wrong) URL so
+            # the next refresh cycle re-derives everything fresh.
+            old_feed.title = _fallback_title(new_url)
+            old_feed.site_url = ""
+            old_feed.favicon_url = ""
+            old_feed.last_fetched_at = None
+            old_feed.last_error = ""
+            old_feed.consecutive_failures = 0
+            # Purge stale items (they were from the wrong feed) and
+            # any Favorites that pointed at them. Users who starred
+            # items from a mistyped URL lose those stars — they were
+            # already stale, so this is the right thing.
+            _purge_feed_items(db, old_feed.id)
+        else:
+            new_feed = Feed(url=new_url, title=_fallback_title(new_url))
+            db.add(new_feed)
+            db.flush()
+            sub.feed_id = new_feed.id
+            db.add(sub)
+
+    db.commit()
+    return Response(status_code=204, headers={"HX-Refresh": "true"})
+
+
+def _purge_feed_items(db: Session, feed_id: int) -> None:
+    from .db import Favorite, FeedItem
+
+    item_ids = [
+        row for row in db.exec(
+            select(FeedItem.id).where(FeedItem.feed_id == feed_id)
+        ).all()
+    ]
+    if item_ids:
+        db.exec(Favorite.__table__.delete().where(Favorite.feed_item_id.in_(item_ids)))
+        db.exec(FeedItem.__table__.delete().where(FeedItem.feed_id == feed_id))
+
+
+def _delete_feed_if_orphaned(
+    db: Session, feed: Feed, *, exclude_sub_id: int
+) -> None:
+    """Delete a Feed row and its cascading item + favorite records if
+    no subscription (other than `exclude_sub_id`, whose reassignment
+    is about to be committed) still points at it."""
+    from sqlalchemy import func
+
+    remaining = db.exec(
+        select(func.count(Subscription.id))
+        .where(Subscription.feed_id == feed.id)
+        .where(Subscription.id != exclude_sub_id)
+    ).one() or 0
+    if remaining > 0:
+        return
+    _purge_feed_items(db, feed.id)
+    db.delete(feed)
+
+
 @router.post("/subscriptions/{sub_id}/move")
 def move_subscription(
     sub_id: int,

@@ -1,0 +1,19 @@
+{# Inline URL edit form rendered inside #actions-{sub.id}. Save
+   reloads /dashboard so the row shows the new feed's metadata. #}
+<form class="edit-picker"
+      hx-post="/subscriptions/{{ sub.id }}/edit-url"
+      hx-target="#actions-{{ sub.id }}"
+      hx-swap="innerHTML">
+  <label class="muted picker-label" for="url-{{ sub.id }}">URL:</label>
+  <input id="url-{{ sub.id }}" name="url" class="input picker-url"
+         type="url" required
+         value="{{ feed.url }}"
+         autocomplete="off" spellcheck="false" />
+  <div class="picker-actions">
+    <button type="submit" class="btn">Save</button>
+    <button type="button" class="btn-ghost"
+            hx-get="/subscriptions/{{ sub.id }}/actions"
+            hx-target="#actions-{{ sub.id }}"
+            hx-swap="innerHTML">Cancel</button>
+  </div>
+</form>

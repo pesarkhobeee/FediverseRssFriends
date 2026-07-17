@@ -559,10 +559,11 @@ img.favicon {
 
 .feed-cta { display: inline-flex; align-items: center; gap: .35rem; }
 
-/* Inline pickers: shared layout for "Add to my radar" (available state)
-   and "Move" (on the dashboard). Same shape, different intent. */
+/* Inline pickers: shared layout for "Add to my radar", "Move",
+   and "Edit URL". Same shape, different intent. */
 .add-picker,
-.move-picker {
+.move-picker,
+.edit-picker {
   display: inline-flex;
   flex-wrap: wrap;
   align-items: center;
@@ -574,22 +575,29 @@ img.favicon {
   max-width: 100%;
 }
 .add-picker .picker-label,
-.move-picker .picker-label { font-size: .85rem; }
+.move-picker .picker-label,
+.edit-picker .picker-label { font-size: .85rem; }
 .add-picker .picker-select,
 .move-picker .picker-select { padding: .3rem .5rem; font-size: .9rem; max-width: 180px; }
 .add-picker .picker-new { padding: .3rem .5rem; font-size: .9rem; max-width: 160px; }
+.edit-picker .picker-url { padding: .3rem .5rem; font-size: .9rem; flex: 1 1 320px; min-width: 240px; }
 .add-picker .picker-actions,
-.move-picker .picker-actions { display: inline-flex; gap: .35rem; align-items: center; }
+.move-picker .picker-actions,
+.edit-picker .picker-actions { display: inline-flex; gap: .35rem; align-items: center; }
 .add-picker .btn,
-.move-picker .btn { padding: .35rem .8rem; font-size: .85rem; }
+.move-picker .btn,
+.edit-picker .btn { padding: .35rem .8rem; font-size: .85rem; }
 @media (max-width: 640px) {
   .add-picker,
-  .move-picker { width: 100%; }
+  .move-picker,
+  .edit-picker { width: 100%; }
   .add-picker .picker-select,
   .add-picker .picker-new,
-  .move-picker .picker-select { flex: 1 1 100%; max-width: none; }
+  .move-picker .picker-select,
+  .edit-picker .picker-url { flex: 1 1 100%; max-width: none; min-width: 0; }
   .add-picker .picker-actions,
-  .move-picker .picker-actions { width: 100%; margin-top: .25rem; }
+  .move-picker .picker-actions,
+  .edit-picker .picker-actions { width: 100%; margin-top: .25rem; }
 }
 /* Subscribed state — plain muted text, NOT button-shaped, so it's
    visually obvious the row isn't inviting another add-click. */
