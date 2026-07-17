@@ -1,17 +1,9 @@
 {# One category card. Expects `entry = {category, subs[]}`. #}
 <section class="card category" id="category-{{ entry.category.id }}">
-  <header class="category-head">
-    <h3 class="category-name">
-      <span class="category-badge">Category</span>
-      {{ entry.category.name }}
-    </h3>
-    <button class="btn-ghost"
-            hx-delete="/categories/{{ entry.category.id }}"
-            hx-target="#category-{{ entry.category.id }}"
-            hx-swap="delete"
-            hx-confirm="Delete category '{{ entry.category.name }}' and unsubscribe from its feeds?">
-      Delete category
-    </button>
+  <header class="category-head" id="category-head-{{ entry.category.id }}">
+    {% with category=entry.category %}
+      {% include "_category_header.html" %}
+    {% endwith %}
   </header>
 
   <ul class="feed-list" id="feeds-{{ entry.category.id }}">

@@ -75,20 +75,69 @@ def _load_radar(db: Session, user: User) -> list[dict]:
     return [{"category": c, "subs": by_cat.get(c.id, [])} for c in categories]
 
 
+# ---------- Panels ----------
+#
+# The dashboard is a shell with a tab strip; each tab renders one panel.
+# Add a new panel by appending a (key, label, template, loader) row here
+# — the tab strip, dispatch, and routing all read from PANELS.
+
+def _load_feeds_context(db: Session, user: User) -> dict:
+    return {"radar": _load_radar(db, user)}
+
+
+def _load_settings_context(db: Session, user: User) -> dict:
+    return {}
+
+
+def _load_import_context(db: Session, user: User) -> dict:
+    return {}
+
+
+PANELS: dict[str, dict] = {
+    "feeds": {
+        "label": "📡 Feeds",
+        "template": "_panel_feeds.html",
+        "loader": _load_feeds_context,
+    },
+    "settings": {
+        "label": "⚙️ Settings",
+        "template": "_panel_settings.html",
+        "loader": _load_settings_context,
+    },
+    "import": {
+        "label": "📥 Import / Export",
+        "template": "_panel_import.html",
+        "loader": _load_import_context,
+    },
+}
+DEFAULT_PANEL = "feeds"
+
+
 @router.get("/dashboard", response_class=HTMLResponse)
 def dashboard(
     request: Request,
+    panel: str = DEFAULT_PANEL,
     user: User = Depends(login_required),
     db: Session = Depends(get_session),
 ):
     from .follow import pending_requests_count
-    return _partial(
-        request,
-        "dashboard.html",
-        user=user,
-        radar=_load_radar(db, user),
-        pending_requests=pending_requests_count(db, user.id),
-    )
+    panel_key = panel if panel in PANELS else DEFAULT_PANEL
+    panel_ctx = PANELS[panel_key]["loader"](db, user)
+    ctx = {
+        "user": user,
+        "pending_requests": pending_requests_count(db, user.id),
+        "panels": PANELS,
+        "active_panel": panel_key,
+        "panel_template": PANELS[panel_key]["template"],
+        **panel_ctx,
+    }
+    # HTMX tab clicks target #dashboard-body and want the panel only, not
+    # the whole shell — check for the hx-request header.
+    hx = request.headers.get("HX-Request") == "true"
+    hx_target = request.headers.get("HX-Target")
+    if hx and hx_target == "dashboard-body":
+        return _partial(request, "_dashboard_body.html", **ctx)
+    return _partial(request, "dashboard.html", **ctx)
 
 
 # ---------- Categories ----------
@@ -140,6 +189,74 @@ def delete_category(
     db.commit()
     # HTMX will hx-swap the target with the empty body.
     return Response(status_code=200)
+
+
+@router.get("/categories/{cat_id}/rename-picker", response_class=HTMLResponse)
+def category_rename_picker(
+    cat_id: int,
+    request: Request,
+    user: User = Depends(login_required),
+    db: Session = Depends(get_session),
+):
+    cat = db.get(Category, cat_id)
+    if not cat or cat.user_id != user.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "not found")
+    return _partial(request, "_category_rename_picker.html", category=cat)
+
+
+@router.get("/categories/{cat_id}/name", response_class=HTMLResponse)
+def category_name(
+    cat_id: int,
+    request: Request,
+    user: User = Depends(login_required),
+    db: Session = Depends(get_session),
+):
+    """Return the default header (name + Rename/Delete buttons). Used by
+    Cancel on the rename picker to restore the header without a reload."""
+    cat = db.get(Category, cat_id)
+    if not cat or cat.user_id != user.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "not found")
+    return _partial(request, "_category_header.html", category=cat)
+
+
+CATEGORY_NAME_MAX = 80
+
+
+@router.post("/categories/{cat_id}/rename")
+def rename_category(
+    cat_id: int,
+    name: str = Form(...),
+    user: User = Depends(login_required),
+    db: Session = Depends(get_session),
+):
+    """Rename a category. Enforces the same case-insensitive uniqueness
+    per user that find_or_create_category assumes."""
+    from sqlalchemy import func
+
+    cat = db.get(Category, cat_id)
+    if not cat or cat.user_id != user.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "not found")
+    new_name = (name or "").strip()
+    if not new_name:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "name required")
+    if len(new_name) > CATEGORY_NAME_MAX:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "name too long")
+    if new_name.lower() != cat.name.lower():
+        dup = db.exec(
+            select(Category)
+            .where(Category.user_id == user.id)
+            .where(func.lower(Category.name) == new_name.lower())
+            .where(Category.id != cat_id)
+        ).first()
+        if dup:
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                "you already have a category with that name",
+            )
+    cat.name = new_name
+    db.add(cat)
+    db.commit()
+    return Response(status_code=204, headers={"HX-Refresh": "true"})
 
 
 # ---------- Subscriptions ----------

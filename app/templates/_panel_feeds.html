@@ -1,0 +1,36 @@
+{# 📡 Feeds — where the day-to-day radar management happens. #}
+<section class="card">
+  <h2 style="margin-top:0">1. Create a category</h2>
+  <p class="muted" style="margin:.25rem 0 .75rem">
+    A short label to group feeds under. Not a URL.
+  </p>
+  <form class="login-form"
+        hx-post="/categories"
+        hx-target="#categories"
+        hx-swap="beforeend"
+        hx-on::after-request="if(event.detail.successful) this.reset()">
+    <input class="input" type="text" name="name" required maxlength="40"
+           placeholder="Weblogs · News · GitHub" />
+    <button class="btn" type="submit">Add category</button>
+  </form>
+</section>
+
+<div class="section-head">
+  <h2 class="section-title" style="margin:0">2. Subscribe to feeds</h2>
+  <div>
+    <button class="btn-ghost"
+            hx-post="/refresh"
+            hx-target="#refresh-status"
+            hx-swap="innerHTML"
+            hx-indicator="#refresh-status">
+      Refresh now
+    </button>
+    <span id="refresh-status"></span>
+  </div>
+</div>
+<div id="categories" class="stack">
+  <p class="empty-hint muted">No categories yet. Add one above to start subscribing to feeds.</p>
+  {% for entry in radar %}
+    {% include "_category.html" %}
+  {% endfor %}
+</div>

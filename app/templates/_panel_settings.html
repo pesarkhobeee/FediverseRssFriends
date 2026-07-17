@@ -1,0 +1,29 @@
+{# ⚙️ Settings — visibility + destructive account actions. #}
+<section class="card">
+  <h2 style="margin-top:0">Visibility</h2>
+  <p class="muted" style="margin:.25rem 0 .75rem">
+    Controls who can see your radar page. Public shows up on /discover;
+    unlisted is link-only; private is you-only (plus approved followers).
+  </p>
+  <form method="post" action="/settings/visibility" class="login-form">
+    <label class="muted" for="vis">Visibility:</label>
+    <select id="vis" name="visibility" class="input" style="max-width:220px" onchange="this.form.submit()">
+      <option value="public"   {% if user.visibility == 'public' %}selected{% endif %}>Public — anyone</option>
+      <option value="unlisted" {% if user.visibility == 'unlisted' %}selected{% endif %}>Unlisted — link only</option>
+      <option value="private"  {% if user.visibility == 'private' %}selected{% endif %}>Private — only me</option>
+    </select>
+    <noscript><button class="btn-ghost" type="submit">Save</button></noscript>
+  </form>
+</section>
+
+<section class="card danger-zone" id="danger-zone">
+  <h2 style="margin-top:0">⚠️ Danger zone</h2>
+  <p class="muted" style="margin:.25rem 0 .75rem">
+    Deleting your account removes your radar, follows, favorites, and
+    activity history. Feeds are shared with everyone else and stay put.
+  </p>
+  <button class="btn-danger"
+          hx-get="/account/delete-confirm"
+          hx-target="#danger-zone"
+          hx-swap="outerHTML">Delete my account…</button>
+</section>

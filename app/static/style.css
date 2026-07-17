@@ -559,6 +559,37 @@ img.favicon {
 
 .feed-cta { display: inline-flex; align-items: center; gap: .35rem; }
 
+/* Tab strip for the dashboard's panel navigation. Progressive-
+   enhancement friendly: the tabs are real <a> links, HTMX just makes
+   swaps happen without a full reload. */
+.tab-strip {
+  display: flex;
+  gap: .25rem;
+  border-bottom: 1px solid var(--border);
+  margin: 1.5rem 0 1.25rem;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.tab-strip .tab {
+  display: inline-block;
+  padding: .55rem .9rem;
+  color: var(--muted);
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+  font-weight: 500;
+  white-space: nowrap;
+  margin-bottom: -1px;
+  cursor: pointer;
+}
+.tab-strip .tab:hover { color: var(--fg); }
+.tab-strip .tab-active {
+  color: var(--fg);
+  border-bottom-color: var(--accent);
+}
+@media (max-width: 640px) {
+  .tab-strip .tab { padding: .5rem .65rem; font-size: .9rem; }
+}
+
 /* Feed discovery panel — shown when a pasted URL isn't itself a feed
    but the site advertises multiple. Lives between the feed list and
    the URL-add form on the dashboard. */
@@ -579,10 +610,11 @@ img.favicon {
 .discovery-actions { display: flex; gap: .5rem; margin-top: .5rem; }
 
 /* Inline pickers: shared layout for "Add to my radar", "Move",
-   and "Edit URL". Same shape, different intent. */
+   "Edit URL", and "Rename category". Same shape, different intent. */
 .add-picker,
 .move-picker,
-.edit-picker {
+.edit-picker,
+.rename-picker {
   display: inline-flex;
   flex-wrap: wrap;
   align-items: center;
@@ -595,17 +627,23 @@ img.favicon {
 }
 .add-picker .picker-label,
 .move-picker .picker-label,
-.edit-picker .picker-label { font-size: .85rem; }
+.edit-picker .picker-label,
+.rename-picker .picker-label { font-size: .85rem; }
+.rename-picker .picker-rename { padding: .3rem .5rem; font-size: .95rem; flex: 1 1 240px; min-width: 180px; font-weight: 600; }
+.category-head-actions { display: inline-flex; gap: .35rem; align-items: center; flex-wrap: wrap; }
+@media (max-width: 640px) { .rename-picker { width: 100%; } }
 .add-picker .picker-select,
 .move-picker .picker-select { padding: .3rem .5rem; font-size: .9rem; max-width: 180px; }
 .add-picker .picker-new { padding: .3rem .5rem; font-size: .9rem; max-width: 160px; }
 .edit-picker .picker-url { padding: .3rem .5rem; font-size: .9rem; flex: 1 1 320px; min-width: 240px; }
 .add-picker .picker-actions,
 .move-picker .picker-actions,
-.edit-picker .picker-actions { display: inline-flex; gap: .35rem; align-items: center; }
+.edit-picker .picker-actions,
+.rename-picker .picker-actions { display: inline-flex; gap: .35rem; align-items: center; }
 .add-picker .btn,
 .move-picker .btn,
-.edit-picker .btn { padding: .35rem .8rem; font-size: .85rem; }
+.edit-picker .btn,
+.rename-picker .btn { padding: .35rem .8rem; font-size: .85rem; }
 @media (max-width: 640px) {
   .add-picker,
   .move-picker,

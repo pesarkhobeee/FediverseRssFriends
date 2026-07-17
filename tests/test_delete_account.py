@@ -22,7 +22,8 @@ def _login(client, email):
 def test_dashboard_shows_danger_zone():
     c = _client()
     _login(c, "alice@e.com")
-    r = c.get("/dashboard")
+    # Danger zone lives in the ⚙️ Settings panel (as of 0.2.25 tabbed dashboard).
+    r = c.get("/dashboard?panel=settings")
     assert r.status_code == 200
     assert "Danger zone" in r.text
     assert 'hx-get="/account/delete-confirm"' in r.text

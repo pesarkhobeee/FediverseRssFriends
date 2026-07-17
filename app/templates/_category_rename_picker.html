@@ -1,0 +1,20 @@
+{# Inline rename form for a category. Rendered inside
+   #category-head-{id}. Save reloads /dashboard so the new name shows up
+   everywhere it's referenced. #}
+<form class="rename-picker"
+      hx-post="/categories/{{ category.id }}/rename"
+      hx-target="#category-head-{{ category.id }}"
+      hx-swap="innerHTML">
+  <label class="muted picker-label" for="rename-{{ category.id }}">Name:</label>
+  <input id="rename-{{ category.id }}" name="name" class="input picker-rename"
+         type="text" required maxlength="80"
+         value="{{ category.name }}"
+         autocomplete="off" autofocus />
+  <div class="picker-actions">
+    <button type="submit" class="btn">Save</button>
+    <button type="button" class="btn-ghost"
+            hx-get="/categories/{{ category.id }}/name"
+            hx-target="#category-head-{{ category.id }}"
+            hx-swap="innerHTML">Cancel</button>
+  </div>
+</form>

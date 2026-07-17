@@ -1,0 +1,29 @@
+{# 📥 Import / Export — OPML in, OPML out. #}
+<section class="card">
+  <h2 style="margin-top:0">📤 Import from OPML</h2>
+  <p class="muted" style="margin:.25rem 0 .75rem">
+    Paste an existing reading list. Feeds already in your radar are skipped.
+  </p>
+  <form class="login-form"
+        hx-post="/import/opml"
+        hx-encoding="multipart/form-data"
+        hx-target="#import-result"
+        hx-swap="innerHTML"
+        hx-on::after-request="if(event.detail.successful) this.reset()">
+    <input class="input" type="file" name="file" accept=".opml,.xml,application/xml,text/xml" required />
+    <button class="btn" type="submit">Import OPML</button>
+  </form>
+  <div id="import-result"></div>
+</section>
+
+<section class="card">
+  <h2 style="margin-top:0">📥 Export as OPML</h2>
+  <p class="muted" style="margin:.25rem 0 .75rem">
+    A portable copy of your radar. Any RSS reader (Feedly, Miniflux,
+    NetNewsWire, lovelyRSS, ...) can import this file.
+  </p>
+  <p>
+    <a class="btn" href="/u/{{ user.handle }}.opml">Download OPML</a>
+    <a class="btn-ghost" href="/u/{{ user.handle }}.opml" target="_blank" rel="noopener">Preview raw</a>
+  </p>
+</section>

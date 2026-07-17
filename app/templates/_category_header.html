@@ -1,0 +1,20 @@
+{# Inner HTML of the category header. Restored by "Cancel" on the
+   rename picker. Expects `category`. #}
+<h3 class="category-name">
+  <span class="category-badge">Category</span>
+  {{ category.name }}
+</h3>
+<div class="category-head-actions">
+  <button class="btn-ghost"
+          hx-get="/categories/{{ category.id }}/rename-picker"
+          hx-target="#category-head-{{ category.id }}"
+          hx-swap="innerHTML"
+          title="Rename this category">✏️ Rename</button>
+  <button class="btn-ghost"
+          hx-delete="/categories/{{ category.id }}"
+          hx-target="#category-{{ category.id }}"
+          hx-swap="delete"
+          hx-confirm="Delete category '{{ category.name }}' and unsubscribe from its feeds?">
+    Delete category
+  </button>
+</div>

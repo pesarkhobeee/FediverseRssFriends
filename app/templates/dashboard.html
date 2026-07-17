@@ -6,84 +6,26 @@
   <p>
     <a class="btn-ghost" href="/u/{{ user.handle }}">🌐 View public page</a>
     <a class="btn-ghost" href="/u/{{ user.handle }}/favorites">⭐ My favorites</a>
-    <a class="btn-ghost" href="/u/{{ user.handle }}.opml">📥 OPML</a>
     <a class="btn-ghost" href="/follow-requests">
       📮 Follow requests{% if pending_requests %} ({{ pending_requests }}){% endif %}
     </a>
   </p>
-  <form method="post" action="/settings/visibility" class="login-form" style="margin-top:.75rem">
-    <label class="muted" for="vis">Visibility:</label>
-    <select id="vis" name="visibility" class="input" style="max-width:220px" onchange="this.form.submit()">
-      <option value="public"   {% if user.visibility == 'public' %}selected{% endif %}>Public — anyone</option>
-      <option value="unlisted" {% if user.visibility == 'unlisted' %}selected{% endif %}>Unlisted — link only</option>
-      <option value="private"  {% if user.visibility == 'private' %}selected{% endif %}>Private — only me</option>
-    </select>
-    <noscript><button class="btn-ghost" type="submit">Save</button></noscript>
-  </form>
 </section>
 
-<section class="card">
-  <h2 style="margin-top:0">Import from OPML</h2>
-  <p class="muted" style="margin:.25rem 0 .75rem">
-    Paste an existing reading list. Feeds already in your radar are skipped.
-  </p>
-  <form class="login-form"
-        hx-post="/import/opml"
-        hx-encoding="multipart/form-data"
-        hx-target="#import-result"
-        hx-swap="innerHTML"
-        hx-on::after-request="if(event.detail.successful) this.reset()">
-    <input class="input" type="file" name="file" accept=".opml,.xml,application/xml,text/xml" required />
-    <button class="btn" type="submit">📤 Import OPML</button>
-  </form>
-  <div id="import-result"></div>
-</section>
-
-<section class="card">
-  <h2 style="margin-top:0">1. Create a category</h2>
-  <p class="muted" style="margin:.25rem 0 .75rem">
-    A short label to group feeds under. Not a URL.
-  </p>
-  <form class="login-form"
-        hx-post="/categories"
-        hx-target="#categories"
-        hx-swap="beforeend"
-        hx-on::after-request="if(event.detail.successful) this.reset()">
-    <input class="input" type="text" name="name" required maxlength="40"
-           placeholder="Weblogs · News · GitHub" />
-    <button class="btn" type="submit">Add category</button>
-  </form>
-</section>
-
-<div class="section-head">
-  <h2 class="section-title" style="margin:0">2. Subscribe to feeds</h2>
-  <div>
-    <button class="btn-ghost"
-            hx-post="/refresh"
-            hx-target="#refresh-status"
-            hx-swap="innerHTML"
-            hx-indicator="#refresh-status">
-      Refresh now
-    </button>
-    <span id="refresh-status"></span>
-  </div>
-</div>
-<div id="categories" class="stack">
-  <p class="empty-hint muted">No categories yet. Add one above to start subscribing to feeds.</p>
-  {% for entry in radar %}
-    {% include "_category.html" %}
+<nav class="tab-strip" role="tablist" aria-label="Dashboard panels">
+  {% for key, meta in panels.items() %}
+    <a role="tab"
+       aria-selected="{{ 'true' if key == active_panel else 'false' }}"
+       class="tab {% if key == active_panel %}tab-active{% endif %}"
+       href="/dashboard?panel={{ key }}"
+       hx-get="/dashboard?panel={{ key }}"
+       hx-target="#dashboard-body"
+       hx-swap="innerHTML"
+       hx-push-url="/dashboard?panel={{ key }}">{{ meta.label }}</a>
   {% endfor %}
-</div>
+</nav>
 
-<section class="card danger-zone" id="danger-zone">
-  <h2 style="margin-top:0">⚠️ Danger zone</h2>
-  <p class="muted" style="margin:.25rem 0 .75rem">
-    Deleting your account removes your radar, follows, favorites, and
-    activity history. Feeds are shared with everyone else and stay put.
-  </p>
-  <button class="btn-danger"
-          hx-get="/account/delete-confirm"
-          hx-target="#danger-zone"
-          hx-swap="outerHTML">Delete my account…</button>
-</section>
+<div id="dashboard-body">
+  {% include "_dashboard_body.html" %}
+</div>
 {% endblock %}
