@@ -156,14 +156,19 @@ def test_disconnect_rejects_foreign():
 
 # ------------- Activity emission -------------
 
-def _new_feeditem(feed_id: int, guid: str, title: str, published_at=None) -> int:
+def _new_feeditem(
+    feed_id: int, guid: str, title: str, published_at=None, fetched_at=None,
+) -> int:
     import app.db as db_mod
     with Session(db_mod.engine) as s:
-        item = db_mod.FeedItem(
+        kwargs = dict(
             feed_id=feed_id, guid=guid, title=title,
             link=f"https://example/{guid}",
             published_at=published_at,
         )
+        if fetched_at is not None:
+            kwargs["fetched_at"] = fetched_at
+        item = db_mod.FeedItem(**kwargs)
         s.add(item)
         s.commit()
         s.refresh(item)
@@ -206,8 +211,10 @@ def test_new_item_after_connect_emits_posted_activity():
 
 
 def test_historical_items_before_connect_are_ignored():
-    """Registering a feed with 500 old items must NOT dump 500 activity
-    rows on followers. Only items dated AFTER connect count."""
+    """Items already in the DB (fetched by an earlier subscriber's
+    refresh) BEFORE the user connected this feed as personal must NOT
+    emit posted-activity. This is the anti-flood guarantee for anyone
+    connecting a heavily-subscribed feed."""
     import app.db as db_mod
     from app.refresh import _emit_personal_activity
 
@@ -220,8 +227,13 @@ def test_historical_items_before_connect_are_ignored():
         s.add(pf)
         s.commit()
 
-    old = datetime.now(UTC) - timedelta(days=30)
-    old_id = _new_feeditem(feed_id, "guid-old", "ancient", published_at=old)
+    # Item was fetched (by a previous subscriber's refresh) 30 days
+    # ago — well before the personal-feed connect above.
+    long_ago = datetime.now(UTC) - timedelta(days=30)
+    old_id = _new_feeditem(
+        feed_id, "guid-old", "ancient",
+        published_at=long_ago, fetched_at=long_ago,
+    )
 
     with Session(db_mod.engine) as s:
         feed = s.get(db_mod.Feed, feed_id)
@@ -233,6 +245,83 @@ def test_historical_items_before_connect_are_ignored():
             select(db_mod.Activity).where(db_mod.Activity.kind == "posted")
         ).all()
     assert acts == []
+
+
+def test_playlist_of_old_videos_still_cross_posts():
+    """Regression: a YouTube playlist (or any RSS digest) whose items
+    are dated years ago but are being freshly ingested must emit
+    activity — the cutoff is 'first seen after connect', not
+    'originally published after connect'. This was the bug reported
+    for a YouTube playlist personal feed."""
+    import app.db as db_mod
+    from app.refresh import _emit_personal_activity
+
+    feed_id = _seed_feed("https://youtube.example/playlist.rss", title="Playlist")
+
+    c = _client()
+    _login(c, "farid@e.com")
+    with Session(db_mod.engine) as s:
+        pf = db_mod.PersonalFeed(user_id=_user_id("farid"), feed_id=feed_id)
+        s.add(pf)
+        s.commit()
+
+    # Videos originally published years ago, but freshly ingested NOW.
+    yrs_ago = datetime.now(UTC) - timedelta(days=365 * 5)
+    just_now = datetime.now(UTC)
+    old_video_id = _new_feeditem(
+        feed_id, "vid-2020", "Old but curated",
+        published_at=yrs_ago, fetched_at=just_now,
+    )
+
+    with Session(db_mod.engine) as s:
+        feed = s.get(db_mod.Feed, feed_id)
+        item = s.get(db_mod.FeedItem, old_video_id)
+        _emit_personal_activity(s, feed, [item])
+
+    with Session(db_mod.engine) as s:
+        acts = s.exec(
+            select(db_mod.Activity).where(db_mod.Activity.kind == "posted")
+        ).all()
+    assert len(acts) == 1
+    assert acts[0].subject == "Old but curated"
+
+
+def test_emission_capped_per_cycle():
+    """A brand-new heavy feed (first fetch pulls 50 items) shouldn't
+    dump 50 posted-activity rows on followers. Capped at
+    MAX_POSTED_PER_CYCLE (currently 20)."""
+    import app.db as db_mod
+    from app import refresh as refresh_mod
+    from app.refresh import _emit_personal_activity
+
+    feed_id = _seed_feed("https://firehose.example/rss")
+
+    c = _client()
+    _login(c, "farid@e.com")
+    with Session(db_mod.engine) as s:
+        pf = db_mod.PersonalFeed(user_id=_user_id("farid"), feed_id=feed_id)
+        s.add(pf)
+        s.commit()
+
+    just_now = datetime.now(UTC)
+    items = []
+    for i in range(refresh_mod.MAX_POSTED_PER_CYCLE + 10):
+        iid = _new_feeditem(
+            feed_id, f"g-{i}", f"item-{i}",
+            published_at=just_now, fetched_at=just_now,
+        )
+        items.append(iid)
+
+    with Session(db_mod.engine) as s:
+        feed = s.get(db_mod.Feed, feed_id)
+        item_objs = [s.get(db_mod.FeedItem, iid) for iid in items]
+        _emit_personal_activity(s, feed, item_objs)
+
+    with Session(db_mod.engine) as s:
+        acts = s.exec(
+            select(db_mod.Activity).where(db_mod.Activity.kind == "posted")
+        ).all()
+    assert len(acts) == refresh_mod.MAX_POSTED_PER_CYCLE
 
 
 def test_emit_is_idempotent_across_cycles():

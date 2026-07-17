@@ -13,6 +13,7 @@
     <li><a href="#radar">Your radar</a></li>
     <li><a href="#categories">Categories &amp; feeds</a></li>
     <li><a href="#follow">Follow vs subscribe</a></li>
+    <li><a href="#category-follow">Follow one category</a></li>
     <li><a href="#timeline">Timeline vs My activity</a></li>
     <li><a href="#my-feeds">My feeds (cross-posts)</a></li>
     <li><a href="#discover">Discover</a></li>
@@ -68,6 +69,41 @@
 </section>
 
 <section class="help-block">
+  <h2 id="category-follow">🔔 Follow one category</h2>
+  <p>
+    Sometimes you like someone's <em>tech</em> curation but not their
+    <em>politics</em>. Instead of following the whole person, you can
+    follow just one of their categories. Visit any public radar, click
+    a category chip to filter, and hit
+    <strong>🔔 Follow category</strong> under the chips.
+  </p>
+  <ul>
+    <li>
+      Only <em>item-scoped</em> activity flows through a category
+      follow — their subscribes and stars from feeds in that category.
+      Person-scoped things (they followed someone, forked a radar,
+      cross-posted from their own feed) only reach you if you also
+      follow the whole person.
+    </li>
+    <li>
+      Every category is also its own RSS feed at
+      <code>/u/&lt;handle&gt;/c/&lt;category&gt;.rss</code> — subscribe
+      to just that slice in any RSS reader, no rssFriends account
+      needed.
+    </li>
+    <li>
+      Following the whole person AND one of their categories is fine —
+      the timeline dedups events so you won't see anything twice.
+    </li>
+    <li>
+      Category follow requires view access to the radar, same as
+      whole-user follow. Public and unlisted radars work directly;
+      private radars need an approved follow first.
+    </li>
+  </ul>
+</section>
+
+<section class="help-block">
   <h2 id="timeline">📜 Timeline vs My activity</h2>
   <ul>
     <li>
@@ -104,9 +140,19 @@
   </p>
   <ul>
     <li>
-      <strong>Only <em>new</em> items count.</strong> Connecting a feed
-      that already has 500 historical items dumps zero rows on the
-      world — the connect timestamp is a hard cutoff.
+      <strong>Only newly-discovered items count.</strong> "New" means
+      first seen by rssFriends after you connected — not "originally
+      published after". So a curated YouTube playlist of older videos
+      still cross-posts (we're discovering those items for the first
+      time). But if a feed was already in the DB before you connected
+      (because someone else was already subscribed to it), those
+      pre-existing items don't emit — no historical dump.
+    </li>
+    <li>
+      <strong>Capped at 20 per refresh cycle.</strong> If a
+      brand-new heavy feed's first fetch pulls in hundreds of items,
+      we only emit the newest 20 as cross-posts. Prevents flooding
+      your followers on connect.
     </li>
     <li>
       <strong>Attribution isn't verified.</strong> Anyone can claim any

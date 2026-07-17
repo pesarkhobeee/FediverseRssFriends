@@ -224,16 +224,29 @@ def fetch_one(db: Session, feed: Feed) -> tuple[int, str | None]:
     return new, None
 
 
+MAX_POSTED_PER_CYCLE = 20
+
+
 def _emit_personal_activity(
     db: Session, feed: Feed, items: list[FeedItem]
 ) -> None:
     """For each user who claimed this feed as personal, create an
-    Activity(kind='posted') for every newly-arrived item — that's what
-    makes cross-posts show up on followers' timelines.
+    Activity(kind='posted') for every item first seen after they
+    connected the feed — that's what makes cross-posts show up on
+    followers' timelines.
 
-    Only items with fetched_at (or published_at) after the user's
-    connected_at count, so registering an already-crowded feed doesn't
-    dump 500 historical items on the world."""
+    We compare fetched_at (when we first saw the item) rather than
+    published_at (original publish date). Two reasons:
+      1. Playlist-shaped feeds (YouTube playlists, RSS digests) carry
+         each item's ORIGINAL date. A curated playlist of older items
+         would emit zero activity under a published_at rule — the
+         semantic user actually wants is "everything newly discovered
+         since I connected", not "everything originally recent".
+      2. published_at can be null/wrong; fetched_at is reliable.
+
+    Capped at MAX_POSTED_PER_CYCLE per feed per refresh to avoid
+    flooding followers if a brand-new heavy feed dumps hundreds of
+    items on its first fetch."""
     from .activity import record
     from .db import Activity, PersonalFeed
 
@@ -243,10 +256,21 @@ def _emit_personal_activity(
     if not claimants:
         return
 
+    _min_dt = datetime.min.replace(tzinfo=UTC)
+
+    def _item_sort_key(it: FeedItem):
+        return _aware(it.published_at) or _aware(it.fetched_at) or _min_dt
+
     for pf in claimants:
         cutoff = _aware(pf.connected_at) or datetime.min.replace(tzinfo=UTC)
-        for item in items:
-            when = _aware(item.published_at) or _aware(item.fetched_at)
+        # Newest-first so if we cap, we keep the freshest items.
+        candidates = sorted(items, key=_item_sort_key, reverse=True)
+        actor = db.get(User, pf.user_id)
+        if not actor:
+            continue
+        emitted = 0
+        for item in candidates:
+            when = _aware(item.fetched_at)
             if when is None or when < cutoff:
                 continue
             # Dedup safety: if a previous cycle already recorded this
@@ -261,14 +285,14 @@ def _emit_personal_activity(
             ).first()
             if exists:
                 continue
-            actor = db.get(User, pf.user_id)
-            if not actor:
-                continue
             record(
                 db, actor, "posted", item.title or "(untitled)",
                 subject_url=item.link,
                 ref_type="external_item", ref_id=item.id,
             )
+            emitted += 1
+            if emitted >= MAX_POSTED_PER_CYCLE:
+                break
     db.commit()
 
 
