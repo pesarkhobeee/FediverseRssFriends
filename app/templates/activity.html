@@ -13,7 +13,7 @@
 {% if events %}
 <ul class="fav-list">
   {% for ev in events %}
-    <li class="fav-item">
+    <li class="fav-item" id="activity-{{ ev.id }}">
       <div class="fav-head">
         <span aria-hidden="true">{{ kind_icon.get(ev.kind, '') }}</span>
         <span>
@@ -30,6 +30,14 @@
         </span>
         <span class="spacer"></span>
         <span class="muted" style="font-size:.85rem">{{ ev.created_at|relative_time }}</span>
+        {% if user and user.id == owner.id %}
+          <button class="btn-ghost activity-delete"
+                  hx-delete="/activity/{{ ev.id }}"
+                  hx-target="#activity-{{ ev.id }}"
+                  hx-swap="delete"
+                  hx-confirm="Delete this activity? It disappears from your public page, your RSS feed, and any follower's timeline."
+                  title="Delete this activity">✕</button>
+        {% endif %}
       </div>
     </li>
   {% endfor %}

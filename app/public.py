@@ -10,7 +10,7 @@ from datetime import UTC, datetime, timedelta
 from xml.sax.saxutils import escape as xml_escape
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request, status
-from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse, Response
 from sqlmodel import Session, select
 
 from . import activity, config
@@ -466,6 +466,23 @@ def fork(
 
 
 # ---------- Activity timeline + RSS ----------
+
+
+@router.delete("/activity/{event_id}")
+def delete_activity(
+    event_id: int,
+    user: User = Depends(login_required),
+    db: Session = Depends(get_session),
+):
+    """Owner-only: erase a specific Activity event. Removes it from
+    the owner's /u/{handle}/activity page, /activity.rss, and any
+    follower's /feed timeline (all read from the same table)."""
+    ev = db.get(Activity, event_id)
+    if not ev or ev.user_id != user.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "not found")
+    db.delete(ev)
+    db.commit()
+    return Response(status_code=200)
 
 
 def _load_activity(db: Session, owner: User, limit: int = 100) -> list[Activity]:
