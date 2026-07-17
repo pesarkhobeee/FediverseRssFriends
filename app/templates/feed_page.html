@@ -1,5 +1,8 @@
 {% extends "base.html" %}
-{% block title %}{{ feed.title }}{% endblock %}
+{% block title %}{{ feed.title }} on rssFriends{% endblock %}
+{% block meta_description %}{{ feed.title }} — {{ subscriber_count }} subscriber{{ '' if subscriber_count == 1 else 's' }} on rssFriends. See the latest items and follow along.{% endblock %}
+{% block og_type %}article{% endblock %}
+{% block meta_image %}{% if feed.favicon_url %}{{ feed.favicon_url }}{% else %}{{ request.base_url }}static/og-default.png{% endif %}{% endblock %}
 {% block content %}
 <section class="feed-hero card">
   <div class="feed-hero-head">

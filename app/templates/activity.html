@@ -1,5 +1,7 @@
 {% extends "base.html" %}
-{% block title %}@{{ owner.handle }}'s activity{% endblock %}
+{% block title %}@{{ owner.handle }}'s activity on rssFriends{% endblock %}
+{% block meta_description %}Follows, stars, subscriptions and cross-posts from @{{ owner.handle }} — newest first.{% endblock %}
+{% block og_type %}profile{% endblock %}
 {% block content %}
 <section class="hero stack">
   <h1>📜 @{{ owner.handle }}'s activity</h1>

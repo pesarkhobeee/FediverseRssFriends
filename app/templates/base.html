@@ -7,6 +7,25 @@
   <link rel="icon" type="image/svg+xml" href="{{ url_for('static', path='favicon.svg') }}?v={{ app_version }}">
   <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}?v={{ app_version }}">
   <script src="https://unpkg.com/htmx.org@2.0.3" defer></script>
+
+  {# Rich preview tags — Slack, Discord, Mastodon, iMessage, Twitter,
+     Signal, etc. all read either OpenGraph or Twitter Cards (or both).
+     Per-page templates override the meta_description / meta_image
+     blocks; og:title tracks the page's <title>. Block defaults are
+     defined at their first use so they render exactly once each. #}
+  <meta name="description" content="{% block meta_description %}rssFriends — a social RSS reader. Follow the web, share what you read, discover through people.{% endblock %}">
+  <meta property="og:site_name" content="rssFriends">
+  <meta property="og:type" content="{% block og_type %}website{% endblock %}">
+  <meta property="og:title" content="{{ self.title() }}">
+  <meta property="og:description" content="{{ self.meta_description() }}">
+  <meta property="og:url" content="{{ request.url }}">
+  <meta property="og:image" content="{% block meta_image %}{{ request.base_url }}static/og-default.png{% endblock %}">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="{{ self.title() }}">
+  <meta name="twitter:description" content="{{ self.meta_description() }}">
+  <meta name="twitter:image" content="{{ self.meta_image() }}">
+
+  {% block extra_head %}{% endblock %}
 </head>
 <body>
   <header>

@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block title %}How rssFriends works{% endblock %}
+{% block meta_description %}A short guide to rssFriends: follow curators, share what you star, cross-post from Mastodon/YouTube, discover feeds through people.{% endblock %}
 {% block content %}
 <section class="hero stack">
   <h1>📖 How rssFriends works</h1>
@@ -13,6 +14,7 @@
     <li><a href="#categories">Categories &amp; feeds</a></li>
     <li><a href="#follow">Follow vs subscribe</a></li>
     <li><a href="#timeline">Timeline vs My activity</a></li>
+    <li><a href="#my-feeds">My feeds (cross-posts)</a></li>
     <li><a href="#discover">Discover</a></li>
     <li><a href="#privacy">Public, unlisted, private</a></li>
     <li><a href="#opml-rss">OPML &amp; RSS in / out</a></li>
@@ -71,14 +73,57 @@
     <li>
       <strong>Timeline</strong> — a chronological stream of what the
       people <em>you follow</em> have been doing: starring items,
-      subscribing to feeds, forking radars. It's a social signal, not
-      a reader. Fresh items from your own feeds live on
+      subscribing to feeds, forking radars, <em>and cross-posting</em>
+      from their own external feeds (see below). It's a social signal,
+      not a reader. Fresh items from your own subscribed feeds live on
       <a href="/dashboard">your dashboard</a> and public radar.
     </li>
     <li>
       <strong>My activity</strong> — your <em>own</em> log. Every
-      subscribe, star, follow, fork you've ever done. Publicly visible
-      unless your radar is private.
+      subscribe, star, follow, fork, and cross-post you've ever done.
+      Publicly visible unless your radar is private. On your own
+      activity page each row has a small ✕ to delete individual events
+      if you'd rather they didn't show — deletion propagates to your
+      RSS feed and your followers' timelines.
+    </li>
+  </ul>
+</section>
+
+<section class="help-block">
+  <h2 id="my-feeds">🎙️ My feeds (cross-posts)</h2>
+  <p>
+    <strong>My feeds</strong> is a panel on <a href="/dashboard?panel=personal">/dashboard</a>
+    where you can register your own external RSS/Atom feeds — your
+    Mastodon, your YouTube channel, your personal blog. When those
+    feeds publish a new item, we post it to your <a href="/u/{{ user.handle if user else 'you' }}/activity">activity</a>
+    as <code>@you posted &lt;title&gt;</code>, so anyone who follows
+    you sees it on their <a href="/feed">timeline</a>.
+  </p>
+  <p class="muted">
+    A few things worth knowing:
+  </p>
+  <ul>
+    <li>
+      <strong>Only <em>new</em> items count.</strong> Connecting a feed
+      that already has 500 historical items dumps zero rows on the
+      world — the connect timestamp is a hard cutoff.
+    </li>
+    <li>
+      <strong>Attribution isn't verified.</strong> Anyone can claim any
+      RSS URL, so each cross-post shows a source-domain chip
+      (e.g. <code>hachyderm.io</code>) next to your handle. Followers
+      see where the content came from at a glance.
+    </li>
+    <li>
+      <strong>Personal ≠ subscription.</strong> Personal feeds are
+      about authoring; they never appear on your reading radar, in your
+      OPML export, or in Discover's popular-feeds ranking.
+    </li>
+    <li>
+      <strong>Disconnecting doesn't delete history.</strong> Past
+      cross-posts stay in your activity log — only future items stop
+      being cross-posted. Individual events can still be deleted via
+      the ✕ button on <em>My activity</em>.
     </li>
   </ul>
 </section>

@@ -1,5 +1,7 @@
 {% extends "base.html" %}
-{% block title %}@{{ owner.handle }}'s rssFriends{% endblock %}
+{% block title %}@{{ owner.handle }}'s radar on rssFriends{% endblock %}
+{% block meta_description %}{{ total_feeds }} feed{{ '' if total_feeds == 1 else 's' }} on @{{ owner.handle }}'s radar. Follow to see their stars, subscriptions, and cross-posts on rssFriends.{% endblock %}
+{% block og_type %}profile{% endblock %}
 {% block content %}
 <section class="hero stack">
   <h1>🌟 @{{ owner.handle }}'s radar</h1>

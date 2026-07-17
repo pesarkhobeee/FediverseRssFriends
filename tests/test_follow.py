@@ -306,7 +306,10 @@ def test_locked_page_for_anonymous_visitor_hints_sign_in():
     r = _client().get("/u/owner")
     assert r.status_code == 403
     assert "Sign in" in r.text  # hint linking to /
-    assert "Follow" not in r.text  # no button when not signed in
+    # No Follow button visible to anonymous. The word "Follow" itself
+    # can appear in meta tags / site copy — check for the actual
+    # button endpoint instead.
+    assert 'hx-post="/u/owner/follow"' not in r.text
 
 
 def test_locked_page_after_request_shows_pending():
