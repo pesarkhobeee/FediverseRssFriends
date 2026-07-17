@@ -21,4 +21,8 @@ RUN uv sync --frozen --no-dev
 ENV RSSFRIENDS_DATA_DIR=/data
 VOLUME ["/data"]
 EXPOSE 8000
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# --proxy-headers + --forwarded-allow-ips: trust X-Forwarded-Proto from
+# the reverse proxy so request.url.scheme is https in prod. og:url and
+# og:image (which social platforms follow) then use https, matching
+# what browsers actually see.
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips", "*"]
