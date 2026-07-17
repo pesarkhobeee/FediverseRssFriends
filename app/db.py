@@ -171,7 +171,12 @@ def _backfill_github_avatars(conn) -> None:
         owner = github_owner(url)
         if not owner:
             continue
-        want = f"https://github.com/{owner}.png?size=64"
+        want = f"https://avatars.githubusercontent.com/{owner}?s=64"
+        # Also rewrite the OLD github.com/{owner}.png form to the CDN URL
+        # (as of 0.2.29 — github.com now 403s the .png shortcut).
+        old = f"https://github.com/{owner}.png?size=64"
+        if favicon_url == old:
+            favicon_url = None  # force the update below
         if favicon_url == want:
             continue
         conn.exec_driver_sql(

@@ -49,7 +49,7 @@ def test_resolve_avatar_prefers_github_over_feed_image():
 
     fmeta = {"image": {"href": "https://cdn.example/whatever.png"}}
     got = resolve_avatar("https://github.com/dhh.atom", "https://github.com/dhh", fmeta)
-    assert got == "https://github.com/dhh.png?size=64"
+    assert got == "https://avatars.githubusercontent.com/dhh?s=64"
 
 
 def test_resolve_avatar_uses_channel_image_when_available():
@@ -265,8 +265,8 @@ def test_migration_backfills_github_avatars():
         }
     # URL migration also runs on startup, so github.com/torvalds → .atom.
     # Both keys just have to lead to the correct avatar.
-    assert rows["https://github.com/torvalds.atom"] == "https://github.com/torvalds.png?size=64"
+    assert rows["https://github.com/torvalds.atom"] == "https://avatars.githubusercontent.com/torvalds?s=64"
     assert rows["https://github.com/temporalio/helm-charts/releases.atom"] == (
-        "https://github.com/temporalio.png?size=64"
+        "https://avatars.githubusercontent.com/temporalio?s=64"
     )
     assert rows["https://blog.example.com/feed"] == "https://blog.example.com/favicon.ico"

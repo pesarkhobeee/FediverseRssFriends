@@ -166,7 +166,10 @@ def resolve_avatar(
     """
     owner = github_owner(feed_url)
     if owner:
-        return f"https://github.com/{owner}.png?size=64"
+        # Use the avatar CDN directly instead of github.com/{owner}.png
+        # (which used to 302 to this same CDN but has started returning
+        # 403 for image requests). CDN URL is stable and always 200.
+        return f"https://avatars.githubusercontent.com/{owner}?s=64"
 
     # YouTube channel avatar — only paid for on deep resolves.
     if _is_youtube_feed(feed_url) and deep:
