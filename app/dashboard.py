@@ -277,6 +277,21 @@ def rename_category(
 # ---------- Subscriptions ----------
 
 
+def _feed_is_known_healthy(db: Session, feed: Feed) -> bool:
+    """A Feed row is 'healthy' enough to attach a Subscription to
+    without re-validation if it either has any items on record OR has
+    a clean refresh streak (consecutive_failures == 0). Broken rows
+    (blinkist ghost, dead sites, HTML-not-feed URLs) don't qualify;
+    the caller should run resolve_feed / discover_feeds again to
+    decide whether to accept or reject the subscribe request."""
+    if feed.consecutive_failures == 0:
+        return True
+    has_items = db.exec(
+        select(FeedItem.id).where(FeedItem.feed_id == feed.id).limit(1)
+    ).first()
+    return has_items is not None
+
+
 def _subscribe_to_url(
     db: Session, user: User, category_id: int, url: str, meta: dict | None = None
 ) -> tuple[Subscription, Feed]:
@@ -349,9 +364,13 @@ def subscribe(
     if not cat or cat.user_id != user.id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "category not found")
 
-    # If we've never seen this URL, check whether it's actually a feed.
-    # If not, try discovery before creating a broken Feed row.
-    if not db.exec(select(Feed).where(Feed.url == url)).first():
+    # Never attach a subscription to a Feed row without proof it's real.
+    # Skip re-validation only for rows we know are healthy (see
+    # _feed_is_known_healthy). Otherwise run resolve + discovery — this
+    # prevents "user pastes URL X, we already had a broken Feed row at
+    # X from another user's ghost, we silently subscribe them to it."
+    existing = db.exec(select(Feed).where(Feed.url == url)).first()
+    if not existing or not _feed_is_known_healthy(db, existing):
         meta = resolve_feed(url)
         # Default to True for backwards compat with older stubs / callers
         # that don't set is_feed; real resolve_feed always sets it.
@@ -406,6 +425,16 @@ def subscribe_selected(
         if not u or u in seen:
             continue
         seen.add(u)
+        # Same "no ghost-attach" guard as POST /feeds: if an existing
+        # Feed row is broken, re-validate before attaching a Subscription.
+        existing = db.exec(select(Feed).where(Feed.url == u)).first()
+        if existing and not _feed_is_known_healthy(db, existing):
+            meta = resolve_feed(u)
+            if not meta.get("is_feed", True):
+                # This URL turned out not to be a feed after all. Skip
+                # it silently — we might have gotten it from a stale
+                # discovery result. Better to drop than to add garbage.
+                continue
         try:
             added_rows.append(_subscribe_to_url(db, user, category_id, u))
         except HTTPException as e:

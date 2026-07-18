@@ -13,7 +13,11 @@
   {% endif %}
   <span class="feed-meta muted">
     {% if item_count %}{{ item_count }} items{% else %}no items yet{% endif %}
-    {% if feed.consecutive_failures %} · ⚠️ stale{% endif %}
+    {% if feed.consecutive_failures and not item_count %}
+      · ⚠️ this URL doesn't look like a feed — try Edit URL or Remove
+    {% elif feed.consecutive_failures %}
+      · ⚠️ stale
+    {% endif %}
   </span>
   <span class="spacer"></span>
   <span class="feed-actions" id="actions-{{ sub.id }}">

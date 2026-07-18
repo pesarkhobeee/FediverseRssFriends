@@ -99,8 +99,11 @@ def add_personal_feed(
     if not url:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "url required")
 
-    # Resolve first — if it's not a feed, offer discovery.
-    if not db.exec(select(Feed).where(Feed.url == url)).first():
+    # Same "don't attach to ghost rows" guard as /feeds: if the URL is
+    # not in the DB OR the existing row isn't proven healthy, validate.
+    from .dashboard import _feed_is_known_healthy
+    existing = db.exec(select(Feed).where(Feed.url == url)).first()
+    if not existing or not _feed_is_known_healthy(db, existing):
         meta = resolve_feed(url)
         if not meta.get("is_feed", True):
             candidates = discover_feeds(url)

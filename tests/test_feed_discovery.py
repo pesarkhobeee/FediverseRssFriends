@@ -293,6 +293,78 @@ def test_pick_dedupes_and_skips_existing(monkeypatch):
     assert r2.text.strip() == ""  # nothing appended
 
 
+def test_subscribe_refuses_to_attach_to_ghost_feed_row(monkeypatch):
+    """Regression: if a Feed row already exists at the pasted URL but
+    it's a hopeless ghost (broken URL, never worked, many failures),
+    we must NOT silently attach a new Subscription. Re-validate the URL
+    from scratch — refuse if it's not a feed."""
+    _stub_resolve_non_feed(monkeypatch)
+    _stub_discover(monkeypatch, [])  # nothing findable
+
+    # Seed a ghost feed row: existing at the URL, but broken.
+    import app.db as db_mod
+    with Session(db_mod.engine) as s:
+        ghost = db_mod.Feed(
+            url="https://not-a-feed.example/jobs",
+            title="stub",
+            consecutive_failures=42,
+        )
+        s.add(ghost)
+        s.commit()
+
+    c = _client()
+    _login(c, "alice@e.com")
+    cat_id = _cat(c, "News")
+    r = c.post("/feeds", data={
+        "url": "https://not-a-feed.example/jobs",
+        "category_id": cat_id,
+    })
+    assert r.status_code == 400
+    assert "Couldn't find an RSS feed" in r.text
+
+    # No Subscription got created against the ghost row.
+    with Session(db_mod.engine) as s:
+        alice = s.exec(select(db_mod.User).where(db_mod.User.handle == "alice")).one()
+        subs = s.exec(
+            select(db_mod.Subscription).where(db_mod.Subscription.user_id == alice.id)
+        ).all()
+    assert subs == []
+
+
+def test_subscribe_healthy_existing_feed_bypasses_revalidation(monkeypatch):
+    """The fast path: existing Feed row with 0 failures → attach
+    Subscription directly, no network call."""
+    called = {"resolve": False}
+
+    def spy_resolve(u):
+        called["resolve"] = True
+        return {"title": "T", "site_url": "", "favicon_url": "", "is_feed": True}
+
+    import app.dashboard as dash
+    monkeypatch.setattr(dash, "resolve_feed", spy_resolve)
+
+    import app.db as db_mod
+    with Session(db_mod.engine) as s:
+        healthy = db_mod.Feed(
+            url="https://working.example/rss",
+            title="Working Feed",
+            consecutive_failures=0,
+        )
+        s.add(healthy)
+        s.commit()
+
+    c = _client()
+    _login(c, "alice@e.com")
+    cat_id = _cat(c, "News")
+    r = c.post(
+        "/feeds",
+        data={"url": "https://working.example/rss", "category_id": cat_id},
+    )
+    assert r.status_code == 200
+    # Fast path — resolve_feed was NOT called, we trusted the existing row.
+    assert called["resolve"] is False
+
+
 def test_pick_rejects_foreign_category(monkeypatch):
     alice = _client()
     _login(alice, "alice@e.com")
