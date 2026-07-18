@@ -279,13 +279,13 @@ def rename_category(
 
 def _feed_is_known_healthy(db: Session, feed: Feed) -> bool:
     """A Feed row is 'healthy' enough to attach a Subscription to
-    without re-validation if it either has any items on record OR has
-    a clean refresh streak (consecutive_failures == 0). Broken rows
-    (blinkist ghost, dead sites, HTML-not-feed URLs) don't qualify;
-    the caller should run resolve_feed / discover_feeds again to
-    decide whether to accept or reject the subscribe request."""
-    if feed.consecutive_failures == 0:
-        return True
+    without re-validation only if it has any items on record.
+
+    consecutive_failures == 0 alone is NOT enough: a URL like
+    jobs.ashbyhq.com/ecosia.org can serve 200-OK HTML forever,
+    feedparser accepts the response, no HTTP error, but zero items
+    ever land. Requiring items is the strong signal that this row
+    actually is a working feed."""
     has_items = db.exec(
         select(FeedItem.id).where(FeedItem.feed_id == feed.id).limit(1)
     ).first()

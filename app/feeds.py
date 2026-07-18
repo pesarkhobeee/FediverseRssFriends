@@ -95,6 +95,10 @@ _LINK_ICON_HREF_FIRST = re.compile(
     r'<link[^>]*\bhref=["\']([^"\']+)["\'][^>]*\brel=["\']?[^"\'>]*icon',
     re.IGNORECASE,
 )
+_META_REFRESH_RE = re.compile(
+    r'<meta\b[^>]*\bhttp-equiv=["\']?refresh["\']?[^>]*\bcontent=["\'][^"\']*?url=([^"\'>]+)',
+    re.IGNORECASE,
+)
 _OG_IMAGE = re.compile(
     r'<meta[^>]*\bproperty=["\']og:image["\'][^>]*\bcontent=["\']([^"\']+)["\']',
     re.IGNORECASE,
@@ -253,7 +257,6 @@ def resolve_feed(url: str) -> dict:
 
     feed_meta = getattr(parsed, "feed", {}) or {}
     entries = getattr(parsed, "entries", None) or []
-    has_feed_title = bool((feed_meta.get("title") or "").strip())
     # Stronger check than "has title or entries" — feedparser sets
     # `.version` to a non-empty tag ("rss20", "atom10", etc.) ONLY
     # when it identifies real feed markup. HTML pages that happen to
@@ -389,6 +392,23 @@ def discover_feeds(source_url: str) -> list[dict]:
         return []
     source_url = source_url.strip()
     html = _http_get_text(source_url, timeout=FETCH_TIMEOUT)
+
+    # Follow one hop of meta-refresh. Multilingual Jekyll/Hugo sites
+    # commonly serve a tiny redirect page at the root that hops to
+    # /fa/, /en/, etc.; the actual <link rel="alternate"> lives on
+    # the target page. httpx handles HTTP redirects but not meta
+    # refresh, so do that manually — bounded to a single hop to
+    # avoid loops.
+    if html:
+        m = _META_REFRESH_RE.search(html)
+        if m:
+            target = m.group(1).strip().strip("'\"")
+            hop = urljoin(source_url, target)
+            if hop != source_url:
+                target_html = _http_get_text(hop, timeout=FETCH_TIMEOUT)
+                if target_html:
+                    source_url = hop
+                    html = target_html
 
     candidates: list[dict] = []
     seen: set[str] = set()

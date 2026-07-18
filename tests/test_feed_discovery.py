@@ -364,8 +364,66 @@ def test_resolve_feed_rejects_html_that_populates_feed_title(monkeypatch):
     )
 
 
+def test_discovery_follows_meta_refresh(monkeypatch):
+    """Regression: some sites (multilingual Jekyll/Hugo) redirect
+    root → /fa/ via meta refresh. Discovery should follow one hop
+    of that and look for <link rel="alternate"> on the target."""
+    import app.feeds as feeds_mod
+
+    root_html = (
+        '<!doctype html><html><head>'
+        '<meta http-equiv="refresh" content="0; url=https://blog.example/fa/">'
+        '</head></html>'
+    )
+    target_html = (
+        '<html><head>'
+        '<link rel="alternate" type="application/rss+xml" '
+        'href="https://blog.example/fa/index.xml" title="rss">'
+        '</head></html>'
+    )
+    pages = {
+        "https://blog.example": root_html,
+        "https://blog.example/fa/": target_html,
+    }
+    monkeypatch.setattr(
+        feeds_mod, "_http_get_text",
+        lambda url, timeout=3.0: pages.get(url),
+    )
+    monkeypatch.setattr(feeds_mod, "_probe_candidate", lambda u: (True, ""))
+
+    got = feeds_mod.discover_feeds("https://blog.example")
+    urls = [c["url"] for c in got]
+    assert "https://blog.example/fa/index.xml" in urls
+
+
+def test_feed_is_known_healthy_requires_items(monkeypatch):
+    """Regression: consecutive_failures==0 alone doesn't make a feed
+    'healthy' — the ashbyhq.com case had 0 failures for months with
+    zero items ever. Require actual items to skip re-validation."""
+    import app.dashboard as dash
+    import app.db as db_mod
+
+    with Session(db_mod.engine) as s:
+        # Zero items, zero failures — used to be "healthy", shouldn't be.
+        empty_feed = db_mod.Feed(
+            url="https://empty.example/rss",
+            title="Empty",
+            consecutive_failures=0,
+        )
+        s.add(empty_feed)
+        s.commit()
+        s.refresh(empty_feed)
+        assert dash._feed_is_known_healthy(s, empty_feed) is False
+
+        # With at least one item, it counts.
+        s.add(db_mod.FeedItem(feed_id=empty_feed.id, guid="g1", title="First"))
+        s.commit()
+        s.refresh(empty_feed)
+        assert dash._feed_is_known_healthy(s, empty_feed) is True
+
+
 def test_subscribe_healthy_existing_feed_bypasses_revalidation(monkeypatch):
-    """The fast path: existing Feed row with 0 failures → attach
+    """The fast path: existing Feed row with actual items → attach
     Subscription directly, no network call."""
     called = {"resolve": False}
 
@@ -384,6 +442,10 @@ def test_subscribe_healthy_existing_feed_bypasses_revalidation(monkeypatch):
             consecutive_failures=0,
         )
         s.add(healthy)
+        s.commit()
+        s.refresh(healthy)
+        # Real health signal: has produced items.
+        s.add(db_mod.FeedItem(feed_id=healthy.id, guid="g1", title="Real item"))
         s.commit()
 
     c = _client()
