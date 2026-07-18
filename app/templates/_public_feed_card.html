@@ -57,8 +57,8 @@
         {% for item in it.entries %}
           <li class="item">
             {% if user %}
-              {% with item_id=item.id, is_favorited=(item.id in viewer_faves) %}
-                {% include "_star.html" %}
+              {% with item_id=item.id, is_bookmarked=(item.id in viewer_bookmarks) %}
+                {% include "_bookmark.html" %}
               {% endwith %}
             {% endif %}
             <a class="item-title" href="{{ item.link }}" target="_blank" rel="noopener">

@@ -82,8 +82,13 @@ class FeedItem(SQLModel, table=True):
     fetched_at: datetime = Field(default_factory=_now)
 
 
-class Favorite(SQLModel, table=True):
-    """A user starring a specific FeedItem. Composite PK deduplicates."""
+class Bookmark(SQLModel, table=True):
+    """A user marking a FeedItem as saved. Composite PK deduplicates.
+
+    History: this was 'Favorite' up to 0.2.35 (renamed 0.2.36 to soften
+    the verb — bookmarks are "I saved this" rather than "I loved this").
+    init_db renames the old `favorite` table to `bookmark` and rewrites
+    Activity.kind='favorited' → 'bookmarked' on startup."""
 
     user_id: int = Field(foreign_key="user.id", primary_key=True)
     feed_item_id: int = Field(foreign_key="feeditem.id", primary_key=True)
@@ -199,6 +204,42 @@ def _run_sqlite_migrations(conn) -> None:
     # to the username, matching how lovelyRSS displays them.
     if _sqlite_column_exists(conn, "feed", "title"):
         _backfill_github_titles(conn)
+
+    # 0.2.36: Favorite → Bookmark rename. Rename the table and rewrite
+    # Activity.kind='favorited' → 'bookmarked'. Idempotent — after the
+    # first successful pass both branches are no-ops.
+    #
+    # Note on ordering: SQLModel.create_all runs BEFORE migrations, so
+    # on the first post-rename boot BOTH `favorite` (existing) and
+    # `bookmark` (auto-created empty) tables exist. Detect that case
+    # and swap them; otherwise the old rows would be orphaned.
+    tables = {
+        row[0] for row in conn.exec_driver_sql(
+            "SELECT name FROM sqlite_master WHERE type='table'"
+        ).fetchall()
+    }
+    if "favorite" in tables:
+        old_rows = conn.exec_driver_sql("SELECT COUNT(*) FROM favorite").fetchone()[0]
+        if "bookmark" in tables:
+            new_rows = conn.exec_driver_sql(
+                "SELECT COUNT(*) FROM bookmark"
+            ).fetchone()[0]
+            # Only swap if the auto-created bookmark table is empty
+            # (first boot after rename); if bookmark has data, it means
+            # a later boot has already migrated and both tables happen
+            # to coexist — do nothing.
+            if new_rows == 0 and old_rows > 0:
+                conn.exec_driver_sql("DROP TABLE bookmark")
+                conn.exec_driver_sql("ALTER TABLE favorite RENAME TO bookmark")
+            elif old_rows == 0:
+                # favorite is a stale empty table left after migration — drop it.
+                conn.exec_driver_sql("DROP TABLE favorite")
+        else:
+            conn.exec_driver_sql("ALTER TABLE favorite RENAME TO bookmark")
+    if "activity" in tables:
+        conn.exec_driver_sql(
+            "UPDATE activity SET kind = 'bookmarked' WHERE kind = 'favorited'"
+        )
 
 
 def _backfill_github_avatars(conn) -> None:

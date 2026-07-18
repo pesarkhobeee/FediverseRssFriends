@@ -48,7 +48,7 @@ def test_empty_feed_has_helpful_hint():
     _login(client, "u@e.com")
     r = client.get("/feed")
     assert r.status_code == 200
-    assert "Your timeline is quiet" in r.text
+    assert "Your Friends page is quiet" in r.text
 
 
 def test_feed_shows_followee_activity():
@@ -72,7 +72,7 @@ def test_feed_shows_followee_activity():
 
     b = _client()
     _login(b, "b@e.com")
-    b.post(f"/items/{item.id}/favorite")
+    b.post(f"/items/{item.id}/bookmark")
 
     a = _client()
     _login(a, "a@e.com")
@@ -81,7 +81,7 @@ def test_feed_shows_followee_activity():
     r = a.get("/feed")
     assert r.status_code == 200
     assert "@b" in r.text
-    assert "starred" in r.text
+    assert "bookmarked" in r.text
     assert "Interesting post" in r.text
 
 
@@ -122,7 +122,7 @@ def test_feed_does_not_show_own_subscription_items():
     # With no follows and no external activity, the timeline is empty
     # regardless of how many items the viewer's own feeds have.
     assert "Fresh post" not in r.text
-    assert "Your timeline is quiet" in r.text
+    assert "Your Friends page is quiet" in r.text
 
 
 def test_star_events_show_up_for_followers():
@@ -147,7 +147,7 @@ def test_star_events_show_up_for_followers():
 
     b = _client()
     _login(b, "b@e.com")
-    b.post(f"/items/{item_id}/favorite")
+    b.post(f"/items/{item_id}/bookmark")
 
     a = _client()
     _login(a, "a@e.com")
@@ -155,5 +155,5 @@ def test_star_events_show_up_for_followers():
 
     r = a.get("/feed")
     assert "@b" in r.text
-    assert "starred" in r.text
+    assert "bookmarked" in r.text
     assert "Great post" in r.text

@@ -211,12 +211,12 @@ def test_category_follow_shows_favorites_from_that_category():
         s.refresh(blog_item)
         farid_u = s.exec(select(db_mod.User).where(db_mod.User.handle == "farid")).one()
         act_mod.record(
-            s, farid_u, "favorited", "News-item",
+            s, farid_u, "bookmarked", "News-item",
             subject_url="https://x/news",
             ref_type="item", ref_id=news_item.id,
         )
         act_mod.record(
-            s, farid_u, "favorited", "Blog-item",
+            s, farid_u, "bookmarked", "Blog-item",
             subject_url="https://x/blog",
             ref_type="item", ref_id=blog_item.id,
         )

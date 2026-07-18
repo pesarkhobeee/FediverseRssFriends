@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block title %}@{{ owner.handle }}'s radar on rssFriends{% endblock %}
-{% block meta_description %}{{ total_feeds }} feed{{ '' if total_feeds == 1 else 's' }} on @{{ owner.handle }}'s radar. Follow to see their stars, subscriptions, and cross-posts on rssFriends.{% endblock %}
+{% block meta_description %}{{ total_feeds }} feed{{ '' if total_feeds == 1 else 's' }} on @{{ owner.handle }}'s radar. Follow to see their bookmarks, subscriptions, and cross-posts on rssFriends.{% endblock %}
 {% block og_type %}profile{% endblock %}
 {% block content %}
 <section class="hero stack">
@@ -28,7 +28,7 @@
         {% include "_follow_button.html" %}
       {% endwith %}
     {% endif %}
-    <a class="btn-ghost" href="/u/{{ owner.handle }}/favorites">⭐ Favorites</a>
+    <a class="btn-ghost" href="/u/{{ owner.handle }}/bookmarks">🔖 Bookmarks</a>
     <a class="btn-ghost" href="/u/{{ owner.handle }}/activity">📜 Activity</a>
     <a class="btn-ghost" href="{{ reading_rss_url }}" title="Subscribe to @{{ owner.handle }}'s reading list in any RSS reader">🔗 RSS</a>
     <a class="btn-ghost" href="/u/{{ owner.handle }}.opml">📥 OPML</a>

@@ -34,7 +34,7 @@ def test_help_page_open_to_everyone():
     assert r.status_code == 200
     assert "How rssFriends works" in r.text
     # Section anchors present for the TOC links.
-    for anchor in ("radar", "categories", "follow", "timeline", "discover", "privacy"):
+    for anchor in ("radar", "categories", "follow", "friends", "discover", "privacy"):
         assert f'id="{anchor}"' in r.text
 
 

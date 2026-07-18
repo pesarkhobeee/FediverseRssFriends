@@ -68,7 +68,7 @@ def _load_timeline(db: Session, user: User) -> dict:
             })
 
     # Category-level follows: pull item-scoped activity (subscribed +
-    # favorited) whose referenced feed lives in a Subscription of that
+    # bookmarked) whose referenced feed lives in a Subscription of that
     # category on the followee's own radar. Person-scoped kinds
     # (followed/forked/created_category/posted) don't fit a category
     # scope and only reach the viewer via whole-user Follow.
@@ -88,7 +88,7 @@ def _load_timeline(db: Session, user: User) -> dict:
         if not feed_ids:
             continue
         # Owner's item-scoped activity referencing any of those feeds.
-        # For favorited (ref_type='item'), ref_id is a FeedItem — we need
+        # For bookmarked (ref_type='item'), ref_id is a FeedItem — we need
         # to filter by item.feed_id. For subscribed (ref_type='feed'),
         # ref_id IS the feed_id.
         subs_rows = db.exec(
@@ -106,7 +106,7 @@ def _load_timeline(db: Session, user: User) -> dict:
             select(Activity)
             .join(FeedItem, FeedItem.id == Activity.ref_id)
             .where(Activity.user_id == cat.user_id)
-            .where(Activity.kind == "favorited")
+            .where(Activity.kind == "bookmarked")
             .where(Activity.ref_type == "item")
             .where(FeedItem.feed_id.in_(feed_ids))
             .where(Activity.created_at >= cutoff)

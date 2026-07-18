@@ -1,0 +1,14 @@
+{# Bookmark toggle. `item_id` and `is_bookmarked` are required. #}
+{% if is_bookmarked %}
+<button class="bookmark bookmark-on"
+        hx-delete="/items/{{ item_id }}/bookmark"
+        hx-swap="outerHTML"
+        title="Remove bookmark"
+        aria-label="Remove bookmark">🔖</button>
+{% else %}
+<button class="bookmark"
+        hx-post="/items/{{ item_id }}/bookmark"
+        hx-swap="outerHTML"
+        title="Bookmark this item"
+        aria-label="Bookmark this item">🏷</button>
+{% endif %}

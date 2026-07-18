@@ -89,12 +89,12 @@ def test_favoriting_records_activity():
 
     client = _client()
     _login(client, "u@e.com")
-    client.post(f"/items/{item.id}/favorite")
+    client.post(f"/items/{item.id}/bookmark")
 
     with Session(db_mod.engine) as s:
         user = s.exec(select(db_mod.User).where(db_mod.User.handle == "u")).one()
     events = _all_activity(user.id)
-    assert any(e.kind == "favorited" and e.subject == "Post" for e in events)
+    assert any(e.kind == "bookmarked" and e.subject == "Post" for e in events)
 
 
 def test_following_records_on_auto_approve():

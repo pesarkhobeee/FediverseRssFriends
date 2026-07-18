@@ -1,10 +1,11 @@
 {% extends "base.html" %}
-{% block title %}@{{ owner.handle }}'s favorites{% endblock %}
+{% block title %}@{{ owner.handle }}'s bookmarks{% endblock %}
+{% block meta_description %}Items {{ 'you' if is_owner else '@' + owner.handle }} bookmarked on rssFriends, newest first.{% endblock %}
 {% block content %}
 <section class="hero stack">
-  <h1>⭐ @{{ owner.handle }}'s favorites</h1>
+  <h1>🔖 @{{ owner.handle }}'s bookmarks</h1>
   <p class="muted">
-    Items {{ 'you' if is_owner else '@' + owner.handle }} starred, newest first.
+    Items {{ 'you' if is_owner else '@' + owner.handle }} bookmarked, newest first.
   </p>
   <p>
     <a class="btn-ghost" href="/u/{{ owner.handle }}">← Back to radar</a>
@@ -23,7 +24,7 @@
         <span class="fav-source muted">{{ e.feed.title }}</span>
         <span class="spacer"></span>
         <span class="muted" style="font-size:.85rem">
-          starred {{ e.fav.created_at|relative_time }}
+          bookmarked {{ e.bookmark.created_at|relative_time }}
         </span>
       </div>
       <a class="item-title" href="{{ e.item.link }}" target="_blank" rel="noopener">
@@ -32,8 +33,8 @@
       <div class="muted item-date">
         {{ e.item.published_at|relative_time or "recently" }}
         {% if user %}
-          {% with item_id=e.item.id, is_favorited=(e.item.id in viewer_faves) %}
-            · {% include "_star.html" %}
+          {% with item_id=e.item.id, is_bookmarked=(e.item.id in viewer_bookmarks) %}
+            · {% include "_bookmark.html" %}
           {% endwith %}
         {% endif %}
       </div>
@@ -43,11 +44,11 @@
 {% else %}
 <p class="muted">
   {% if is_owner %}
-    You haven't starred anything yet. When you're browsing your
+    You haven't bookmarked anything yet. When you're browsing your
     <a href="/u/{{ owner.handle }}">radar</a> and something catches
-    your eye, click the ☆ next to it — starred items land here.
+    your eye, click the 🏷 next to it — bookmarked items land here.
   {% else %}
-    @{{ owner.handle }} hasn't starred anything yet.
+    @{{ owner.handle }} hasn't bookmarked anything yet.
   {% endif %}
 </p>
 {% endif %}

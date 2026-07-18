@@ -86,7 +86,7 @@ def test_delete_cascades_and_clears_session():
         s.add(item)
         s.commit()
         s.refresh(item)
-        s.add(db_mod.Favorite(user_id=alice_id, feed_item_id=item.id))
+        s.add(db_mod.Bookmark(user_id=alice_id, feed_item_id=item.id))
         s.commit()
         feed_id = feed.id
         item_id = item.id
@@ -117,7 +117,7 @@ def test_delete_cascades_and_clears_session():
         assert s.exec(select(db_mod.User).where(db_mod.User.id == alice_id)).first() is None
         assert gone(db_mod.Category, "user_id")
         assert gone(db_mod.Subscription, "user_id")
-        assert gone(db_mod.Favorite, "user_id")
+        assert gone(db_mod.Bookmark, "user_id")
         assert gone(db_mod.Follow, "followee_id")
         assert gone(db_mod.Activity, "user_id")
 

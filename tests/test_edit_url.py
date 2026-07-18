@@ -105,7 +105,7 @@ def test_edit_url_mutates_feed_in_place_when_no_other_subscribers():
         s.commit()
         s.refresh(item)
         alice = s.exec(select(db_mod.User).where(db_mod.User.handle == "alice")).one()
-        s.add(db_mod.Favorite(user_id=alice.id, feed_item_id=item.id))
+        s.add(db_mod.Bookmark(user_id=alice.id, feed_item_id=item.id))
         s.commit()
         stale_item_id = item.id
 

@@ -13,9 +13,9 @@ from . import activity
 from .auth import login_required
 from .db import (
     Activity,
+    Bookmark,
     Category,
     CategoryFollow,
-    Favorite,
     Feed,
     FeedItem,
     Follow,
@@ -546,7 +546,7 @@ def edit_subscription_url(
         sub.feed_id = existing_at_new_url.id
         db.add(sub)
         # If nothing points at the old feed any more, drop it (and its
-        # items and any starred items from it) to avoid orphan rows.
+        # items and any bookmarks from it) to avoid orphan rows.
         _delete_feed_if_orphaned(db, old_feed, exclude_sub_id=sub.id)
     else:
         others = db.exec(
@@ -568,8 +568,8 @@ def edit_subscription_url(
             old_feed.last_error = ""
             old_feed.consecutive_failures = 0
             # Purge stale items (they were from the wrong feed) and
-            # any Favorites that pointed at them. Users who starred
-            # items from a mistyped URL lose those stars — they were
+            # any Bookmarks that pointed at them. Users who bookmarked
+            # items from a mistyped URL lose those — they were
             # already stale, so this is the right thing.
             _purge_feed_items(db, old_feed.id)
         else:
@@ -584,7 +584,7 @@ def edit_subscription_url(
 
 
 def _purge_feed_items(db: Session, feed_id: int) -> None:
-    from .db import Favorite, FeedItem
+    from .db import Bookmark, FeedItem
 
     item_ids = [
         row for row in db.exec(
@@ -592,7 +592,7 @@ def _purge_feed_items(db: Session, feed_id: int) -> None:
         ).all()
     ]
     if item_ids:
-        db.exec(Favorite.__table__.delete().where(Favorite.feed_item_id.in_(item_ids)))
+        db.exec(Bookmark.__table__.delete().where(Bookmark.feed_item_id.in_(item_ids)))
         db.exec(FeedItem.__table__.delete().where(FeedItem.feed_id == feed_id))
 
 
@@ -755,8 +755,8 @@ def _account_footprint(db: Session, user: User) -> dict[str, int]:
                            .where(Subscription.user_id == user.id)),
         "categories": n(select(func.count(Category.id))
                         .where(Category.user_id == user.id)),
-        "favorites": n(select(func.count()).select_from(Favorite)
-                       .where(Favorite.user_id == user.id)),
+        "bookmarks": n(select(func.count()).select_from(Bookmark)
+                       .where(Bookmark.user_id == user.id)),
         "following": n(select(func.count()).select_from(Follow)
                        .where(Follow.follower_id == user.id)),
         "followers": n(select(func.count()).select_from(Follow)
@@ -788,7 +788,7 @@ def _delete_user_cascade(db: Session, user: User) -> None:
                 select(Category.id).where(Category.user_id == uid)
             )
         ),
-        Favorite.__table__.delete().where(Favorite.user_id == uid),
+        Bookmark.__table__.delete().where(Bookmark.user_id == uid),
         Subscription.__table__.delete().where(Subscription.user_id == uid),
         Category.__table__.delete().where(Category.user_id == uid),
         Follow.__table__.delete().where(

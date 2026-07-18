@@ -1,11 +1,12 @@
 {% extends "base.html" %}
-{% block title %}Timeline{% endblock %}
+{% block title %}Friends on rssFriends{% endblock %}
+{% block meta_description %}What the people you follow on rssFriends have been bookmarking, adding, and forking lately.{% endblock %}
 {% block content %}
 <section class="hero stack">
-  <h1>📜 Timeline</h1>
+  <h1>👥 Friends</h1>
   <p class="muted">
     What the {{ n_followees }} {{ 'person' if n_followees == 1 else 'people' }} you follow have been
-    starring, adding, and forking lately{% if n_category_follows %}, plus {{ n_category_follows }} categor{{ 'y' if n_category_follows == 1 else 'ies' }} you follow{% endif %}.
+    bookmarking, adding, and forking lately{% if n_category_follows %}, plus {{ n_category_follows }} categor{{ 'y' if n_category_follows == 1 else 'ies' }} you follow{% endif %}.
   </p>
   <p class="muted" style="font-size:.9rem">
     Looking for new items from your own feeds?
@@ -49,18 +50,19 @@
 </ul>
 {% else %}
 <section class="onboard-card">
-  <h2 style="margin-top:0">Your timeline is quiet</h2>
+  <h2 style="margin-top:0">Your Friends page is quiet</h2>
   <p class="muted" style="margin:.25rem 0 1rem">
-    The timeline shows what people you follow are doing — the items
-    they star, the feeds they add, the radars they fork. It fills up
-    once you follow a few curators whose taste you trust.
+    This page shows what people you follow are doing — the items
+    they bookmark, the feeds they add, the radars they fork. It fills
+    up once you follow a few curators whose taste you trust.
   </p>
   <p style="margin:.5rem 0">
     <a class="btn" href="/discover">🔭 Find people to follow</a>
   </p>
   <p class="muted" style="font-size:.9rem; margin:1rem 0 0">
-    Note: your own stars are visible here to the people who follow you —
-    that's how RSS gets social. New to it? <a href="/help#follow">Short intro →</a>
+    Note: your own bookmarks are visible here to the people who follow
+    you — that's how RSS gets social. New to it?
+    <a href="/help#follow">Short intro →</a>
   </p>
 </section>
 {% endif %}

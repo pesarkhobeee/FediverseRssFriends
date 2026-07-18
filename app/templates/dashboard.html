@@ -5,7 +5,7 @@
   <p class="muted">Signed in as {{ user.email }}</p>
   <p>
     <a class="btn-ghost" href="/u/{{ user.handle }}">🌐 View public page</a>
-    <a class="btn-ghost" href="/u/{{ user.handle }}/favorites">⭐ My favorites</a>
+    <a class="btn-ghost" href="/u/{{ user.handle }}/bookmarks">🔖 My bookmarks</a>
     <a class="btn-ghost" href="/follow-requests">
       📮 Follow requests{% if pending_requests %} ({{ pending_requests }}){% endif %}
     </a>

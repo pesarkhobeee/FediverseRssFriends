@@ -209,19 +209,19 @@ def test_feed_page_subscriber_count_includes_everyone():
     assert "subscribers on this instance" in r.text
 
 
-def test_star_button_on_feed_page_for_signed_in():
+def test_bookmark_button_on_feed_page_for_signed_in():
     feed_id = _seed_feed()
     client = _client()
     _login(client, "alice@example.com")
     r = client.get(f"/f/{feed_id}")
-    # Star button rendered next to the item, in the "off" state.
-    assert "☆" in r.text
+    # Bookmark button rendered next to the item, in the "off" state.
+    assert "🏷" in r.text
     assert 'hx-post="/items/' in r.text
 
 
-def test_no_star_button_on_feed_page_for_anonymous():
+def test_no_bookmark_button_on_feed_page_for_anonymous():
     feed_id = _seed_feed()
     r = _client().get(f"/f/{feed_id}")
-    assert "☆" not in r.text
-    # Anonymous visitors see the items but can't star them.
+    assert "🏷" not in r.text
+    # Anonymous visitors see the items but can't bookmark them.
     assert "First post" in r.text
