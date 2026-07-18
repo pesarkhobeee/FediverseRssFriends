@@ -52,6 +52,14 @@ def _maybe_heal_feed_url(db: Session, feed: Feed) -> str | None:
     for c in candidates:
         if c["url"] == feed.url:
             continue
+        # Guard against UNIQUE constraint violations: if another Feed row
+        # already claims the discovered URL, we'd conflict on migrate.
+        # Skip — the user can manually consolidate via Edit URL.
+        existing = db.exec(
+            select(Feed).where(Feed.url == c["url"])
+        ).first()
+        if existing and existing.id != feed.id:
+            continue
         # Sanity: the discovered URL must parse to a non-trivial feed.
         try:
             with httpx.Client(
