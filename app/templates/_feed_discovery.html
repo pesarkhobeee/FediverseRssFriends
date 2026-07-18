@@ -1,11 +1,16 @@
 {# Rendered when POST /feeds detects the pasted URL wasn't itself a
-   feed but the site advertises multiple. Category context is inherited
-   from the form the URL was pasted into. #}
+   feed. Shown for ANY hit count (including 1) so the user always
+   confirms the actual feed URL before it lands on their radar. #}
 <div class="feed-discovery" id="feed-discovery-{{ category.id }}">
   <p class="muted" style="margin:0 0 .5rem">
-    🔎 That URL isn't a feed itself, but we found
-    <strong>{{ candidates|length }}</strong> feeds at it — pick which
-    to subscribe to:
+    {% if candidates|length == 1 %}
+      🔎 That URL isn't a feed itself, but we found <strong>1 feed</strong>
+      at it — hit <em>Add selected</em> to confirm:
+    {% else %}
+      🔎 That URL isn't a feed itself, but we found
+      <strong>{{ candidates|length }}</strong> feeds at it — pick
+      which to subscribe to:
+    {% endif %}
   </p>
   <form hx-post="/feeds/pick"
         hx-target="#feeds-{{ category.id }}"
@@ -19,7 +24,9 @@
             <input type="checkbox" name="urls" value="{{ c.url }}"
                    {% if candidates|length == 1 or loop.first %}checked{% endif %} />
             <span class="discovery-title">{{ c.title or c.url }}</span>
-            <div class="discovery-url muted">{{ c.url }}</div>
+            {% if c.title and c.title != c.url %}
+              <div class="discovery-url muted">{{ c.url }}</div>
+            {% endif %}
           </label>
         </li>
       {% endfor %}

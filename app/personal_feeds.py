@@ -107,19 +107,22 @@ def add_personal_feed(
             if not candidates:
                 raise HTTPException(
                     status.HTTP_400_BAD_REQUEST,
-                    "Couldn't find an RSS feed at that URL. "
-                    "Paste the feed URL directly (e.g. your Mastodon .rss).",
+                    f"Couldn't find an RSS feed at {url} — no "
+                    "<link rel=\"alternate\"> tag and no feed at "
+                    "common paths. Paste the feed URL directly "
+                    "(e.g. your Mastodon .rss).",
                 )
-            if len(candidates) > 1:
-                resp = _partial(
-                    request, "_personal_feed_discovery.html",
-                    candidates=candidates,
-                    label=label,
-                )
-                resp.headers["HX-Retarget"] = "#personal-discovery"
-                resp.headers["HX-Reswap"] = "innerHTML"
-                return resp
-            url = normalize_feed_url(candidates[0]["url"])
+            # Always show the picker so the user confirms which feed
+            # is being connected — the discovered URL differs from
+            # what they typed.
+            resp = _partial(
+                request, "_personal_feed_discovery.html",
+                candidates=candidates,
+                label=label,
+            )
+            resp.headers["HX-Retarget"] = "#personal-discovery"
+            resp.headers["HX-Reswap"] = "innerHTML"
+            return resp
 
     pf = _register_personal_feed(db, user, url, label=label)
     feed = db.get(Feed, pf.feed_id)

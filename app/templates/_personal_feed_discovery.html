@@ -2,9 +2,14 @@
    POST target and label semantics. Rendered into #personal-discovery. #}
 <div class="feed-discovery" id="personal-discovery-inner">
   <p class="muted" style="margin:0 0 .5rem">
-    🔎 That URL isn't a feed itself, but we found
-    <strong>{{ candidates|length }}</strong> feeds on it — pick which
-    to connect as personal:
+    {% if candidates|length == 1 %}
+      🔎 That URL isn't a feed itself, but we found <strong>1 feed</strong>
+      on it — hit <em>Connect selected</em> to confirm:
+    {% else %}
+      🔎 That URL isn't a feed itself, but we found
+      <strong>{{ candidates|length }}</strong> feeds on it — pick which
+      to connect as personal:
+    {% endif %}
   </p>
   <form hx-post="/personal-feeds/pick"
         hx-target="#personal-feed-list"
@@ -16,9 +21,11 @@
         <li class="discovery-row">
           <label>
             <input type="checkbox" name="urls" value="{{ c.url }}"
-                   {% if loop.first %}checked{% endif %} />
+                   {% if candidates|length == 1 or loop.first %}checked{% endif %} />
             <span class="discovery-title">{{ c.title or c.url }}</span>
-            <div class="discovery-url muted">{{ c.url }}</div>
+            {% if c.title and c.title != c.url %}
+              <div class="discovery-url muted">{{ c.url }}</div>
+            {% endif %}
           </label>
         </li>
       {% endfor %}

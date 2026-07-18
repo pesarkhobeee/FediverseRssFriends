@@ -360,25 +360,25 @@ def subscribe(
             if not candidates:
                 raise HTTPException(
                     status.HTTP_400_BAD_REQUEST,
-                    "Couldn't find an RSS feed at that URL. "
-                    "Try pasting the feed URL directly.",
+                    f"Couldn't find an RSS feed at {url} — no "
+                    "<link rel=\"alternate\"> tag and no feed at common "
+                    "paths. If you know the direct feed URL, try "
+                    "pasting that instead.",
                 )
-            if len(candidates) > 1:
-                # Retarget the swap: the form's default target is the
-                # feed <ul>; the picker belongs in its own slot next
-                # to the form. HTMX honors these response headers.
-                resp = _partial(
-                    request, "_feed_discovery.html",
-                    candidates=candidates,
-                    source_url=url,
-                    category=cat,
-                )
-                resp.headers["HX-Retarget"] = f"#discovery-{cat.id}"
-                resp.headers["HX-Reswap"] = "innerHTML"
-                return resp
-            # Exactly one hit — auto-promote and fall through to subscribe.
-            url = normalize_feed_url(candidates[0]["url"])
-            meta = None  # let _subscribe_to_url re-resolve fresh
+            # Always show the picker when the pasted URL wasn't itself
+            # a feed — even for a single hit. The discovered URL will
+            # differ from what the user typed, so silently rewriting
+            # their input is a trust surprise. One extra click < risk
+            # of subscribing to the wrong URL.
+            resp = _partial(
+                request, "_feed_discovery.html",
+                candidates=candidates,
+                source_url=url,
+                category=cat,
+            )
+            resp.headers["HX-Retarget"] = f"#discovery-{cat.id}"
+            resp.headers["HX-Reswap"] = "innerHTML"
+            return resp
         sub, feed = _subscribe_to_url(db, user, category_id, url, meta=meta)
     else:
         sub, feed = _subscribe_to_url(db, user, category_id, url)

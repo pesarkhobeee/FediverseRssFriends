@@ -160,54 +160,35 @@ def test_subscribe_zero_candidates_returns_400(monkeypatch):
     assert "Couldn't find an RSS feed" in r.text
 
 
-def test_subscribe_single_candidate_auto_promotes(monkeypatch):
-    """One hit → subscribe silently, no picker shown."""
+def test_subscribe_single_candidate_shows_picker_not_auto_subscribe(monkeypatch):
+    """0.2.37: even a single discovered feed shows the picker so the
+    user can confirm — no silent rewriting of the URL they typed."""
     _stub_resolve_non_feed(monkeypatch)
     _stub_discover(monkeypatch, [
         {"url": "https://blog.example.com/feed.xml", "title": "The Feed", "type": "rss"},
     ])
-    import app.dashboard as dash
-    monkeypatch.setattr(
-        dash, "_subscribe_to_url",
-        lambda db, user, cat_id, url, meta=None: _real_subscribe(db, user, cat_id, url),
-    )
 
     c = _client()
     _login(c, "alice@e.com")
     cat_id = _cat(c, "News")
     r = c.post("/feeds", data={"url": "https://blog.example.com", "category_id": cat_id})
     assert r.status_code == 200
-    # A feed row was appended — not the discovery picker.
-    assert "feed-discovery" not in r.text
+    # Picker shown, not a subscribed row.
+    assert "feed-discovery" in r.text
+    assert r.headers.get("HX-Retarget") == f"#discovery-{cat_id}"
+    # Copy adjusts to the singular case.
+    assert "1 feed" in r.text
+    assert "Add selected" in r.text
+    # Candidate rendered with a checked checkbox.
+    assert 'value="https://blog.example.com/feed.xml"' in r.text
+    # NOTHING was subscribed yet — user still has to confirm.
     import app.db as db_mod
     with Session(db_mod.engine) as s:
         alice = s.exec(select(db_mod.User).where(db_mod.User.handle == "alice")).one()
         subs = s.exec(
             select(db_mod.Subscription).where(db_mod.Subscription.user_id == alice.id)
         ).all()
-        assert len(subs) == 1
-        feed = s.get(db_mod.Feed, subs[0].feed_id)
-        assert feed.url == "https://blog.example.com/feed.xml"
-
-
-def _real_subscribe(db, user, cat_id, url):
-    """A stub for _subscribe_to_url that doesn't need network — used by
-    tests that exercise the routing but don't want a real HTTP fetch."""
-    import app.db as db_mod
-
-    feed = db.exec(select(db_mod.Feed).where(db_mod.Feed.url == url)).first()
-    if not feed:
-        feed = db_mod.Feed(url=url, title=url, site_url="", favicon_url="")
-        db.add(feed)
-        db.commit()
-        db.refresh(feed)
-    sub = db_mod.Subscription(
-        user_id=user.id, feed_id=feed.id, category_id=cat_id, sort_order=1
-    )
-    db.add(sub)
-    db.commit()
-    db.refresh(sub)
-    return sub, feed
+    assert subs == []
 
 
 def test_subscribe_multiple_candidates_returns_picker(monkeypatch):
