@@ -331,6 +331,39 @@ def test_subscribe_refuses_to_attach_to_ghost_feed_row(monkeypatch):
     assert subs == []
 
 
+def test_resolve_feed_rejects_html_that_populates_feed_title(monkeypatch):
+    """Regression: some HTML pages get parsed by feedparser and end up
+    with a spurious feed.title (via og:title-like fields or malformed
+    XML fragments). The old is_feed rule ("title OR entries > 0")
+    accepted these; require feedparser to identify a real feed
+    format (parsed.version) OR real entries."""
+    import app.feeds as feeds_mod
+
+    html_body = (
+        b"<!DOCTYPE html><html><head>"
+        b"<meta property='og:title' content='Careers at Flink'>"
+        b"<title>Careers at Flink</title>"
+        b"</head><body>...</body></html>"
+    )
+
+    class FakeResp:
+        content = html_body
+        def raise_for_status(self): pass
+    class FakeClient:
+        def __init__(self, *a, **kw): pass
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+        def get(self, url): return FakeResp()
+
+    monkeypatch.setattr(feeds_mod.httpx, "Client", FakeClient)
+    monkeypatch.setattr(feeds_mod, "resolve_avatar", lambda *a, **k: "")
+
+    result = feeds_mod.resolve_feed("https://not-a-feed.example/jobs")
+    assert result["is_feed"] is False, (
+        f"HTML should not pass as a feed; got {result}"
+    )
+
+
 def test_subscribe_healthy_existing_feed_bypasses_revalidation(monkeypatch):
     """The fast path: existing Feed row with 0 failures → attach
     Subscription directly, no network call."""

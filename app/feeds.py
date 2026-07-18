@@ -254,7 +254,14 @@ def resolve_feed(url: str) -> dict:
     feed_meta = getattr(parsed, "feed", {}) or {}
     entries = getattr(parsed, "entries", None) or []
     has_feed_title = bool((feed_meta.get("title") or "").strip())
-    is_feed = has_feed_title or len(entries) > 0
+    # Stronger check than "has title or entries" — feedparser sets
+    # `.version` to a non-empty tag ("rss20", "atom10", etc.) ONLY
+    # when it identifies real feed markup. HTML pages that happen to
+    # populate feed_meta.title (e.g. via og:title) leave version=""
+    # and would previously slip through the old OR gate. Requiring
+    # a recognized feed format catches those.
+    detected_version = bool(getattr(parsed, "version", None))
+    is_feed = detected_version or len(entries) > 0
     title = (feed_meta.get("title") or "").strip() or _fallback_title(url)
     # GitHub user/org feeds all ship the generic
     # "Github Public timeline feed" (or similar) title. Prefer the
