@@ -57,7 +57,7 @@ def verify_follower_token(owner: User, follower: User, token: str) -> bool:
 
 KIND_ICON = {
     "subscribed": "➕",
-    "bookmarked": "🔖",
+    "bookmarked": "⭐",
     "followed": "👤",
     "forked": "🍴",
     "created_category": "📁",

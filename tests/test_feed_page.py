@@ -215,13 +215,13 @@ def test_bookmark_button_on_feed_page_for_signed_in():
     _login(client, "alice@example.com")
     r = client.get(f"/f/{feed_id}")
     # Bookmark button rendered next to the item, in the "off" state.
-    assert "🏷" in r.text
+    assert "☆" in r.text
     assert 'hx-post="/items/' in r.text
 
 
 def test_no_bookmark_button_on_feed_page_for_anonymous():
     feed_id = _seed_feed()
     r = _client().get(f"/f/{feed_id}")
-    assert "🏷" not in r.text
+    assert "☆" not in r.text
     # Anonymous visitors see the items but can't bookmark them.
     assert "First post" in r.text

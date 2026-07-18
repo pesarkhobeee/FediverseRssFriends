@@ -1,4 +1,4 @@
-"""Bookmarks (🔖): toggle + list + visibility."""
+"""Bookmarks (★): toggle + list + visibility."""
 
 from fastapi.testclient import TestClient
 from sqlmodel import Session
@@ -53,12 +53,12 @@ def test_bookmark_and_unbookmark():
     r = client.post(f"/items/{item_id}/bookmark")
     assert r.status_code == 200
     assert "bookmark-on" in r.text
-    assert "🔖" in r.text
+    assert "★" in r.text
 
     r2 = client.delete(f"/items/{item_id}/bookmark")
     assert r2.status_code == 200
     assert "bookmark-on" not in r2.text
-    assert "🏷" in r2.text
+    assert "☆" in r2.text
 
 
 def test_bookmark_is_idempotent():
@@ -155,7 +155,7 @@ def test_public_radar_shows_bookmark_state_for_viewer():
     r = client.get("/u/owner")
     assert r.status_code == 200
     assert "bookmark-on" in r.text
-    assert "🔖" in r.text
+    assert "★" in r.text
 
 
 def test_favorites_url_still_works_via_301():

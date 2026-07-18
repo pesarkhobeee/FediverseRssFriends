@@ -3,7 +3,7 @@
 {% block meta_description %}Items {{ 'you' if is_owner else '@' + owner.handle }} bookmarked on rssFriends, newest first.{% endblock %}
 {% block content %}
 <section class="hero stack">
-  <h1>🔖 @{{ owner.handle }}'s bookmarks</h1>
+  <h1>⭐ @{{ owner.handle }}'s bookmarks</h1>
   <p class="muted">
     Items {{ 'you' if is_owner else '@' + owner.handle }} bookmarked, newest first.
   </p>
@@ -46,7 +46,7 @@
   {% if is_owner %}
     You haven't bookmarked anything yet. When you're browsing your
     <a href="/u/{{ owner.handle }}">radar</a> and something catches
-    your eye, click the 🏷 next to it — bookmarked items land here.
+    your eye, click the ☆ next to it — bookmarked items land here.
   {% else %}
     @{{ owner.handle }} hasn't bookmarked anything yet.
   {% endif %}
