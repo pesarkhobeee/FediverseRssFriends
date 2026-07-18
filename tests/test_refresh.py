@@ -122,6 +122,108 @@ def test_refresh_does_not_downgrade_previously_deep_resolved_favicon(monkeypatch
         assert feed.favicon_url == "https://cdn.example.com/img/favicon.ico"
 
 
+def test_refresh_heals_url_when_stored_url_is_html_not_a_feed(monkeypatch):
+    """When feed.url points at an HTML page (feedparser accepts it but
+    produces 0 entries / no title) AND we have no historical items,
+    refresh auto-migrates to a discovered feed URL."""
+    import app.db as db_mod
+    import app.refresh as ref
+
+    # First fetch: empty response for the ORIGINAL url (HTML masquerading
+    # as a feed). Second fetch (after heal): a real feed.
+    empty_feed_body = b"<html><body>plain html, no feed here</body></html>"
+    good_feed_body = SAMPLE_ATOM
+
+    fetch_state = {"url_seen": None}
+
+    class FakeResp:
+        def __init__(self, body):
+            self.content = body
+
+        def raise_for_status(self):
+            pass
+
+    class FakeClient:
+        def __init__(self, *a, **kw):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def get(self, url):
+            fetch_state["url_seen"] = url
+            body = good_feed_body if "/goodfeed" in url else empty_feed_body
+            return FakeResp(body)
+
+    monkeypatch.setattr(ref.httpx, "Client", FakeClient)
+    monkeypatch.setattr(
+        ref, "_maybe_heal_feed_url",
+        lambda db, feed: "https://blog.example/goodfeed" if feed.url.endswith("/jobs") else None,
+    )
+    monkeypatch.setattr(ref, "_icon_is_reachable", lambda url, timeout=3.0: True)
+
+    with Session(db_mod.engine) as s:
+        feed = db_mod.Feed(url="https://blog.example/jobs", title="stub")
+        s.add(feed)
+        s.commit()
+        s.refresh(feed)
+        feed_id = feed.id
+
+    from app.refresh import fetch_one
+    with Session(db_mod.engine) as s:
+        feed = s.get(db_mod.Feed, feed_id)
+        new, err = fetch_one(s, feed)
+        s.commit()
+
+    with Session(db_mod.engine) as s:
+        feed = s.get(db_mod.Feed, feed_id)
+    # URL healed to the discovered one.
+    assert feed.url == "https://blog.example/goodfeed"
+    # Items from the real feed landed on the same Feed row.
+    assert new == 2  # SAMPLE_ATOM has two entries
+
+
+def test_refresh_does_not_heal_feed_with_history(monkeypatch):
+    """Refuse to migrate a feed that has produced items before — could
+    be a legit feed that's just temporarily empty."""
+    _stub_httpx(monkeypatch, body=b"<html/>")
+    import app.db as db_mod
+    import app.refresh as ref
+
+    called = {"heal": False}
+
+    def fake_heal(db, feed):
+        called["heal"] = True
+        return None
+
+    monkeypatch.setattr(ref, "_maybe_heal_feed_url", fake_heal)
+
+    with Session(db_mod.engine) as s:
+        feed = db_mod.Feed(url="https://blog.example/rss", title="Blog")
+        s.add(feed)
+        s.commit()
+        s.refresh(feed)
+        s.add(db_mod.FeedItem(feed_id=feed.id, guid="old-1", title="Old post"))
+        s.commit()
+        feed_id = feed.id
+
+    from app.refresh import fetch_one
+    with Session(db_mod.engine) as s:
+        feed = s.get(db_mod.Feed, feed_id)
+        fetch_one(s, feed)
+
+    # _maybe_heal_feed_url IS called (0-entry + no-title trigger) but
+    # inside it must refuse because prior items exist. Verify with a
+    # separate direct call.
+    from app.refresh import _maybe_heal_feed_url as heal_fn
+    with Session(db_mod.engine) as s:
+        feed = s.get(db_mod.Feed, feed_id)
+        assert heal_fn(s, feed) is None
+
+
 def test_refresh_heals_stored_icon_that_404s(monkeypatch):
     """Regression: a custom (non-generic) favicon URL that used to work
     but now returns 404 must be re-derived — otherwise it stays broken

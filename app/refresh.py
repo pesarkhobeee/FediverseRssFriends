@@ -33,6 +33,42 @@ def _aware(dt: datetime | None) -> datetime | None:
     return dt.replace(tzinfo=UTC)
 
 
+def _maybe_heal_feed_url(db: Session, feed: Feed) -> str | None:
+    """Called when a feed parsed to zero items with no title — probable
+    sign the stored URL isn't actually a feed. Runs discovery; if it
+    finds a candidate that itself parses to something (title or entries),
+    returns that URL for the caller to migrate to. Refuses to heal a
+    feed that has already produced items (assume it's a real feed that
+    happens to be quiet right now)."""
+    from .feeds import discover_feeds
+
+    prior_items = db.exec(
+        select(FeedItem.id).where(FeedItem.feed_id == feed.id).limit(1)
+    ).first()
+    if prior_items:
+        return None  # already has real history, don't touch
+
+    candidates = discover_feeds(feed.url)
+    for c in candidates:
+        if c["url"] == feed.url:
+            continue
+        # Sanity: the discovered URL must parse to a non-trivial feed.
+        try:
+            with httpx.Client(
+                timeout=FETCH_TIMEOUT,
+                follow_redirects=True,
+                headers={"User-Agent": USER_AGENT},
+            ) as client:
+                r = client.get(c["url"])
+                r.raise_for_status()
+                p = feedparser.parse(r.content)
+        except Exception:
+            continue
+        if p.entries or (getattr(p, "feed", {}) or {}).get("title"):
+            return c["url"]
+    return None
+
+
 def _icon_is_reachable(url: str, timeout: float = 3.0) -> bool:
     """HEAD-probe an icon URL. Treats 2xx as healthy, everything else
     (including network errors) as broken so we heal them. False
@@ -128,6 +164,34 @@ def fetch_one(db: Session, feed: Feed) -> tuple[int, str | None]:
         db.commit()
         log.warning("feed fetch failed url=%s err=%s", feed.url, msg)
         return 0, msg
+
+    # Auto-heal misidentified feed URLs. feedparser is tolerant — it
+    # returns a "successful" parse with zero entries and empty metadata
+    # for any HTTP-fetchable URL, including plain HTML. That produced a
+    # class of ghost rows (e.g. https://site.com/jobs stored as a feed
+    # forever, silently producing no items). If we've never had items
+    # AND this parse also produced nothing AND discovery finds a real
+    # feed elsewhere on the same host, migrate the URL.
+    if (
+        not parsed.entries
+        and not (getattr(parsed, "feed", {}) or {}).get("title")
+        and feed.consecutive_failures == 0
+    ):
+        healed_url = _maybe_heal_feed_url(db, feed)
+        if healed_url:
+            feed.url = healed_url
+            feed.title = ""      # let the next fetch derive it
+            feed.site_url = ""
+            feed.last_fetched_at = None
+            db.add(feed)
+            db.commit()
+            log.info(
+                "healed feed url=%s → %s (was HTML, discovery found real feed)",
+                feed.url, healed_url,
+            )
+            # Recurse once with the new URL so this cycle still ends up
+            # fetching real items.
+            return fetch_one(db, feed)
 
     # Refresh feed metadata opportunistically.
     fmeta = getattr(parsed, "feed", {}) or {}
