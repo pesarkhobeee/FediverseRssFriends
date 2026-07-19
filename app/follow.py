@@ -86,11 +86,15 @@ def follow(
     if is_new:
         approved = _now() if target.visibility != "private" else None
         db.add(Follow(follower_id=viewer.id, followee_id=target.id, approved_at=approved))
-        if approved:
-            activity.record(
-                db, viewer, "followed", f"@{target.handle}",
-                subject_url=f"/u/{target.handle}", ref_type="user", ref_id=target.id,
-            )
+        # Log the "followed" activity IMMEDIATELY, regardless of whether
+        # the request is auto-approved (public/unlisted) or pending
+        # (private). It's the follower's action being recorded; approval
+        # is between them and the target and happens later. The approve
+        # endpoint deliberately does NOT log again to avoid duplicates.
+        activity.record(
+            db, viewer, "followed", f"@{target.handle}",
+            subject_url=f"/u/{target.handle}", ref_type="user", ref_id=target.id,
+        )
         db.commit()
         state = "following" if approved else "pending"
         # Notify the followee — auto-approved followers or new pending
@@ -308,13 +312,11 @@ def approve_request(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "no pending request")
     row.approved_at = _now()
     db.add(row)
-    # Log on the *follower's* activity — "@X followed @user".
+    # NOTE: we don't log "followed" activity here — the follow endpoint
+    # already recorded it at request-time (0.2.47 change). Approval is a
+    # target-side action; the follower's action was already logged when
+    # they clicked Follow.
     follower = db.get(User, follower_id)
-    if follower:
-        activity.record(
-            db, follower, "followed", f"@{user.handle}",
-            subject_url=f"/u/{user.handle}", ref_type="user", ref_id=user.id,
-        )
     db.commit()
     if follower:
         mail.send_follow_approved(

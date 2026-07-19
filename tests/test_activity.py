@@ -110,7 +110,13 @@ def test_following_records_on_auto_approve():
     assert any(e.kind == "followed" for e in _all_activity(viewer_row.id))
 
 
-def test_following_recorded_on_approval_of_private_user():
+def test_following_recorded_immediately_even_for_private_user():
+    """0.2.47: "followed" activity is logged at request-time regardless
+    of approval state. It's the follower's action being recorded — the
+    target's approval decision doesn't retroactively change what the
+    follower did. Also prevents the class of bug where auto-heal /
+    visibility changes / edge paths left pending follows without any
+    activity row."""
     o = _client()
     _login(o, "owner@e.com")
     o.post("/settings/visibility", data={"visibility": "private"}, follow_redirects=False)
@@ -121,11 +127,14 @@ def test_following_recorded_on_approval_of_private_user():
     import app.db as db_mod
     with Session(db_mod.engine) as s:
         viewer_row = s.exec(select(db_mod.User).where(db_mod.User.handle == "viewer")).one()
-    # No activity yet — still pending.
-    assert not any(e.kind == "followed" for e in _all_activity(viewer_row.id))
-
-    o.post(f"/follow-requests/{viewer_row.id}/approve")
+    # Activity recorded IMMEDIATELY, even though follow is pending.
     assert any(e.kind == "followed" for e in _all_activity(viewer_row.id))
+
+    # Approving does NOT create a duplicate row.
+    events_before = len([e for e in _all_activity(viewer_row.id) if e.kind == "followed"])
+    o.post(f"/follow-requests/{viewer_row.id}/approve")
+    events_after = len([e for e in _all_activity(viewer_row.id) if e.kind == "followed"])
+    assert events_before == events_after == 1
 
 
 def test_activity_page_lists_events():
