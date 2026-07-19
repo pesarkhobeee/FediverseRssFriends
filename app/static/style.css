@@ -736,6 +736,43 @@ img.favicon {
 
 .feed-cta { display: inline-flex; align-items: center; gap: .35rem; }
 
+/* Visible + copyable RSS URL box on /u/{handle} (whole radar) and
+   /u/{handle}?cat=X (per-category). Discoverability > icon-only. */
+.rss-box {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: .5rem;
+  padding: .55rem .75rem;
+  margin: .75rem 0 1rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: .85rem;
+}
+.rss-box-label { color: var(--muted); flex: 0 0 auto; }
+.rss-box-url {
+  flex: 1 1 240px;
+  min-width: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: .82rem;
+  color: var(--fg);
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: .15rem .4rem;
+  background: var(--surface);
+  border-radius: 4px;
+  border: 1px solid var(--border);
+}
+.rss-box-url:hover { text-decoration: underline; }
+.rss-box .btn-ghost { padding: .3rem .6rem; font-size: .8rem; }
+@media (max-width: 640px) {
+  .rss-box { padding: .5rem .55rem; gap: .35rem; }
+  .rss-box-url { flex: 1 1 100%; font-size: .78rem; }
+}
+
 /* Source domain chip on cross-posted activity items — attribution is
    self-declared, not verified, so the chip acts as a "from where"
    signal for readers. */

@@ -1,6 +1,6 @@
 [project]
 name = "rssfriends"
-version = "0.2.45"
+version = "0.2.46"
 description = "Multi-user RSS radar with follow, favorites, and activity feeds"
 readme = "README.md"
 requires-python = ">=3.11"

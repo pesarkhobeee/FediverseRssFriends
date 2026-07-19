@@ -30,7 +30,6 @@
     {% endif %}
     <a class="btn-ghost" href="/u/{{ owner.handle }}/bookmarks">⭐ Bookmarks</a>
     <a class="btn-ghost" href="/u/{{ owner.handle }}/activity">📜 Activity</a>
-    <a class="btn-ghost" href="{{ reading_rss_url }}" title="Subscribe to @{{ owner.handle }}'s reading list in any RSS reader">🔗 RSS</a>
     <a class="btn-ghost" href="/u/{{ owner.handle }}.opml">📥 OPML</a>
     {% if is_owner %}
       <a class="btn-ghost" href="/dashboard">Edit radar</a>
@@ -59,15 +58,37 @@
 </div>
 {% endif %}
 
-{% if active_category and user and user.id != owner.id and owner.visibility != "private" %}
-<p class="category-follow-line muted" style="margin:.5rem 0 .75rem; font-size:.9rem">
-  Just interested in this category?
-  {% with category=active_category, owner_handle=owner.handle, state=category_follow_states.get(active_category.id, "none") %}
-    {% include "_category_follow_button.html" %}
-  {% endwith %}
-  <a class="btn-ghost" href="/u/{{ owner.handle }}/c/{{ active_category.name }}.rss"
-     title="Subscribe to just this category in any RSS reader">🔗 RSS</a>
-</p>
+{# Visible + copyable RSS URL box. Whole-radar URL when no filter,
+   per-category when one is filtered. Owners see it too — they often
+   want to share the URL of one of their own categories.
+
+   Per-category RSS is disabled for private radars (0.2.44), so we
+   don't show that variant there. The whole-radar RSS still works
+   for private via a signed token in reading_rss_url. #}
+{% if active_category and owner.visibility != "private" %}
+  {% set rss_path = "/u/" ~ owner.handle ~ "/c/" ~ active_category.name ~ ".rss" %}
+  {% set rss_label = "📡 “" ~ active_category.name ~ "” as RSS:" %}
+{% elif not active_category %}
+  {% set rss_path = reading_rss_url %}
+  {% set rss_label = "📡 Whole radar as RSS:" %}
+{% else %}
+  {% set rss_path = None %}
+{% endif %}
+{% if rss_path %}
+  {% set rss_full = (request.base_url|string).rstrip("/") ~ rss_path %}
+  <div class="rss-box">
+    <span class="rss-box-label">{{ rss_label }}</span>
+    <a class="rss-box-url" href="{{ rss_path }}"
+       target="_blank" rel="noopener" title="Open feed">{{ rss_full }}</a>
+    <button type="button" class="btn-ghost rss-box-copy"
+            data-copy-url="{{ rss_path }}"
+            title="Copy link to clipboard">📋 Copy</button>
+    {% if active_category and user and user.id != owner.id and owner.visibility != "private" %}
+      {% with category=active_category, owner_handle=owner.handle, state=category_follow_states.get(active_category.id, "none") %}
+        {% include "_category_follow_button.html" %}
+      {% endwith %}
+    {% endif %}
+  </div>
 {% endif %}
 
 <div class="stack" style="margin-top:1rem">
