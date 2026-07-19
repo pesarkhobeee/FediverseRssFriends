@@ -59,7 +59,7 @@
 </div>
 {% endif %}
 
-{% if active_category and user and user.id != owner.id %}
+{% if active_category and user and user.id != owner.id and owner.visibility != "private" %}
 <p class="category-follow-line muted" style="margin:.5rem 0 .75rem; font-size:.9rem">
   Just interested in this category?
   {% with category=active_category, owner_handle=owner.handle, state=category_follow_states.get(active_category.id, "none") %}

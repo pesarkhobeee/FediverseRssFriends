@@ -157,10 +157,12 @@ def follow_category(
     viewer: User = Depends(login_required),
     db: Session = Depends(get_session),
 ):
-    """Follow one specific category on someone else's radar. Requires
-    the follower to have view access (same can_view rule) — public and
-    unlisted work directly; private users need an approved whole-user
-    follow first."""
+    """Follow one specific category on someone else's radar. Only
+    supported for public + unlisted radars. Private users' categories
+    can't be followed even by approved followers — the auto-created
+    reader subscription (0.2.43) needs to refresh anonymously, and a
+    private URL 403s in that context. Refusing at the follow endpoint
+    keeps behavior consistent."""
     from .public import can_view
 
     owner = db.exec(select(User).where(User.handle == handle)).first()
@@ -168,6 +170,11 @@ def follow_category(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "user not found")
     if owner.id == viewer.id:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "can't follow your own category")
+    if owner.visibility == "private":
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "category follow isn't available on private radars",
+        )
     if not can_view(viewer, owner, db=db):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "no access to this radar")
 

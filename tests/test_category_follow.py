@@ -178,18 +178,60 @@ def test_follow_category_idempotent():
     assert len(rows) == 1
 
 
-def test_follow_private_users_category_forbidden_without_access():
-    """Category follow requires view access. Private users' categories
-    are only reachable through an approved whole-user follow."""
+def test_follow_private_users_category_always_forbidden():
+    """0.2.44: private radars don't support category-follow at all,
+    even from approved whole-user followers. Reason: the auto-created
+    reader subscription (0.2.43) needs to refresh anonymously, and
+    private URLs 403 in that context. Blocking at the follow endpoint
+    keeps behavior consistent."""
     owner = _client()
     _login(owner, "farid@e.com")
     owner.post("/settings/visibility", data={"visibility": "private"}, follow_redirects=False)
     cat_id, _, _ = _seed_category_with_feed("farid", "Secret", "https://a.example/rss")
 
+    # Random visitor: rejected.
     fan = _client()
     _login(fan, "bob@e.com")
     r = fan.post(f"/u/farid/c/{cat_id}/follow")
     assert r.status_code == 403
+    assert "private" in r.text.lower()
+
+    # Even after approved whole-user follow: still rejected on private.
+    fan.post("/u/farid/follow")  # sends a pending request
+    # Auto-approve for the sake of the test: bump the row's approved_at.
+    from datetime import UTC, datetime
+
+    import app.db as db_mod
+    with Session(db_mod.engine) as s:
+        follow = s.get(db_mod.Follow, (_uid("bob"), _uid("farid")))
+        follow.approved_at = datetime.now(UTC)
+        s.add(follow)
+        s.commit()
+    r2 = fan.post(f"/u/farid/c/{cat_id}/follow")
+    assert r2.status_code == 403
+
+
+def test_follow_category_button_hidden_on_private_radar():
+    owner = _client()
+    _login(owner, "farid@e.com")
+    _seed_category_with_feed("farid", "News", "https://a.example/rss")
+    owner.post("/settings/visibility", data={"visibility": "private"}, follow_redirects=False)
+    # Approve a follower so they can VIEW the radar; button still hidden.
+    fan = _client()
+    _login(fan, "bob@e.com")
+    fan.post("/u/farid/follow")
+    from datetime import UTC, datetime
+
+    import app.db as db_mod
+    with Session(db_mod.engine) as s:
+        follow = s.get(db_mod.Follow, (_uid("bob"), _uid("farid")))
+        follow.approved_at = datetime.now(UTC)
+        s.add(follow)
+        s.commit()
+
+    r = fan.get("/u/farid?cat=News")
+    assert r.status_code == 200
+    assert "🔔 Follow category" not in r.text
 
 
 def test_follow_unknown_category_404s():
