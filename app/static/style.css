@@ -6,6 +6,14 @@
  * Keep it Bootstrap-ish in spacing but no framework.
  */
 
+/* ----------------------------- Theme variables -----------------------------
+   Two palettes: warm cream by day, deep warm charcoal by night. Both share
+   the same olive accent (brightened in dark for contrast). Rules of thumb:
+     - :root = light defaults (backwards-compat, no theme attr needed).
+     - [data-theme="dark"] = dark override, set by the JS toggle.
+     - @media prefers-color-scheme: dark → auto-dark when no explicit choice.
+     - [data-theme="light"] pins light even in a dark-preferring OS.
+*/
 :root {
   --fg: #212529;
   --muted: #6c757d;
@@ -17,7 +25,49 @@
   --accent: #7d8f2a;        /* olive-green pill for active chips + "New" */
   --accent-fg: #ffffff;
   --link: #2563eb;
+  --danger: #b3261e;
+  --danger-fg: #ffffff;
+  --danger-bg: #fdf1ef;
+  --danger-border: #d9a8a4;
+  --star: #d4a017;
   --radius: 10px;
+}
+
+[data-theme="dark"] {
+  --fg: #e8e2d3;
+  --muted: #9c9484;
+  --bg: #1a1815;            /* deep warm charcoal — keeps the warm feel */
+  --surface: #221f1b;
+  --card: #26231f;
+  --card-hover: #2e2a25;
+  --border: #3a352d;
+  --accent: #a4b846;
+  --accent-fg: #1a1815;
+  --link: #7db3ff;
+  --danger: #ea8078;
+  --danger-fg: #1a1815;
+  --danger-bg: #2a1e1c;
+  --danger-border: #5a3532;
+  --star: #f0c04a;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --fg: #e8e2d3;
+    --muted: #9c9484;
+    --bg: #1a1815;
+    --surface: #221f1b;
+    --card: #26231f;
+    --card-hover: #2e2a25;
+    --border: #3a352d;
+    --accent: #a4b846;
+    --accent-fg: #1a1815;
+    --link: #7db3ff;
+    --danger: #ea8078;
+    --danger-fg: #1a1815;
+    --danger-bg: #2a1e1c;
+    --danger-border: #5a3532;
+    --star: #f0c04a;
+  }
 }
 
 * { box-sizing: border-box; }
@@ -38,11 +88,56 @@ header {
   border-bottom: 1px solid var(--border);
   background: var(--surface);
 }
-.brand { font-weight: 700; text-decoration: none; color: var(--fg); font-size: 1.1rem; }
-nav { display: flex; flex-wrap: wrap; gap: .25rem 1rem; justify-content: flex-end; }
+.brand {
+  font-weight: 700;
+  text-decoration: none;
+  color: var(--fg);
+  font-size: 1.1rem;
+  display: inline-flex;
+  align-items: baseline;
+  gap: .35rem;
+}
+.brand-beta {
+  display: inline-block;
+  padding: .05rem .35rem;
+  font-size: .62rem;
+  font-weight: 700;
+  color: var(--accent-fg);
+  background: var(--accent);
+  border-radius: 4px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  vertical-align: middle;
+  transform: translateY(-2px);
+}
+nav { display: flex; flex-wrap: wrap; align-items: center; gap: .25rem 1rem; justify-content: flex-end; }
 nav a { text-decoration: none; color: var(--link); font-size: .95rem; }
 nav a:hover { text-decoration: underline; }
 nav a.nav-user { color: var(--fg); font-weight: 600; }
+
+/* Theme toggle in the nav — sun/moon swap based on the current theme. */
+.nav-theme-toggle {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  padding: .2rem .45rem;
+  font-size: .95rem;
+  line-height: 1;
+  color: inherit;
+}
+.nav-theme-toggle:hover { background: var(--card); }
+/* Icon shown = what clicking will DO:
+   - In light theme: show 🌙 (click → switch to dark).
+   - In dark theme:  show ☀️ (click → switch to light). */
+.nav-theme-toggle .theme-icon-light { display: none; }
+.nav-theme-toggle .theme-icon-dark { display: inline; }
+[data-theme="dark"] .nav-theme-toggle .theme-icon-light { display: inline; }
+[data-theme="dark"] .nav-theme-toggle .theme-icon-dark { display: none; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .nav-theme-toggle .theme-icon-light { display: inline; }
+  :root:not([data-theme="light"]) .nav-theme-toggle .theme-icon-dark { display: none; }
+}
 
 /* Layout */
 main { max-width: 880px; margin: 0 auto; padding: 2rem 1.25rem; }
@@ -189,9 +284,9 @@ img.favicon {
   padding: .5rem 1rem;
   font-size: .9rem;
   font-weight: 600;
-  color: #fff;
-  background: #b3261e;
-  border: 1px solid #8c1d17;
+  color: var(--danger-fg);
+  background: var(--danger);
+  border: 1px solid var(--danger);
   border-radius: 8px;
   cursor: pointer;
 }
@@ -199,16 +294,16 @@ img.favicon {
 .btn-danger:disabled { opacity: .45; cursor: not-allowed; }
 
 /* Danger zone card + confirmation block on /dashboard. */
-.danger-zone { border-color: #d9a8a4; margin-top: 1.5rem; }
-.danger-zone h2 { color: #b3261e; }
+.danger-zone { border-color: var(--danger-border); margin-top: 1.5rem; }
+.danger-zone h2 { color: var(--danger); }
 .danger-confirm {
   padding: 1.1rem 1.25rem;
-  background: #fdf1ef;
-  border: 1px solid #d9a8a4;
+  background: var(--danger-bg);
+  border: 1px solid var(--danger-border);
   border-radius: var(--radius);
   margin-top: 1.5rem;
 }
-.danger-confirm h3 { color: #b3261e; }
+.danger-confirm h3 { color: var(--danger); }
 .delete-list { margin: .25rem 0 .5rem 1.1rem; color: var(--muted); font-size: .9rem; }
 .delete-list li { margin: .1rem 0; }
 .delete-form .btn-danger { margin-right: .5rem; }
@@ -404,8 +499,8 @@ img.favicon {
   vertical-align: middle;
 }
 .bookmark:hover { color: var(--fg); }
-.bookmark.bookmark-on { color: #d4a017; }
-.bookmark.bookmark-on:hover { color: #b8890f; }
+.bookmark.bookmark-on { color: var(--star); }
+.bookmark.bookmark-on:hover { filter: brightness(0.9); }
 
 /* Bookmarks page — .fav-* classes kept for backwards compat on the
    generic activity/bookmark-list layout used by the timeline too. */
@@ -518,6 +613,43 @@ img.favicon {
 
   /* Body buttons — one action per line reads better than crammed on mobile */
   .feed-body p .btn-ghost { display: inline-block; margin: .15rem .15rem .15rem 0; }
+
+  /* Dashboard feed rows: many action buttons per row (rss / 🔄 / Edit URL /
+     Move / Remove). Let them wrap and shrink so they don't overflow. */
+  .feed {
+    flex-wrap: wrap;
+    gap: .5rem;
+    padding: .75rem .8rem;
+  }
+  .feed .title {
+    flex: 1 1 100%;
+    order: -1;                /* Title on its own row above buttons. */
+    word-break: break-word;
+  }
+  .feed .feed-meta { flex: 1 1 100%; }
+  .feed-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .35rem;
+    width: 100%;
+  }
+  .feed-actions .btn-ghost { padding: .35rem .55rem; font-size: .8rem; }
+
+  /* Section head buttons — cluster stacks below on mobile. */
+  .section-head { flex-direction: column; align-items: flex-start; }
+  .section-head-actions { width: 100%; }
+
+  /* Hero rows with many links flow into two-column-ish density. */
+  .hero p .btn-ghost { margin: .15rem .2rem .15rem 0; font-size: .82rem; }
+
+  /* Category header on public radar: rename/delete buttons wrap under name. */
+  .category .category-summary { flex-wrap: wrap; }
+  .category-head { min-width: 0; flex-wrap: wrap; }
+  .category-head-actions { flex-wrap: wrap; width: 100%; }
+
+  /* Brand + beta chip stay together but slightly smaller. */
+  .brand { font-size: 1.05rem; }
+  .brand-beta { font-size: .58rem; padding: .05rem .3rem; }
 
   /* Inputs + buttons full-width for tap targets.
      Reset the flex-basis on inputs — in column-direction, 260px

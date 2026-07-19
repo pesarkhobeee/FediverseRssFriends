@@ -7,6 +7,30 @@
   <link rel="icon" type="image/svg+xml" href="{{ url_for('static', path='favicon.svg') }}?v={{ app_version }}">
   <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}?v={{ app_version }}">
   <script src="https://unpkg.com/htmx.org@2.0.3" defer></script>
+  {# Theme: honor stored preference before body renders (avoids flash).
+     If nothing stored, the CSS media query defaults to system. #}
+  <script>
+    (function () {
+      try {
+        var saved = localStorage.getItem("rssfriends-theme");
+        if (saved === "dark" || saved === "light") {
+          document.documentElement.setAttribute("data-theme", saved);
+        }
+      } catch (_) {}
+    })();
+    function toggleTheme() {
+      var root = document.documentElement;
+      var cur = root.getAttribute("data-theme");
+      // If unset, infer from current system preference so the toggle
+      // flips to the other one — not back to system.
+      if (!cur) {
+        cur = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      }
+      var next = cur === "dark" ? "light" : "dark";
+      root.setAttribute("data-theme", next);
+      try { localStorage.setItem("rssfriends-theme", next); } catch (_) {}
+    }
+  </script>
 
   {# Rich preview tags — Slack, Discord, Mastodon, iMessage, Twitter,
      Signal, etc. all read either OpenGraph or Twitter Cards (or both).
@@ -29,7 +53,7 @@
 </head>
 <body>
   <header>
-    <a href="/" class="brand">rssFriends</a>
+    <a href="/" class="brand">rssFriends<span class="brand-beta" title="rssFriends is under active development">beta</span></a>
     <nav>
       {% if user %}
         <a href="/u/{{ user.handle }}" class="nav-user" title="Your public radar">@{{ user.handle }}</a>
@@ -47,6 +71,11 @@
         <a href="/help">Help</a>
         <a href="/#login">Login</a>
       {% endif %}
+      <button type="button" class="nav-theme-toggle" onclick="toggleTheme()"
+              aria-label="Toggle light / dark theme" title="Toggle light / dark theme">
+        <span class="theme-icon-light" aria-hidden="true">☀️</span>
+        <span class="theme-icon-dark" aria-hidden="true">🌙</span>
+      </button>
     </nav>
   </header>
   <main>{% block content %}{% endblock %}</main>
