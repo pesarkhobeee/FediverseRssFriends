@@ -241,6 +241,84 @@ def _run_sqlite_migrations(conn) -> None:
             "UPDATE activity SET kind = 'bookmarked' WHERE kind = 'favorited'"
         )
 
+    # 0.2.43: category follows now auto-add a Subscription to the
+    # category's RSS URL so followers can read it, not just get its
+    # timeline signals. Backfill existing CategoryFollow rows.
+    if "categoryfollow" in tables and "subscription" in tables:
+        _backfill_category_follow_subscriptions(conn)
+
+
+def _backfill_category_follow_subscriptions(conn) -> None:
+    """For each CategoryFollow row, ensure follower has a Subscription
+    to that category's RSS URL under a singleton 'Following' category
+    on their own radar. Runs once (idempotent — reruns just skip
+    already-linked rows)."""
+    import os
+
+    base = (os.environ.get("RSSFRIENDS_BASE_URL") or "https://rssfriends.com").rstrip("/")
+    rows = conn.exec_driver_sql(
+        "SELECT cf.follower_id, cat.id, cat.name, cat.user_id, u.handle "
+        "FROM categoryfollow cf "
+        "JOIN category cat ON cat.id = cf.category_id "
+        "JOIN user u ON u.id = cat.user_id"
+    ).fetchall()
+    for follower_id, _cat_id, cat_name, _owner_id, owner_handle in rows:
+        rss_url = f"{base}/u/{owner_handle}/c/{cat_name}.rss"
+        # find-or-create Feed
+        row = conn.exec_driver_sql(
+            "SELECT id FROM feed WHERE url = ?", (rss_url,)
+        ).fetchone()
+        if row:
+            feed_id = row[0]
+        else:
+            conn.exec_driver_sql(
+                "INSERT INTO feed (url, title, site_url, favicon_url, "
+                "consecutive_failures, last_error) "
+                "VALUES (?, ?, ?, '', 0, '')",
+                (rss_url, f"@{owner_handle}'s {cat_name}",
+                 f"{base}/u/{owner_handle}?cat={cat_name}"),
+            )
+            feed_id = conn.exec_driver_sql(
+                "SELECT id FROM feed WHERE url = ?", (rss_url,)
+            ).fetchone()[0]
+        # find-or-create "Following" category on follower's radar
+        row = conn.exec_driver_sql(
+            "SELECT id FROM category WHERE user_id = ? AND lower(name) = 'following'",
+            (follower_id,),
+        ).fetchone()
+        if row:
+            following_cat_id = row[0]
+        else:
+            max_order = conn.exec_driver_sql(
+                "SELECT COALESCE(MAX(sort_order), 0) FROM category WHERE user_id = ?",
+                (follower_id,),
+            ).fetchone()[0]
+            conn.exec_driver_sql(
+                "INSERT INTO category (user_id, name, sort_order) VALUES (?, 'Following', ?)",
+                (follower_id, max_order + 1),
+            )
+            following_cat_id = conn.exec_driver_sql(
+                "SELECT id FROM category WHERE user_id = ? AND lower(name) = 'following'",
+                (follower_id,),
+            ).fetchone()[0]
+        # skip if already subscribed
+        exists = conn.exec_driver_sql(
+            "SELECT 1 FROM subscription WHERE user_id = ? AND feed_id = ?",
+            (follower_id, feed_id),
+        ).fetchone()
+        if exists:
+            continue
+        max_sub_order = conn.exec_driver_sql(
+            "SELECT COALESCE(MAX(sort_order), 0) FROM subscription "
+            "WHERE user_id = ? AND category_id = ?",
+            (follower_id, following_cat_id),
+        ).fetchone()[0]
+        conn.exec_driver_sql(
+            "INSERT INTO subscription (user_id, feed_id, category_id, sort_order) "
+            "VALUES (?, ?, ?, ?)",
+            (follower_id, feed_id, following_cat_id, max_sub_order + 1),
+        )
+
 
 def _backfill_github_avatars(conn) -> None:
     from .feeds import github_owner

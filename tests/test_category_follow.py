@@ -89,6 +89,61 @@ def test_follow_public_users_category():
     assert rows[0].category_id == cat_id
 
 
+def test_follow_category_also_adds_readable_subscription():
+    """0.2.43: following a category also subscribes the follower to
+    the category's RSS URL, in a 'Following' category on their radar.
+    The user can then Move / Edit URL / Remove that row like any
+    other feed."""
+    owner = _client()
+    _login(owner, "farid@e.com")
+    cat_id, _, _ = _seed_category_with_feed("farid", "Generic", "https://a.example/rss")
+
+    fan = _client()
+    _login(fan, "bob@e.com")
+    fan.post(f"/u/farid/c/{cat_id}/follow")
+
+    import app.db as db_mod
+    with Session(db_mod.engine) as s:
+        bob_id = _uid("bob")
+        # A 'Following' category exists on bob's radar.
+        following = s.exec(
+            select(db_mod.Category)
+            .where(db_mod.Category.user_id == bob_id)
+            .where(db_mod.Category.name == "Following")
+        ).first()
+        assert following is not None
+        # A Subscription points at farid's Generic RSS URL.
+        rss_url_frag = "/u/farid/c/Generic.rss"
+        subs = s.exec(
+            select(db_mod.Subscription, db_mod.Feed)
+            .join(db_mod.Feed, db_mod.Feed.id == db_mod.Subscription.feed_id)
+            .where(db_mod.Subscription.user_id == bob_id)
+        ).all()
+        matching = [f.url for _sub, f in subs if rss_url_frag in f.url]
+        assert len(matching) == 1
+
+
+def test_unfollow_category_removes_readable_subscription():
+    owner = _client()
+    _login(owner, "farid@e.com")
+    cat_id, _, _ = _seed_category_with_feed("farid", "News", "https://a.example/rss")
+
+    fan = _client()
+    _login(fan, "bob@e.com")
+    fan.post(f"/u/farid/c/{cat_id}/follow")
+    fan.delete(f"/u/farid/c/{cat_id}/follow")
+
+    import app.db as db_mod
+    with Session(db_mod.engine) as s:
+        bob_id = _uid("bob")
+        subs = s.exec(
+            select(db_mod.Subscription, db_mod.Feed)
+            .join(db_mod.Feed, db_mod.Feed.id == db_mod.Subscription.feed_id)
+            .where(db_mod.Subscription.user_id == bob_id)
+        ).all()
+        assert not [f.url for _sub, f in subs if "/u/farid/c/News.rss" in f.url]
+
+
 def test_unfollow_category():
     owner = _client()
     _login(owner, "farid@e.com")

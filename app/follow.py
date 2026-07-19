@@ -182,8 +182,63 @@ def follow_category(
     ).first()
     if not existing:
         db.add(CategoryFollow(follower_id=viewer.id, category_id=cat_id))
-        db.commit()
+    # Also add the category's RSS URL as a Subscription on the
+    # follower's radar so they can actually READ what they're
+    # following, not just see the social signals. Idempotent.
+    _ensure_category_subscription(db, request, viewer, owner, cat)
+    db.commit()
     return _category_follow_partial(request, cat, owner.handle, "following")
+
+
+def _drop_category_subscription(
+    db: Session, request: Request, follower: User, owner: User, cat: Category,
+) -> None:
+    """Reverse of _ensure_category_subscription: find the Subscription
+    that points at this category's RSS URL on the follower's radar and
+    drop it. URL-matched, so it works even if the follower moved the
+    row into another category."""
+    from .db import Feed, Subscription
+
+    base = str(request.base_url).rstrip("/")
+    rss_url = f"{base}/u/{owner.handle}/c/{cat.name}.rss"
+    feed = db.exec(select(Feed).where(Feed.url == rss_url)).first()
+    if not feed:
+        return
+    sub = db.exec(
+        select(Subscription)
+        .where(Subscription.user_id == follower.id)
+        .where(Subscription.feed_id == feed.id)
+    ).first()
+    if sub:
+        db.delete(sub)
+
+
+def _ensure_category_subscription(
+    db: Session, request: Request, follower: User, owner: User, cat: Category,
+) -> None:
+    """Add the category's RSS URL as a Subscription on follower's
+    radar (in a singleton 'Following' category). Idempotent."""
+    from .db import Feed
+    from .importers import add_subscription_to_category, find_or_create_category
+
+    # Build the absolute URL to the category's RSS endpoint on this
+    # instance — same URL scheme public.py serves.
+    base = str(request.base_url).rstrip("/")
+    rss_url = f"{base}/u/{owner.handle}/c/{cat.name}.rss"
+
+    following_cat = find_or_create_category(db, follower, "Following")
+    feed = db.exec(select(Feed).where(Feed.url == rss_url)).first()
+    if not feed:
+        # Pre-populate title / site so it shows nicely before first refresh.
+        feed = Feed(
+            url=rss_url,
+            title=f"@{owner.handle}'s {cat.name}",
+            site_url=f"{base}/u/{owner.handle}?cat={cat.name}",
+            favicon_url="",
+        )
+        db.add(feed)
+        db.flush()
+    add_subscription_to_category(db, follower, feed, following_cat)
 
 
 @router.delete("/u/{handle}/c/{cat_id}/follow", response_class=HTMLResponse)
@@ -207,7 +262,11 @@ def unfollow_category(
     ).first()
     if row:
         db.delete(row)
-        db.commit()
+    # Also drop the auto-added Subscription to this category's RSS,
+    # matched by URL so it fires even if the follower moved the row
+    # into a different category on their radar.
+    _drop_category_subscription(db, request, viewer, owner, cat)
+    db.commit()
     return _category_follow_partial(request, cat, owner.handle, "none")
 
 
