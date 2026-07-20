@@ -98,9 +98,11 @@ body {
 }
 
 /* Base anchor color. Without this, body-content links fall back to the
-   browser's default (deep blue) which is unreadable on the dark theme. */
-a { color: var(--link); }
-a:visited { color: var(--link); }
+   browser's default (deep blue on light, unreadable on dark).
+   Wrapped in :where() so specificity stays 0 — any class-level color
+   override on anchors used as buttons (.chip, .btn-ghost, .item-title,
+   .title, etc.) trivially wins, whether the link is visited or not. */
+:where(a, a:link, a:visited) { color: var(--link); }
 a:hover { text-decoration-thickness: 2px; }
 
 /* Header */
