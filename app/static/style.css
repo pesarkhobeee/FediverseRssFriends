@@ -30,6 +30,12 @@
   --danger-bg: #fdf1ef;
   --danger-border: #d9a8a4;
   --star: #d4a017;
+  --warn-bg: #f7e8dd;
+  --warn-fg: #7a3a1e;
+  --warn-border: #e8c9b0;
+  --toast-bg: #2a2118;
+  --toast-fg: #f7f0e0;
+  --toast-border: #4a3a24;
   --radius: 10px;
 }
 
@@ -43,12 +49,18 @@
   --border: #3a352d;
   --accent: #a4b846;
   --accent-fg: #1a1815;
-  --link: #7db3ff;
+  --link: #8dc0ff;
   --danger: #ea8078;
   --danger-fg: #1a1815;
   --danger-bg: #2a1e1c;
   --danger-border: #5a3532;
   --star: #f0c04a;
+  --warn-bg: #2f241c;
+  --warn-fg: #e8b088;
+  --warn-border: #4a3a2c;
+  --toast-bg: #2f2820;
+  --toast-fg: #f0e8d8;
+  --toast-border: #4a3f30;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
@@ -61,12 +73,18 @@
     --border: #3a352d;
     --accent: #a4b846;
     --accent-fg: #1a1815;
-    --link: #7db3ff;
+    --link: #8dc0ff;
     --danger: #ea8078;
     --danger-fg: #1a1815;
     --danger-bg: #2a1e1c;
     --danger-border: #5a3532;
     --star: #f0c04a;
+    --warn-bg: #2f241c;
+    --warn-fg: #e8b088;
+    --warn-border: #4a3a2c;
+    --toast-bg: #2f2820;
+    --toast-fg: #f0e8d8;
+    --toast-border: #4a3f30;
   }
 }
 
@@ -78,6 +96,12 @@ body {
   color: var(--fg);
   background: var(--bg);
 }
+
+/* Base anchor color. Without this, body-content links fall back to the
+   browser's default (deep blue) which is unreadable on the dark theme. */
+a { color: var(--link); }
+a:visited { color: var(--link); }
+a:hover { text-decoration-thickness: 2px; }
 
 /* Header */
 header {
@@ -448,9 +472,9 @@ img.favicon {
   gap: .75rem;
   max-width: min(560px, calc(100vw - 2rem));
   padding: .75rem 1rem;
-  background: #2a2118;
-  color: #f7f0e0;
-  border: 1px solid #4a3a24;
+  background: var(--toast-bg);
+  color: var(--toast-fg);
+  border: 1px solid var(--toast-border);
   border-radius: var(--radius);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
   z-index: 1000;
@@ -478,9 +502,9 @@ img.favicon {
   margin-left: .5rem;
   padding: .15rem .55rem;
   border-radius: 999px;
-  background: #f7e8dd;
-  color: #7a3a1e;
-  border: 1px solid #e8c9b0;
+  background: var(--warn-bg);
+  color: var(--warn-fg);
+  border: 1px solid var(--warn-border);
   font-size: .82rem;
 }
 
