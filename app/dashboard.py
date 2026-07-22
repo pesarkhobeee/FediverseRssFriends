@@ -87,7 +87,8 @@ def _load_feeds_context(db: Session, user: User) -> dict:
 
 
 def _load_settings_context(db: Session, user: User) -> dict:
-    return {}
+    from . import wallabag as wb
+    return {"wallabag_account": wb.get_account(db, user)}
 
 
 def _load_import_context(db: Session, user: User) -> dict:

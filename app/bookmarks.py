@@ -10,13 +10,13 @@ Old URLs (/items/{id}/favorite, /u/{handle}/favorites) still work via
 301 redirects.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlmodel import Session, select
 
-from . import activity
+from . import activity, wallabag
 from .auth import current_user, login_required
-from .db import Bookmark, Feed, FeedItem, User, get_session
+from .db import Bookmark, Category, Feed, FeedItem, Subscription, User, get_session
 from .public import can_view
 from .templating import make_templates
 
@@ -36,6 +36,7 @@ def _bookmark_partial(request: Request, item_id: int, is_bookmarked: bool) -> HT
 def add_bookmark(
     item_id: int,
     request: Request,
+    background: BackgroundTasks,
     user: User = Depends(login_required),
     db: Session = Depends(get_session),
 ):
@@ -50,7 +51,27 @@ def add_bookmark(
             subject_url=item.link, ref_type="item", ref_id=item.id,
         )
         db.commit()
+        # Best-effort: send to Wallabag if user has it enabled. We look
+        # up the user's own category name for this feed (if any) so it
+        # can be sent as a tag. No-ops for users without Wallabag.
+        if item.link:
+            tag_name = _viewer_category_for_feed(db, user.id, item.feed_id)
+            background.add_task(
+                wallabag.send_url_safe,
+                user.id, item.link,
+                [tag_name] if tag_name else None,
+            )
     return _bookmark_partial(request, item_id, is_bookmarked=True)
+
+
+def _viewer_category_for_feed(db: Session, user_id: int, feed_id: int) -> str | None:
+    row = db.exec(
+        select(Category.name)
+        .join(Subscription, Subscription.category_id == Category.id)
+        .where(Subscription.user_id == user_id)
+        .where(Subscription.feed_id == feed_id)
+    ).first()
+    return row if row else None
 
 
 @router.delete("/items/{item_id}/bookmark", response_class=HTMLResponse)

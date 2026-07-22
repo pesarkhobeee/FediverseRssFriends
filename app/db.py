@@ -138,6 +138,34 @@ class CategoryFollow(SQLModel, table=True):
     created_at: datetime = Field(default_factory=_now, index=True)
 
 
+class WallabagAccount(SQLModel, table=True):
+    """A user's Wallabag OAuth link. One row per user max.
+
+    Tokens + client_secret are stored plaintext — same posture as
+    SESSION_SECRET and User.activity_secret. An attacker with the DB
+    file can also read the process env, so at-rest encryption with a
+    key stored alongside doesn't raise the bar meaningfully.
+
+    `enabled` gates the bookmark hook — flipping it off lets the user
+    keep their creds but pause sending."""
+
+    __table_args__ = (
+        UniqueConstraint("user_id", name="uq_wallabag_user"),
+    )
+
+    id: int | None = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="user.id", index=True)
+    instance_url: str  # e.g. https://app.wallabag.it (no trailing slash)
+    client_id: str
+    client_secret: str
+    access_token: str = Field(default="")
+    refresh_token: str = Field(default="")
+    token_expires_at: datetime | None = Field(default=None)
+    enabled: bool = Field(default=False)  # True after successful OAuth
+    created_at: datetime = Field(default_factory=_now)
+    updated_at: datetime = Field(default_factory=_now)
+
+
 class PersonalFeed(SQLModel, table=True):
     """A feed the user claims as their own — new items from it emit
     Activity(kind='posted') for that user, so followers see the cross-

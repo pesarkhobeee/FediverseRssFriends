@@ -69,6 +69,25 @@ Environment variables:
 - `RSSFRIENDS_REFRESH_BATCH_SIZE` — max feeds refreshed per cycle (default `50`)
 - `RSSFRIENDS_FEED_ITEM_KEEP` — max items retained per feed (default `100`)
 
+## Optional: Wallabag integration
+
+Users can link a [Wallabag](https://wallabag.org) instance in **Settings**
+to auto-archive bookmarked articles.
+
+Setup (per-user, one-time):
+
+1. On your Wallabag instance, go to **Developer → Create a new client**.
+2. Set the **Redirect URI** to `<your-rssfriends-base-url>/settings/wallabag/callback`.
+3. Copy the generated **client ID** and **client secret**.
+4. In rssFriends, open **Dashboard → Settings → Wallabag** and paste the
+   instance URL + client credentials, then click *Connect to Wallabag*.
+   You'll be redirected to your instance to approve, then bounced back.
+
+Once connected, every new bookmark POSTs the article URL to your Wallabag
+in the background (best-effort — failures are logged but don't affect
+the bookmark). Un-bookmarking in rssFriends does **not** delete from
+Wallabag; your archive stays intact.
+
 ## Backup + restore
 
 The SQLite file lives at `./data/rssfriends.db` by default. Two scripts handle
