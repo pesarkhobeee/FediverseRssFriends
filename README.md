@@ -36,6 +36,47 @@ Docker:
 docker compose up --build
 ```
 
+## Deploy to production
+
+There's a `make deploy` target that automates the whole `rsync` +
+`docker-compose rebuild` + smoke-test dance:
+
+```bash
+make deploy          # tests → lint → rsync → rebuild → verify /version
+make deploy-check    # DRY-RUN — show what would rsync, touch nothing
+make version         # print the current __version__
+```
+
+What `make deploy` does, in order:
+
+1. Runs `pytest` — abort if any test fails.
+2. Runs `ruff check .` — abort on any lint error.
+3. `rsync -avz --delete` the repo to `root@pathseeker:/srv/rssfriends/`
+   with a carefully curated exclude list — see below.
+4. `ssh` into the host and run `docker-compose -f docker-compose.pathseeker.yml up -d --build`.
+5. Sleep briefly, `curl https://rssfriends.com/version`, and fail loudly if the
+   returned version doesn't match the one you just built.
+
+The **exclude list matters**. `--delete` will remove anything on the
+target that isn't in the source, so we explicitly exclude:
+
+- `.env` — the production secrets file; omitting this once wiped it and
+  we had to reconstruct it from the running container's env.
+- `data/` and `backups/` — the persistent SQLite volume and its snapshots.
+- `docker-compose.pathseeker.yml` — production-only compose file, not
+  in git.
+- `.venv`, `__pycache__`, `.pytest_cache`, `.ruff_cache`, `*.egg-info` —
+  local build/tool artifacts.
+
+Overrides (env vars, all optional):
+
+```bash
+make deploy DEPLOY_HOST=user@example.com \
+           DEPLOY_PATH=/opt/rssfriends \
+           DEPLOY_COMPOSE=docker-compose.prod.yml \
+           HEALTHCHECK_URL=https://your-domain.example/version
+```
+
 ## Roadmap
 
 1. Skeleton ✅

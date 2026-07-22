@@ -30,7 +30,7 @@ make restore FROM=backups/rssfriends-<ts>.sqlite.gz
 Two compose files:
 - `docker-compose.yml` — plain dev.
 - `docker-compose.prod.yml` — with a Caddy sidecar for TLS.
-- On the shared `pathseeker` host we use `docker-compose.pathseeker.yml` (bound to `127.0.0.1:8300`, TLS handled by the host's nginx; that file is NOT in git). Deploy is `rsync` + `docker-compose … up -d --build`. See `docs/deploy.md`.
+- On the shared `pathseeker` host we use `docker-compose.pathseeker.yml` (bound to `127.0.0.1:8300`, TLS handled by the host's nginx; that file is NOT in git). Deploy via `make deploy` — runs tests + lint, `rsync`s to `root@pathseeker:/srv/rssfriends/`, rebuilds the container, and verifies `/version`. Use `make deploy-check` for a dry-run. See `docs/deploy.md` for the manual/first-time setup. **Never call `rsync --delete` by hand** — the Makefile's exclude list has trip-wire history (once wiped prod `.env`).
 
 ## Architecture
 
