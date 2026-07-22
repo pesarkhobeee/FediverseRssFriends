@@ -49,8 +49,21 @@ Eight tables. Every join is one hop; every FK is an integer.
 - **`Favorite`** — composite PK `(user_id, feed_item_id)` — physically deduped by the DB, not by app logic.
 - **`Follow`** — composite PK `(follower_id, followee_id)`. `approved_at IS NULL` = pending request (private followees only); non-NULL = approved.
 - **`Activity`** — append-only log. `kind` ∈ `{subscribed, favorited, followed, forked, created_category}`. `subject` / `subject_url` are **denormalized** so the timeline still renders after the referenced row is deleted.
+- **`WallabagAccount`** — one-per-user OAuth link to a self-hosted [Wallabag](https://wallabag.org). Bookmarking an item fires a background POST to `/api/entries.json`. Wallabag only supports the `password` grant, so we store the user's Wallabag username + password too. Sensitive fields (`password`, `client_secret`, `access_token`, `refresh_token`) are **encrypted at rest** — see below.
 
 **Never write raw values into `Feed.favicon_url` / `Feed.title` / `Feed.url` without going through the helpers** — see below.
+
+### Secrets & field encryption (`app/crypto.py`)
+
+**One env var, `RSSFRIENDS_SESSION_SECRET`, does three unrelated jobs.** Rotating it invalidates all three at once — that's intentional but load-bearing:
+
+1. Signs Starlette session cookies (`app/main.py`) — rotation logs everyone out.
+2. Mixed with `User.activity_secret` when signing `activity.rss` URLs on private radars.
+3. Via HKDF-SHA256 (salt `"rssfriends/field-encryption/v1"`) derives a 32-byte Fernet key that encrypts sensitive `WallabagAccount` fields at rest (`app/crypto.py`, `encrypt()`/`decrypt()`). Rotation makes every stored Wallabag credential unrecoverable — `decrypt()` returns `""` on `InvalidToken` so callers can re-prompt safely instead of leaking plaintext.
+
+Threat model for field encryption: a stolen DB dump alone is opaque (backup theft, cloud snapshot). A full server compromise still exposes creds, since the running app must be able to decrypt what it encrypted — that's inherent, not a bug.
+
+When adding a new sensitive field to a model, run it through `crypto.encrypt()` on write and `crypto.decrypt()` on read. Never assert equality against raw storage in tests — assertions use `decrypt()`.
 
 ### Feed URL + metadata pipeline
 

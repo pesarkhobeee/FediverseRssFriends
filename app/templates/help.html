@@ -20,6 +20,7 @@
     <li><a href="#privacy">Public, unlisted, private</a></li>
     <li><a href="#opml-rss">OPML &amp; RSS in / out</a></li>
     <li><a href="#fork">Cherry-pick &amp; fork</a></li>
+    <li><a href="#wallabag">Wallabag integration</a></li>
   </ul>
 </section>
 
@@ -240,6 +241,71 @@
       <strong>Fork this radar</strong> (top of page) — copy their
       entire radar into yours. Duplicates are skipped, so you can
       fork repeatedly without piling up.
+    </li>
+  </ul>
+</section>
+
+<section class="help-block">
+  <h2 id="wallabag">📚 Wallabag integration</h2>
+  <p>
+    <a href="https://wallabag.org" target="_blank" rel="noopener noreferrer">Wallabag</a>
+    is a self-hostable read-it-later archive (like Pocket or Instapaper,
+    but yours). If you already run one, rssFriends can push every
+    article you <strong>bookmark</strong> here into your Wallabag
+    automatically — so the same star that saves it on your radar also
+    archives the full clean text on your own instance for offline reading.
+  </p>
+  <p>Setup (one-time, per user):</p>
+  <ol>
+    <li>
+      On your Wallabag instance go to <strong>Developer → Create a new
+      client</strong>. Wallabag only supports the OAuth <em>password
+      grant</em>, so the redirect URI field can be anything — it isn't
+      used. Copy the generated <strong>Client ID</strong> and
+      <strong>Client secret</strong>.
+    </li>
+    <li>
+      In rssFriends, open <a href="/dashboard?panel=settings">Dashboard →
+      Settings</a>, scroll to <strong>Wallabag</strong>, and paste:
+      your instance URL, the client ID + secret you just minted, and
+      your Wallabag username + password. Click <em>Connect to Wallabag</em>.
+    </li>
+    <li>
+      That's it. Every future ★ bookmark on rssFriends fires a
+      background task that POSTs the article's URL to your Wallabag's
+      <code>/api/entries.json</code>. Your rssFriends category name is
+      sent along as a Wallabag tag.
+    </li>
+  </ol>
+  <p class="muted">A few things worth knowing:</p>
+  <ul>
+    <li>
+      <strong>Best-effort dispatch.</strong> The Wallabag POST runs in
+      the background — the ★ click stays instant. If your instance is
+      down or the request fails, the bookmark itself is still saved on
+      rssFriends. Failures are logged; nothing is retried later.
+    </li>
+    <li>
+      <strong>Un-bookmarking does NOT delete from Wallabag.</strong>
+      Wallabag is your archive; rssFriends never removes entries there.
+    </li>
+    <li>
+      <strong>Credentials are encrypted at rest.</strong> Your Wallabag
+      password, client secret, and OAuth tokens are stored in the
+      database encrypted with a key derived from the app's session
+      secret. A stolen database file alone doesn't reveal them.
+    </li>
+    <li>
+      <strong>Pause anytime.</strong> The Settings panel has Pause /
+      Resume / Disconnect. Pausing keeps your tokens but stops sending;
+      Disconnect forgets everything.
+    </li>
+    <li>
+      <strong>Same flow as KOReader + the Wallabag mobile apps</strong> —
+      the password grant is Wallabag's officially documented and only
+      publicly-exposed OAuth flow
+      (<a href="https://doc.wallabag.org/developer/api/oauth/"
+          target="_blank" rel="noopener noreferrer">docs</a>).
     </li>
   </ul>
 </section>

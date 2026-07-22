@@ -58,7 +58,12 @@ Environment variables:
 
 - `RSSFRIENDS_DATABASE_URL` — default `sqlite:///./data/rssfriends.db`
 - `RSSFRIENDS_DATA_DIR` — default `./data`
-- `RSSFRIENDS_SESSION_SECRET` — **change in production**
+- `RSSFRIENDS_SESSION_SECRET` — **change in production.** This one env var carries a lot of weight:
+  - signs Starlette session cookies (rotating logs everyone out)
+  - mixed with `User.activity_secret` for signed `activity.rss` URLs on private radars
+  - via HKDF-SHA256 (salt `"rssfriends/field-encryption/v1"`) derives the **Fernet key that encrypts Wallabag credentials at rest** in the DB (`password`, `client_secret`, `access_token`, `refresh_token`) — see `app/crypto.py`
+  - **Rotation implication:** changing this value invalidates every stored Wallabag credential (users have to reconnect) *and* logs everyone out. Intentional — that's the correct behavior for a stolen-secret scenario. Only rotate if you actually believe the secret has leaked.
+  - Generate with `python3 -c 'import secrets; print(secrets.token_urlsafe(48))'`.
 - `RSSFRIENDS_DEBUG` — `1` to enable debug behavior
 - `RSSFRIENDS_BASE_URL` — public URL used in magic-link emails (default `http://localhost:8000`)
 - `RSSFRIENDS_MAGIC_LINK_TTL_MINUTES` — token lifetime (default `15`)
@@ -90,6 +95,15 @@ Once connected, every new bookmark POSTs the article URL to your Wallabag
 in the background (best-effort — failures are logged but don't affect
 the bookmark). Un-bookmarking in rssFriends does **not** delete from
 Wallabag; your archive stays intact.
+
+**Credentials at rest.** The Wallabag password, client secret, and
+OAuth tokens are stored in SQLite **encrypted** with Fernet (AES-128-CBC +
+HMAC-SHA256). The 32-byte key is derived from `RSSFRIENDS_SESSION_SECRET`
+via HKDF-SHA256 at runtime — no separate key file. A stolen SQLite dump
+(backup theft, cloud snapshot) is opaque without the app's env; a full
+server compromise (env + DB) still exposes them, since a running app
+must be able to decrypt what it just encrypted. See the
+`RSSFRIENDS_SESSION_SECRET` note above for rotation semantics.
 
 ## Backup + restore
 
