@@ -17,7 +17,7 @@
 {% if entries %}
 <ul class="fav-list">
   {% for e in entries %}
-    <li class="fav-item">
+    <li class="fav-item{% if e.activity.subject_url %} item-clickable{% endif %}">
       <div class="fav-head">
         <span aria-hidden="true">{{ kind_icon.get(e.activity.kind, '') }}</span>
         <span>

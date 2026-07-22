@@ -546,6 +546,36 @@ img.favicon {
 .fav-head { display: flex; align-items: center; gap: .55rem; margin-bottom: .25rem; }
 .fav-source { font-size: .85rem; }
 
+/* Whole-card click target (stretched-link pattern).
+   Applied additively via `.item-clickable`. The visible `.item-title`
+   inside the row keeps rendering as usual; its ::before overlays the
+   entire card so a tap anywhere activates the link. Other interactive
+   elements (bookmark button, delete button, actor handle link) get
+   z-index:1 so they remain independently tappable. */
+.item-clickable { position: relative; cursor: pointer; }
+.item-clickable .item-title::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: var(--radius);  /* match the card so focus ring looks tidy */
+}
+/* Anything the user might want to click INSIDE the card must sit
+   above the stretched hit area. Includes nested <a>, form buttons,
+   and the star/delete controls. */
+.item-clickable a:not(.item-title),
+.item-clickable button,
+.item-clickable form,
+.item-clickable .chip {
+  position: relative;
+  z-index: 1;
+}
+.item-clickable:hover { background: var(--card-hover); }
+/* Prevent the browser from selecting text when tapping (mobile jitter
+   otherwise reads as a drag-not-click). Only within the row body —
+   the title remains selectable so long-press-to-copy still works. */
+.item-clickable .fav-head { -webkit-tap-highlight-color: transparent; }
+
 /* Visibility badge on public page */
 .badge-visibility {
   display: inline-block;

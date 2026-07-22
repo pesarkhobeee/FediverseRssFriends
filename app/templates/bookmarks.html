@@ -15,7 +15,7 @@
 {% if entries %}
 <ul class="fav-list">
   {% for e in entries %}
-    <li class="fav-item">
+    <li class="fav-item{% if e.item.link %} item-clickable{% endif %}">
       <div class="fav-head">
         {% if e.feed.favicon_url %}
           <img class="favicon" src="{{ e.feed.favicon_url }}" alt="" loading="lazy"
