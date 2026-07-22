@@ -106,12 +106,28 @@ def test_save_wallabag_password_grant_success(monkeypatch):
     assert d["username"] == "alice"
     assert d["password"] == "hunter2"
 
+    from app.crypto import decrypt
     acc = _get_account()
     assert acc is not None
     assert acc.enabled is True
-    assert acc.access_token == "atk"
-    assert acc.refresh_token == "rtk"
+    # Tokens + password + client_secret are stored encrypted on disk;
+    # only decrypt() recovers the plaintext.
+    assert acc.access_token != "atk"
+    assert decrypt(acc.access_token) == "atk"
+    assert decrypt(acc.refresh_token) == "rtk"
+    assert decrypt(acc.client_secret) == "csec1"
+    assert decrypt(acc.password) == "hunter2"
+    assert acc.username == "alice"  # not a secret; kept plaintext
     assert acc.token_expires_at is not None
+
+
+def test_encrypted_fields_are_opaque_at_rest():
+    """A sanity check that a plaintext scan of the row cannot recover
+    the credential — mimics the 'database was stolen' scenario."""
+    from app.crypto import encrypt
+    ct = encrypt("hunter2")
+    assert ct != "hunter2"
+    assert "hunter2" not in ct  # base64 output doesn't contain plaintext substr
 
 
 def test_save_wallabag_password_grant_failure(monkeypatch):
@@ -160,13 +176,14 @@ def test_save_wallabag_rejects_bad_url():
 def _enable_account(email="alice@example.com"):
     """Directly install a good account for tests below."""
     import app.db as db_mod
+    from app.crypto import encrypt
     with Session(db_mod.engine) as s:
         user = s.exec(select(db_mod.User).where(db_mod.User.email == email)).one()
         acc = db_mod.WallabagAccount(
             user_id=user.id, instance_url="https://wb.example.com",
-            client_id="cid", client_secret="csec",
-            username="alice", password="hunter2",
-            access_token="atk", refresh_token="rtk",
+            client_id="cid", client_secret=encrypt("csec"),
+            username="alice", password=encrypt("hunter2"),
+            access_token=encrypt("atk"), refresh_token=encrypt("rtk"),
             token_expires_at=datetime.now(UTC) + timedelta(hours=1),
             enabled=True,
         )
@@ -207,7 +224,7 @@ def test_send_url_refreshes_stale_token(monkeypatch):
     """A stale access_token triggers a refresh_token grant before the
     entries.json POST goes out with the new bearer."""
     import app.db as db_mod
-
+    from app.crypto import encrypt
     _client()
     with Session(db_mod.engine) as s:
         u = db_mod.User(email="a@e.com", handle="a")
@@ -217,8 +234,8 @@ def test_send_url_refreshes_stale_token(monkeypatch):
         acc = db_mod.WallabagAccount(
             user_id=u.id, instance_url="https://wb.example.com",
             client_id="c", client_secret="s",
-            username="a", password="p",
-            access_token="stale", refresh_token="rtk",
+            username="a", password=encrypt("p"),
+            access_token=encrypt("stale"), refresh_token=encrypt("rtk"),
             token_expires_at=datetime.now(UTC) - timedelta(seconds=1),
             enabled=True,
         )
@@ -238,7 +255,8 @@ def test_send_url_refreshes_stale_token(monkeypatch):
         acc = s.exec(select(db_mod.WallabagAccount)).one()
         assert wb.send_url(s, acc, "https://article/1") is True
         s.refresh(acc)
-        assert acc.access_token == "fresh"
+        from app.crypto import decrypt as _dec
+        assert _dec(acc.access_token) == "fresh"
 
     assert calls[0]["url"].endswith("/oauth/v2/token")
     assert calls[0]["data"]["grant_type"] == "refresh_token"
@@ -250,7 +268,7 @@ def test_send_url_retries_on_401(monkeypatch):
     """Locally-fresh token that the server rejects with 401 → refresh
     then retry the POST."""
     import app.db as db_mod
-
+    from app.crypto import encrypt
     _client()
     with Session(db_mod.engine) as s:
         u = db_mod.User(email="a@e.com", handle="a")
@@ -260,8 +278,8 @@ def test_send_url_retries_on_401(monkeypatch):
         acc = db_mod.WallabagAccount(
             user_id=u.id, instance_url="https://wb.example.com",
             client_id="c", client_secret="s",
-            username="a", password="p",
-            access_token="expired-server-side", refresh_token="rtk",
+            username="a", password=encrypt("p"),
+            access_token=encrypt("expired-server-side"), refresh_token=encrypt("rtk"),
             token_expires_at=datetime.now(UTC) + timedelta(hours=1),
             enabled=True,
         )
@@ -292,7 +310,7 @@ def test_refresh_falls_back_to_password_grant(monkeypatch):
     """If refresh_token is rejected, the client falls back to a fresh
     password_grant with the stored credentials."""
     import app.db as db_mod
-
+    from app.crypto import encrypt
     _client()
     with Session(db_mod.engine) as s:
         u = db_mod.User(email="a@e.com", handle="a")
@@ -302,8 +320,8 @@ def test_refresh_falls_back_to_password_grant(monkeypatch):
         acc = db_mod.WallabagAccount(
             user_id=u.id, instance_url="https://wb.example.com",
             client_id="c", client_secret="s",
-            username="a", password="p",
-            access_token="stale", refresh_token="rotten",
+            username="a", password=encrypt("p"),
+            access_token=encrypt("stale"), refresh_token=encrypt("rotten"),
             token_expires_at=datetime.now(UTC) - timedelta(seconds=1),
             enabled=True,
         )
@@ -332,7 +350,7 @@ def test_send_url_safe_noop_when_disabled(monkeypatch):
     """Disabled account → dispatcher must not call HTTP at all."""
     import app.db as db_mod
     import app.wallabag as wb
-
+    from app.crypto import encrypt
     _client()
     with Session(db_mod.engine) as s:
         u = db_mod.User(email="a@e.com", handle="a")
@@ -342,8 +360,8 @@ def test_send_url_safe_noop_when_disabled(monkeypatch):
         acc = db_mod.WallabagAccount(
             user_id=u.id, instance_url="https://wb.example.com",
             client_id="c", client_secret="s",
-            username="a", password="p",
-            access_token="atk", refresh_token="rtk",
+            username="a", password=encrypt("p"),
+            access_token=encrypt("atk"), refresh_token=encrypt("rtk"),
             token_expires_at=datetime.now(UTC) + timedelta(hours=1),
             enabled=False,
         )

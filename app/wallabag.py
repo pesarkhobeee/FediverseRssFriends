@@ -21,6 +21,7 @@ from datetime import UTC, datetime, timedelta
 import httpx
 from sqlmodel import Session, select
 
+from .crypto import decrypt, encrypt
 from .db import User, WallabagAccount, engine
 
 log = logging.getLogger(__name__)
@@ -39,12 +40,25 @@ def _store_tokens(db: Session, account: WallabagAccount, payload: dict) -> None:
     access = payload.get("access_token") or ""
     refresh = payload.get("refresh_token") or ""
     expires_in = int(payload.get("expires_in") or 0)
-    account.access_token = access
-    account.refresh_token = refresh or account.refresh_token
+    account.access_token = encrypt(access)
+    if refresh:
+        account.refresh_token = encrypt(refresh)
     account.token_expires_at = datetime.now(UTC) + timedelta(seconds=expires_in)
     account.enabled = True
     account.updated_at = datetime.now(UTC)
     db.add(account)
+
+
+def store_credentials(
+    account: WallabagAccount, *, client_secret: str, username: str, password: str,
+) -> None:
+    """Encrypt then store the user-supplied credentials on the row.
+    `client_id` and `instance_url` are kept in plaintext — the ID is
+    equivalent to a public identifier once combined with the secret,
+    and the instance URL isn't a secret."""
+    account.client_secret = encrypt(client_secret)
+    account.username = username  # plaintext — needed to render form + not a secret
+    account.password = encrypt(password)
 
 
 def password_grant(db: Session, account: WallabagAccount) -> bool:
@@ -58,9 +72,9 @@ def password_grant(db: Session, account: WallabagAccount) -> bool:
             r = client.post(url, data={
                 "grant_type": "password",
                 "client_id": account.client_id,
-                "client_secret": account.client_secret,
+                "client_secret": decrypt(account.client_secret),
                 "username": account.username,
-                "password": account.password,
+                "password": decrypt(account.password),
             })
             r.raise_for_status()
             payload = r.json()
@@ -79,14 +93,15 @@ def _refresh(db: Session, account: WallabagAccount) -> bool:
     because Wallabag rotates refresh tokens and some instances return
     non-standard errors that we don't want to distinguish."""
     url = f"{_normalize_instance(account.instance_url)}/oauth/v2/token"
-    if account.refresh_token:
+    plain_refresh = decrypt(account.refresh_token)
+    if plain_refresh:
         try:
             with httpx.Client(timeout=_HTTP_TIMEOUT) as client:
                 r = client.post(url, data={
                     "grant_type": "refresh_token",
                     "client_id": account.client_id,
-                    "client_secret": account.client_secret,
-                    "refresh_token": account.refresh_token,
+                    "client_secret": decrypt(account.client_secret),
+                    "refresh_token": plain_refresh,
                 })
                 r.raise_for_status()
                 payload = r.json()
@@ -131,9 +146,9 @@ def send_url(
                                headers={"Authorization": f"Bearer {token}"})
 
     try:
-        r = _post(account.access_token)
+        r = _post(decrypt(account.access_token))
         if r.status_code == 401 and _refresh(db, account):
-            r = _post(account.access_token)
+            r = _post(decrypt(account.access_token))
         r.raise_for_status()
     except Exception as exc:  # noqa: BLE001
         log.warning("wallabag: send_url failed for user %s: %s",

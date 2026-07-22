@@ -1,6 +1,6 @@
 [project]
 name = "rssfriends"
-version = "0.3.1"
+version = "0.3.2"
 description = "Multi-user RSS radar with follow, favorites, and activity feeds"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -17,6 +17,7 @@ dependencies = [
     "defusedxml>=0.7",
     "resend>=2.0",
     "nh3>=0.2",
+    "cryptography>=43",
 ]
 
 [project.optional-dependencies]

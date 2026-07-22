@@ -530,9 +530,12 @@ def save_wallabag(
         account = WallabagAccount(user_id=user.id, instance_url=instance)
     account.instance_url = instance
     account.client_id = client_id.strip()
-    account.client_secret = client_secret.strip()
-    account.username = username.strip()
-    account.password = password  # Wallabag passwords can contain spaces/etc.
+    wb.store_credentials(
+        account,
+        client_secret=client_secret.strip(),
+        username=username.strip(),
+        password=password,  # Wallabag passwords can contain spaces/etc.
+    )
     account.access_token = ""
     account.refresh_token = ""
     account.token_expires_at = None

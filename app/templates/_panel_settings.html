@@ -58,7 +58,7 @@
       </button>
     </form>
   {% else %}
-    <form method="post" action="/settings/wallabag" class="login-form" style="display:flex;flex-direction:column;gap:.5rem;max-width:520px">
+    <form method="post" action="/settings/wallabag" class="wb-form">
       <label class="muted" for="wb-instance">Instance URL</label>
       <input id="wb-instance" name="instance_url" class="input" type="url"
              placeholder="https://app.wallabag.it" required
@@ -73,7 +73,7 @@
              value="{{ wallabag_account.username if wallabag_account else '' }}">
       <label class="muted" for="wb-pw">Wallabag password</label>
       <input id="wb-pw" name="password" class="input" type="password" required>
-      <button class="btn" type="submit">Connect to Wallabag →</button>
+      <button class="btn" type="submit" style="margin-top:.5rem">Connect to Wallabag →</button>
     </form>
   {% endif %}
 </section>

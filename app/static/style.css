@@ -271,6 +271,11 @@ img.favicon {
   border-radius: var(--radius);
 }
 .login-form { display: flex; gap: .5rem; flex-wrap: wrap; }
+/* Vertical stacked form (Wallabag settings, etc.). Uses block layout
+   so `.input`'s `flex-basis: 260px` can't leak into height. */
+.wb-form { display: block; max-width: 520px; }
+.wb-form label { display: block; margin: .5rem 0 .25rem; }
+.wb-form .input { display: block; width: 100%; box-sizing: border-box; flex: 0 0 auto; height: auto; }
 .input {
   flex: 1 1 260px;
   padding: .55rem .8rem;
