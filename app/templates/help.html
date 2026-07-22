@@ -21,6 +21,7 @@
     <li><a href="#opml-rss">OPML &amp; RSS in / out</a></li>
     <li><a href="#fork">Cherry-pick &amp; fork</a></li>
     <li><a href="#wallabag">Wallabag integration</a></li>
+    <li><a href="#install">Install as an app</a></li>
   </ul>
 </section>
 
@@ -308,6 +309,91 @@
           target="_blank" rel="noopener noreferrer">docs</a>).
     </li>
   </ul>
+</section>
+
+<section class="help-block">
+  <h2 id="install">📲 Install as an app</h2>
+  <p>
+    rssFriends is a <strong>Progressive Web App</strong> — you can add
+    it to your home screen (phone) or dock (desktop) and it opens in
+    its own window with no browser chrome, just like a native app.
+    Same login, same account, nothing new to configure.
+  </p>
+
+  <h3 style="margin-top:1rem">On iPhone / iPad (Safari)</h3>
+  <ol>
+    <li>Open <a href="https://rssfriends.com">rssfriends.com</a> in Safari.</li>
+    <li>Tap the <strong>Share</strong> button (square with an up arrow).</li>
+    <li>Scroll down and tap <strong>Add to Home Screen</strong>.</li>
+    <li>Confirm the name and tap <em>Add</em>. The RSS icon lands on your home screen.</li>
+  </ol>
+
+  <h3 style="margin-top:1rem">On Android (Chrome)</h3>
+  <ol>
+    <li>Open <a href="https://rssfriends.com">rssfriends.com</a> in Chrome.</li>
+    <li>Chrome usually shows an <em>Install app</em> banner near the address bar — tap it.</li>
+    <li>Or use the ⋮ menu → <strong>Install app</strong> / <strong>Add to Home screen</strong>.</li>
+  </ol>
+
+  <h3 style="margin-top:1rem">On macOS</h3>
+  <ul>
+    <li>
+      <strong>Chrome / Edge / Brave / Arc</strong>: click the little
+      <em>install</em> icon at the right end of the address bar
+      (looks like a computer with a down-arrow), or use the ⋮ menu →
+      <em>Cast, save, and share</em> → <strong>Install rssFriends…</strong>
+    </li>
+    <li>
+      <strong>Safari 17+</strong> (macOS Sonoma): File menu →
+      <strong>Add to Dock…</strong> → Add. The app gets its own Dock icon
+      and window.
+    </li>
+    <li>
+      <strong>Firefox</strong> doesn't support PWA install; the closest
+      it gets is right-click a tab → <em>Pin Tab</em>.
+    </li>
+  </ul>
+
+  <h3 style="margin-top:1rem">On Windows / Linux</h3>
+  <ul>
+    <li>
+      <strong>Chrome / Edge</strong>: same install icon in the address
+      bar → <em>Install</em>. Also in the ⋮ menu.
+    </li>
+    <li>The app pins to the taskbar / applications menu with its own icon.</li>
+  </ul>
+
+  <p class="muted" style="margin-top:1rem">
+    Why bother? A few small wins:
+  </p>
+  <ul>
+    <li>
+      <strong>Faster repeat loads</strong> — the app caches its own
+      static assets (CSS, icons) on your device via a service worker.
+      Pages that need live server data (bookmarks, follows, new items)
+      always hit the network so nothing goes stale.
+    </li>
+    <li>
+      <strong>Home-screen icon</strong> — no more digging through
+      bookmarks. On mobile it looks and launches like any other app.
+    </li>
+    <li>
+      <strong>Own window on desktop</strong> — clean, tab-free, easy to
+      Alt-Tab to alongside your other reader apps.
+    </li>
+    <li>
+      <strong>Offline-safe</strong> — if your connection drops the app
+      won't try to serve you stale bookmark state; it just tells you
+      it needs the network. Actual archival reading lives in your
+      <a href="#wallabag">Wallabag</a> integration.
+    </li>
+  </ul>
+
+  <p class="muted">
+    Nothing to uninstall from an app store — it's just a bookmark with
+    superpowers. Delete it any time by long-pressing the icon (mobile)
+    or right-clicking → <em>Uninstall</em> (desktop).
+  </p>
 </section>
 
 <p class="muted" style="margin-top:2rem">
