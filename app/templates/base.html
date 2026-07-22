@@ -9,7 +9,7 @@
 
   {# PWA: manifest + platform-specific icons + browser chrome colors.
      Service worker is registered near </body>. #}
-  <link rel="manifest" href="{{ url_for('static', path='manifest.webmanifest') }}?v={{ app_version }}">
+  <link rel="manifest" href="/manifest.webmanifest?v={{ app_version }}">
   <link rel="apple-touch-icon" href="{{ url_for('static', path='icons/apple-touch-icon.png') }}?v={{ app_version }}">
   <meta name="theme-color" content="#f0ece2" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#1a1815" media="(prefers-color-scheme: dark)">

@@ -11,14 +11,24 @@ def _client():
     return TestClient(app.main.app)
 
 
-def test_manifest_served_as_json():
-    r = _client().get("/static/manifest.webmanifest")
+def test_manifest_served_dynamically_with_versioned_icons():
+    """Manifest is served by FastAPI at /manifest.webmanifest (not from
+    /static/) so we can version-tag every icon URL — otherwise browsers
+    + CDNs would cache the icon PNGs forever, since their URLs don't
+    change across releases, only their contents do."""
+    r = _client().get("/manifest.webmanifest")
     assert r.status_code == 200
+    assert r.headers["content-type"].startswith("application/manifest+json")
+    assert "no-cache" in r.headers.get("cache-control", "")
     payload = json.loads(r.text)
     assert payload["name"] == "rssFriends"
     assert payload["start_url"] == "/"
     assert payload["scope"] == "/"
     assert payload["display"] == "standalone"
+
+    import app
+    for icon in payload["icons"]:
+        assert f"?v={app.__version__}" in icon["src"], icon
     icons = {i["sizes"] + ":" + i["purpose"] for i in payload["icons"]}
     assert "192x192:any" in icons
     assert "512x512:any" in icons
@@ -56,7 +66,7 @@ def test_base_template_wires_pwa():
     assert r.status_code == 200
     body = r.text
     assert 'rel="manifest"' in body
-    assert "manifest.webmanifest" in body
+    assert "/manifest.webmanifest?v=" in body
     assert 'rel="apple-touch-icon"' in body
     assert 'name="theme-color"' in body
     assert 'navigator.serviceWorker.register("/sw.js")' in body

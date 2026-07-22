@@ -5,7 +5,7 @@ from pathlib import Path
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from fastapi import Depends, FastAPI, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from sqlmodel import Session
 from starlette.middleware.sessions import SessionMiddleware
@@ -166,6 +166,52 @@ def _sw_body() -> str:
     if _SW_BODY is None:
         _SW_BODY = _SW_PATH.read_text().replace("__VERSION__", __version__)
     return _SW_BODY
+
+
+@app.get("/manifest.webmanifest")
+def pwa_manifest() -> JSONResponse:
+    """Serve the PWA manifest dynamically so we can version-tag every
+    icon URL. Without this, browsers + CDNs cache /static/icons/*.png
+    forever — because their URLs don't change across releases, only
+    their contents do."""
+    v = __version__
+    return JSONResponse(
+        {
+            "name": "rssFriends",
+            "short_name": "rssFriends",
+            "description": (
+                "A social RSS reader — follow curators, share what you "
+                "bookmark, cross-post from Mastodon and YouTube."
+            ),
+            "start_url": "/",
+            "scope": "/",
+            "display": "standalone",
+            "background_color": "#ffffff",
+            "theme_color": "#f26522",
+            "icons": [
+                {
+                    "src": f"/static/icons/icon-192.png?v={v}",
+                    "sizes": "192x192",
+                    "type": "image/png",
+                    "purpose": "any",
+                },
+                {
+                    "src": f"/static/icons/icon-512.png?v={v}",
+                    "sizes": "512x512",
+                    "type": "image/png",
+                    "purpose": "any",
+                },
+                {
+                    "src": f"/static/icons/icon-maskable-512.png?v={v}",
+                    "sizes": "512x512",
+                    "type": "image/png",
+                    "purpose": "maskable",
+                },
+            ],
+        },
+        media_type="application/manifest+json",
+        headers={"Cache-Control": "no-cache"},
+    )
 
 
 @app.get("/sw.js")
