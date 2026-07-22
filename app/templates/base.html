@@ -6,6 +6,15 @@
   <title>{% block title %}rssFriends{% endblock %}</title>
   <link rel="icon" type="image/svg+xml" href="{{ url_for('static', path='favicon.svg') }}?v={{ app_version }}">
   <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}?v={{ app_version }}">
+
+  {# PWA: manifest + platform-specific icons + browser chrome colors.
+     Service worker is registered near </body>. #}
+  <link rel="manifest" href="{{ url_for('static', path='manifest.webmanifest') }}?v={{ app_version }}">
+  <link rel="apple-touch-icon" href="{{ url_for('static', path='icons/apple-touch-icon.png') }}?v={{ app_version }}">
+  <meta name="theme-color" content="#f0ece2" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#1a1815" media="(prefers-color-scheme: dark)">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="rssFriends">
   <script src="https://unpkg.com/htmx.org@2.0.3" defer></script>
   {# Theme: honor stored preference before body renders (avoids flash).
      If nothing stored, the CSS media query defaults to system. #}
@@ -172,6 +181,17 @@
         document.body.removeChild(t);
       }
     });
+  </script>
+
+  {# PWA: register the service worker after page load so it never blocks
+     the main render. Silent-fail on unsupported browsers (older iOS
+     Safari, some in-app WebViews). #}
+  <script>
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", function () {
+        navigator.serviceWorker.register("/sw.js").catch(function () {});
+      });
+    }
   </script>
 </body>
 </html>

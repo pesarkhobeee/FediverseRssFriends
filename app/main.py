@@ -5,7 +5,7 @@ from pathlib import Path
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from fastapi import Depends, FastAPI, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from sqlmodel import Session
 from starlette.middleware.sessions import SessionMiddleware
@@ -146,3 +146,37 @@ def healthz():
 def version():
     """Plain-text version endpoint for uptime checkers + deploy scripts."""
     return {"version": __version__}
+
+
+# --- PWA service worker -----------------------------------------------
+#
+# The SW file must be served from the ROOT origin path (`/sw.js`), not
+# `/static/sw.js`, because a service worker's scope is limited to the
+# directory of its own URL. Registering `/static/sw.js` would only
+# control `/static/*` — useless. So we read the file from disk once
+# and swap `__VERSION__` with the current app version so bumps
+# invalidate the SW's static cache automatically.
+
+_SW_PATH = APP_DIR / "static" / "sw.js"
+_SW_BODY: str | None = None
+
+
+def _sw_body() -> str:
+    global _SW_BODY
+    if _SW_BODY is None:
+        _SW_BODY = _SW_PATH.read_text().replace("__VERSION__", __version__)
+    return _SW_BODY
+
+
+@app.get("/sw.js")
+def service_worker() -> PlainTextResponse:
+    return PlainTextResponse(
+        _sw_body(),
+        media_type="application/javascript",
+        headers={
+            # Browsers already bypass HTTP cache when re-fetching an SW,
+            # but be explicit.
+            "Cache-Control": "no-cache",
+            "Service-Worker-Allowed": "/",
+        },
+    )
