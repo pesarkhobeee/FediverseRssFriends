@@ -1,9 +1,11 @@
 """Wallabag OAuth2 client + bookmark dispatcher.
 
-Users link their Wallabag account via authorization-code flow: they
-paste their instance URL + a client_id/client_secret they minted on
-their instance's /developer page, we redirect them to the instance
-for consent, then exchange the returned code for a token pair.
+Wallabag's public OAuth API only supports grant_type=password (see
+https://doc.wallabag.org/developer/api/oauth/) — there is no
+authorization-code endpoint. So the user pastes their instance URL +
+client_id/client_secret (minted at {instance}/developer/client/create)
+AND their Wallabag username + password. We exchange those for an
+access_token + refresh_token pair and store all four fields.
 
 When a user bookmarks an item and has an enabled WallabagAccount, we
 enqueue a background task that POSTs the item's URL to their
@@ -17,10 +19,8 @@ import logging
 from datetime import UTC, datetime, timedelta
 
 import httpx
-from itsdangerous import BadSignature, URLSafeTimedSerializer
 from sqlmodel import Session, select
 
-from .config import SESSION_SECRET
 from .db import User, WallabagAccount, engine
 
 log = logging.getLogger(__name__)
@@ -30,44 +30,9 @@ log = logging.getLogger(__name__)
 _REFRESH_LEEWAY_SECONDS = 60
 _HTTP_TIMEOUT = 10.0
 
-# Signed state param for the OAuth redirect. Tied to user id so the
-# callback can't be replayed under a different session.
-_STATE_SALT = "wallabag-oauth-state"
-_STATE_MAX_AGE = 15 * 60  # 15 minutes
-
-
-def _serializer() -> URLSafeTimedSerializer:
-    return URLSafeTimedSerializer(SESSION_SECRET, salt=_STATE_SALT)
-
-
-def sign_state(user_id: int) -> str:
-    return _serializer().dumps({"uid": user_id})
-
-
-def verify_state(token: str) -> int | None:
-    try:
-        data = _serializer().loads(token, max_age=_STATE_MAX_AGE)
-    except BadSignature:
-        return None
-    uid = data.get("uid") if isinstance(data, dict) else None
-    return int(uid) if isinstance(uid, int) else None
-
 
 def _normalize_instance(url: str) -> str:
     return url.strip().rstrip("/")
-
-
-def build_authorize_url(account: WallabagAccount, redirect_uri: str) -> str:
-    """URL to redirect the user to on their Wallabag instance for consent."""
-    from urllib.parse import urlencode
-
-    params = {
-        "client_id": account.client_id,
-        "redirect_uri": redirect_uri,
-        "response_type": "code",
-        "state": sign_state(account.user_id),
-    }
-    return f"{_normalize_instance(account.instance_url)}/oauth/v2/auth?{urlencode(params)}"
 
 
 def _store_tokens(db: Session, account: WallabagAccount, payload: dict) -> None:
@@ -82,27 +47,25 @@ def _store_tokens(db: Session, account: WallabagAccount, payload: dict) -> None:
     db.add(account)
 
 
-def exchange_code(
-    db: Session, account: WallabagAccount, code: str, redirect_uri: str,
-) -> bool:
-    """POST /oauth/v2/token with grant_type=authorization_code.
+def password_grant(db: Session, account: WallabagAccount) -> bool:
+    """Exchange the stored (username, password, client_id, client_secret)
+    for a token pair via grant_type=password.
 
-    Returns True on success. On failure logs and returns False without
-    mutating the account row."""
+    Returns True on success. On failure logs and returns False."""
     url = f"{_normalize_instance(account.instance_url)}/oauth/v2/token"
     try:
         with httpx.Client(timeout=_HTTP_TIMEOUT) as client:
             r = client.post(url, data={
-                "grant_type": "authorization_code",
+                "grant_type": "password",
                 "client_id": account.client_id,
                 "client_secret": account.client_secret,
-                "redirect_uri": redirect_uri,
-                "code": code,
+                "username": account.username,
+                "password": account.password,
             })
             r.raise_for_status()
             payload = r.json()
     except Exception as exc:  # noqa: BLE001
-        log.warning("wallabag: code exchange failed for user %s: %s",
+        log.warning("wallabag: password_grant failed for user %s: %s",
                     account.user_id, exc)
         return False
     _store_tokens(db, account, payload)
@@ -111,26 +74,30 @@ def exchange_code(
 
 
 def _refresh(db: Session, account: WallabagAccount) -> bool:
-    if not account.refresh_token:
-        return False
+    """Try refresh_token grant; fall back to a fresh password_grant if the
+    refresh token is missing or rejected. Password fallback matters
+    because Wallabag rotates refresh tokens and some instances return
+    non-standard errors that we don't want to distinguish."""
     url = f"{_normalize_instance(account.instance_url)}/oauth/v2/token"
-    try:
-        with httpx.Client(timeout=_HTTP_TIMEOUT) as client:
-            r = client.post(url, data={
-                "grant_type": "refresh_token",
-                "client_id": account.client_id,
-                "client_secret": account.client_secret,
-                "refresh_token": account.refresh_token,
-            })
-            r.raise_for_status()
-            payload = r.json()
-    except Exception as exc:  # noqa: BLE001
-        log.warning("wallabag: refresh failed for user %s: %s",
-                    account.user_id, exc)
-        return False
-    _store_tokens(db, account, payload)
-    db.commit()
-    return True
+    if account.refresh_token:
+        try:
+            with httpx.Client(timeout=_HTTP_TIMEOUT) as client:
+                r = client.post(url, data={
+                    "grant_type": "refresh_token",
+                    "client_id": account.client_id,
+                    "client_secret": account.client_secret,
+                    "refresh_token": account.refresh_token,
+                })
+                r.raise_for_status()
+                payload = r.json()
+            _store_tokens(db, account, payload)
+            db.commit()
+            return True
+        except Exception as exc:  # noqa: BLE001
+            log.info("wallabag: refresh_token grant failed for user %s (%s);"
+                     " falling back to password grant", account.user_id, exc)
+    # Fall back to password grant.
+    return password_grant(db, account)
 
 
 def _token_is_stale(account: WallabagAccount) -> bool:

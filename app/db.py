@@ -158,6 +158,12 @@ class WallabagAccount(SQLModel, table=True):
     instance_url: str  # e.g. https://app.wallabag.it (no trailing slash)
     client_id: str
     client_secret: str
+    # Wallabag's public OAuth API only supports grant_type=password
+    # (see https://doc.wallabag.org/developer/api/oauth/) — there is no
+    # /oauth/v2/auth authorization-code endpoint. So we store the user's
+    # Wallabag username + password and exchange them for tokens directly.
+    username: str = Field(default="")
+    password: str = Field(default="")
     access_token: str = Field(default="")
     refresh_token: str = Field(default="")
     token_expires_at: datetime | None = Field(default=None)
@@ -268,6 +274,17 @@ def _run_sqlite_migrations(conn) -> None:
         conn.exec_driver_sql(
             "UPDATE activity SET kind = 'bookmarked' WHERE kind = 'favorited'"
         )
+
+    # 0.3.1: WallabagAccount grew `username` + `password` columns when
+    # we discovered Wallabag only supports the password grant. Any 0.3.0
+    # rows are unusable anyway (the auth flow was broken) so the
+    # columns can start empty.
+    if "wallabagaccount" in tables:
+        for col in ("username", "password"):
+            if not _sqlite_column_exists(conn, "wallabagaccount", col):
+                conn.exec_driver_sql(
+                    f"ALTER TABLE wallabagaccount ADD COLUMN {col} TEXT NOT NULL DEFAULT ''"
+                )
 
     # 0.2.43: category follows now auto-add a Subscription to the
     # category's RSS URL so followers can read it, not just get its

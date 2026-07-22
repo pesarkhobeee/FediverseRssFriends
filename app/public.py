@@ -498,95 +498,54 @@ def set_visibility(
 # ---------- Wallabag integration ----------
 
 
-def _wallabag_redirect_uri(request: Request) -> str:
-    """OAuth redirect_uri must exactly match what the user registered on
-    their Wallabag instance. We use BASE_URL from config so it stays
-    stable across environments; falls back to the request's base_url
-    for local dev when BASE_URL is not configured to the actual host."""
-    base = config.BASE_URL.rstrip("/")
-    return f"{base}/settings/wallabag/callback"
-
-
 @router.post("/settings/wallabag")
 def save_wallabag(
-    request: Request,
     instance_url: str = Form(...),
     client_id: str = Form(...),
     client_secret: str = Form(...),
+    username: str = Form(...),
+    password: str = Form(...),
     user: User = Depends(login_required),
     db: Session = Depends(get_session),
 ):
-    """Save the user's Wallabag creds (instance + client_id/secret) and
-    immediately redirect them to their instance's authorize URL."""
+    """Save the user's Wallabag creds and try grant_type=password to
+    obtain a token pair right away. Redirects back to /dashboard with
+    a flash indicating success or failure.
+
+    Password grant is the only OAuth flow Wallabag supports — there is
+    no /oauth/v2/auth authorization endpoint. See docs/deploy considerations
+    and https://doc.wallabag.org/developer/api/oauth/."""
     from . import wallabag as wb
     from .db import WallabagAccount
 
     instance = instance_url.strip().rstrip("/")
     if not instance.startswith(("http://", "https://")):
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "instance URL must start with http:// or https://")
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "instance URL must start with http:// or https://",
+        )
 
     account = wb.get_account(db, user)
     if account is None:
-        account = WallabagAccount(
-            user_id=user.id,
-            instance_url=instance,
-            client_id=client_id.strip(),
-            client_secret=client_secret.strip(),
-        )
-    else:
-        account.instance_url = instance
-        account.client_id = client_id.strip()
-        account.client_secret = client_secret.strip()
-        # Creds changed → invalidate any old tokens.
-        account.access_token = ""
-        account.refresh_token = ""
-        account.token_expires_at = None
-        account.enabled = False
-        account.updated_at = datetime.now(UTC)
+        account = WallabagAccount(user_id=user.id, instance_url=instance)
+    account.instance_url = instance
+    account.client_id = client_id.strip()
+    account.client_secret = client_secret.strip()
+    account.username = username.strip()
+    account.password = password  # Wallabag passwords can contain spaces/etc.
+    account.access_token = ""
+    account.refresh_token = ""
+    account.token_expires_at = None
+    account.enabled = False
+    account.updated_at = datetime.now(UTC)
     db.add(account)
     db.commit()
     db.refresh(account)
 
+    ok = wb.password_grant(db, account)
     return RedirectResponse(
-        wb.build_authorize_url(account, _wallabag_redirect_uri(request)),
+        f"/dashboard?panel=settings&wallabag={'ok' if ok else 'err'}",
         status_code=303,
-    )
-
-
-@router.get("/settings/wallabag/callback")
-def wallabag_callback(
-    request: Request,
-    code: str | None = None,
-    state: str | None = None,
-    error: str | None = None,
-    user: User = Depends(login_required),
-    db: Session = Depends(get_session),
-):
-    """Wallabag redirects here after user consents. Validates state,
-    exchanges code for tokens, then bounces back to the settings panel."""
-    from . import wallabag as wb
-
-    if error:
-        return RedirectResponse(
-            f"/dashboard?panel=settings&wallabag=err&reason={error}", status_code=303,
-        )
-    if not code or not state:
-        return RedirectResponse(
-            "/dashboard?panel=settings&wallabag=err&reason=missing_code", status_code=303,
-        )
-    signed_uid = wb.verify_state(state)
-    if signed_uid != user.id:
-        return RedirectResponse(
-            "/dashboard?panel=settings&wallabag=err&reason=bad_state", status_code=303,
-        )
-    account = wb.get_account(db, user)
-    if account is None:
-        return RedirectResponse(
-            "/dashboard?panel=settings&wallabag=err&reason=no_account", status_code=303,
-        )
-    ok = wb.exchange_code(db, account, code, _wallabag_redirect_uri(request))
-    return RedirectResponse(
-        f"/dashboard?panel=settings&wallabag={'ok' if ok else 'err'}", status_code=303,
     )
 
 

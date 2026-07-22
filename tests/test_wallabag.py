@@ -1,5 +1,8 @@
-"""Wallabag integration: OAuth flow (mocked httpx), token refresh,
-bookmark-triggers-send hook, settings UI routes."""
+"""Wallabag integration: password-grant token exchange (mocked httpx),
+token refresh, bookmark-triggers-send hook, settings UI routes.
+
+Wallabag's public OAuth API only supports grant_type=password; there
+is no authorization-code endpoint. See app/wallabag.py for details."""
 
 from datetime import UTC, datetime, timedelta
 
@@ -34,50 +37,106 @@ def _get_account(user_email="alice@example.com"):
         ).first()
 
 
-# ---- state signing ------------------------------------------------------
+def _install_fake_httpx(monkeypatch, responses):
+    """Install a FakeClient on app.wallabag.httpx.Client that returns
+    the next response from `responses` (a list of dicts describing the
+    reply) and records each call in the returned list."""
+    import app.wallabag as wb
+
+    calls = []
+    resp_iter = iter(responses)
+
+    class FakeResp:
+        def __init__(self, spec):
+            self.status_code = spec.get("status", 200)
+            self._json = spec.get("json", {})
+        def raise_for_status(self):
+            if self.status_code >= 400:
+                raise RuntimeError(f"HTTP {self.status_code}")
+        def json(self):
+            return self._json
+
+    class FakeClient:
+        def __init__(self, *a, **kw): pass
+        def __enter__(self): return self
+        def __exit__(self, *a): pass
+        def post(self, url, data=None, json=None, **kw):
+            calls.append({
+                "url": url, "data": data, "json": json,
+                "headers": kw.get("headers"),
+            })
+            return FakeResp(next(resp_iter))
+
+    monkeypatch.setattr(wb.httpx, "Client", FakeClient)
+    return calls
 
 
-def test_state_sign_verify_roundtrip():
-    from app import wallabag
-    token = wallabag.sign_state(42)
-    assert wallabag.verify_state(token) == 42
+# ---- POST /settings/wallabag ------------------------------------------
 
 
-def test_state_verify_rejects_garbage():
-    from app import wallabag
-    assert wallabag.verify_state("nope") is None
-
-
-# ---- OAuth save + callback ---------------------------------------------
-
-
-def test_save_wallabag_redirects_to_authorize_url():
+def test_save_wallabag_password_grant_success(monkeypatch):
+    calls = _install_fake_httpx(monkeypatch, [
+        {"status": 200, "json": {
+            "access_token": "atk", "refresh_token": "rtk", "expires_in": 3600,
+        }},
+    ])
     client = _client()
     _login(client, "alice@example.com")
+
     r = client.post(
         "/settings/wallabag",
         data={
             "instance_url": "https://wb.example.com/",
             "client_id": "cid1",
             "client_secret": "csec1",
+            "username": "alice",
+            "password": "hunter2",
         },
         follow_redirects=False,
     )
     assert r.status_code == 303
-    loc = r.headers["location"]
-    assert loc.startswith("https://wb.example.com/oauth/v2/auth?")
-    assert "client_id=cid1" in loc
-    assert "response_type=code" in loc
-    assert "redirect_uri=" in loc
-    assert "state=" in loc
+    assert "wallabag=ok" in r.headers["location"]
 
-    account = _get_account()
-    assert account is not None
-    assert account.instance_url == "https://wb.example.com"
-    assert account.client_id == "cid1"
-    assert account.client_secret == "csec1"
-    assert account.enabled is False
-    assert account.access_token == ""
+    # Exchange hit /oauth/v2/token with grant_type=password.
+    assert calls[0]["url"] == "https://wb.example.com/oauth/v2/token"
+    d = calls[0]["data"]
+    assert d["grant_type"] == "password"
+    assert d["client_id"] == "cid1"
+    assert d["client_secret"] == "csec1"
+    assert d["username"] == "alice"
+    assert d["password"] == "hunter2"
+
+    acc = _get_account()
+    assert acc is not None
+    assert acc.enabled is True
+    assert acc.access_token == "atk"
+    assert acc.refresh_token == "rtk"
+    assert acc.token_expires_at is not None
+
+
+def test_save_wallabag_password_grant_failure(monkeypatch):
+    _install_fake_httpx(monkeypatch, [
+        {"status": 400, "json": {"error": "invalid_grant"}},
+    ])
+    client = _client()
+    _login(client, "alice@example.com")
+
+    r = client.post(
+        "/settings/wallabag",
+        data={
+            "instance_url": "https://wb.example.com",
+            "client_id": "cid", "client_secret": "csec",
+            "username": "alice", "password": "wrong",
+        },
+        follow_redirects=False,
+    )
+    assert r.status_code == 303
+    assert "wallabag=err" in r.headers["location"]
+    # Row is saved so the user can fix and retry, but not enabled.
+    acc = _get_account()
+    assert acc is not None
+    assert acc.enabled is False
+    assert acc.access_token == ""
 
 
 def test_save_wallabag_rejects_bad_url():
@@ -85,107 +144,14 @@ def test_save_wallabag_rejects_bad_url():
     _login(client, "alice@example.com")
     r = client.post(
         "/settings/wallabag",
-        data={"instance_url": "wb.example.com", "client_id": "c", "client_secret": "s"},
+        data={
+            "instance_url": "wb.example.com",
+            "client_id": "c", "client_secret": "s",
+            "username": "u", "password": "p",
+        },
         follow_redirects=False,
     )
     assert r.status_code == 400
-
-
-def test_callback_bad_state_flashes_error():
-    client = _client()
-    _login(client, "alice@example.com")
-    client.post("/settings/wallabag", data={
-        "instance_url": "https://wb.example.com",
-        "client_id": "cid",
-        "client_secret": "csec",
-    }, follow_redirects=False)
-    r = client.get(
-        "/settings/wallabag/callback?code=abc&state=deadbeef",
-        follow_redirects=False,
-    )
-    assert r.status_code == 303
-    assert "wallabag=err" in r.headers["location"]
-    assert "bad_state" in r.headers["location"]
-
-
-def test_callback_exchanges_code_and_enables(monkeypatch):
-    client = _client()
-    _login(client, "alice@example.com")
-    client.post("/settings/wallabag", data={
-        "instance_url": "https://wb.example.com",
-        "client_id": "cid",
-        "client_secret": "csec",
-    }, follow_redirects=False)
-
-    # Fake the httpx call inside exchange_code.
-    import app.wallabag as wb
-    calls = []
-
-    class FakeResp:
-        status_code = 200
-        def raise_for_status(self): pass
-        def json(self):
-            return {
-                "access_token": "atk", "refresh_token": "rtk",
-                "expires_in": 3600,
-            }
-
-    class FakeClient:
-        def __init__(self, *a, **kw): pass
-        def __enter__(self): return self
-        def __exit__(self, *a): pass
-        def post(self, url, data=None, **kw):
-            calls.append((url, data))
-            return FakeResp()
-
-    monkeypatch.setattr(wb.httpx, "Client", FakeClient)
-
-    state = wb.sign_state(_get_account().user_id)
-    r = client.get(
-        f"/settings/wallabag/callback?code=CODE&state={state}",
-        follow_redirects=False,
-    )
-    assert r.status_code == 303
-    assert "wallabag=ok" in r.headers["location"]
-    assert calls and calls[0][0] == "https://wb.example.com/oauth/v2/token"
-    assert calls[0][1]["grant_type"] == "authorization_code"
-    assert calls[0][1]["code"] == "CODE"
-
-    acc = _get_account()
-    assert acc.enabled is True
-    assert acc.access_token == "atk"
-    assert acc.refresh_token == "rtk"
-    assert acc.token_expires_at is not None
-
-
-def test_callback_exchange_failure_flashes_err(monkeypatch):
-    client = _client()
-    _login(client, "alice@example.com")
-    client.post("/settings/wallabag", data={
-        "instance_url": "https://wb.example.com",
-        "client_id": "cid",
-        "client_secret": "csec",
-    }, follow_redirects=False)
-
-    import app.wallabag as wb
-
-    class BoomClient:
-        def __init__(self, *a, **kw): pass
-        def __enter__(self): return self
-        def __exit__(self, *a): pass
-        def post(self, *a, **kw):
-            raise RuntimeError("network down")
-
-    monkeypatch.setattr(wb.httpx, "Client", BoomClient)
-
-    state = wb.sign_state(_get_account().user_id)
-    r = client.get(
-        f"/settings/wallabag/callback?code=x&state={state}",
-        follow_redirects=False,
-    )
-    assert r.status_code == 303
-    assert "wallabag=err" in r.headers["location"]
-    assert _get_account().enabled is False
 
 
 # ---- disconnect / toggle ------------------------------------------------
@@ -199,6 +165,7 @@ def _enable_account(email="alice@example.com"):
         acc = db_mod.WallabagAccount(
             user_id=user.id, instance_url="https://wb.example.com",
             client_id="cid", client_secret="csec",
+            username="alice", password="hunter2",
             access_token="atk", refresh_token="rtk",
             token_expires_at=datetime.now(UTC) + timedelta(hours=1),
             enabled=True,
@@ -237,61 +204,9 @@ def test_toggle_pauses_and_resumes():
 
 
 def test_send_url_refreshes_stale_token(monkeypatch):
+    """A stale access_token triggers a refresh_token grant before the
+    entries.json POST goes out with the new bearer."""
     import app.db as db_mod
-    import app.wallabag as wb
-
-    _client()  # ensure app + db
-    with Session(db_mod.engine) as s:
-        u = db_mod.User(email="a@e.com", handle="a")
-        s.add(u)
-        s.commit()
-        s.refresh(u)
-        acc = db_mod.WallabagAccount(
-            user_id=u.id, instance_url="https://wb.example.com",
-            client_id="c", client_secret="s",
-            access_token="stale", refresh_token="rtk",
-            token_expires_at=datetime.now(UTC) - timedelta(seconds=1),  # stale
-            enabled=True,
-        )
-        s.add(acc)
-        s.commit()
-        s.refresh(acc)
-
-    calls = []
-
-    class FakeResp:
-        status_code = 200
-        def raise_for_status(self): pass
-        def json(self):
-            return {"access_token": "fresh", "refresh_token": "rtk2",
-                    "expires_in": 3600}
-
-    class FakeClient:
-        def __init__(self, *a, **kw): pass
-        def __enter__(self): return self
-        def __exit__(self, *a): pass
-        def post(self, url, data=None, json=None, **kw):
-            calls.append((url, data, json, kw.get("headers")))
-            return FakeResp()
-
-    monkeypatch.setattr(wb.httpx, "Client", FakeClient)
-
-    with Session(db_mod.engine) as s:
-        acc = s.exec(select(db_mod.WallabagAccount)).one()
-        assert wb.send_url(s, acc, "https://article/1") is True
-        s.refresh(acc)
-        assert acc.access_token == "fresh"
-
-    # First call = refresh token exchange, second = entries POST with fresh bearer
-    assert calls[0][0].endswith("/oauth/v2/token")
-    assert calls[0][1]["grant_type"] == "refresh_token"
-    assert calls[1][0].endswith("/api/entries.json")
-    assert calls[1][3]["Authorization"] == "Bearer fresh"
-
-
-def test_send_url_retries_on_401(monkeypatch):
-    import app.db as db_mod
-    import app.wallabag as wb
 
     _client()
     with Session(db_mod.engine) as s:
@@ -302,42 +217,115 @@ def test_send_url_retries_on_401(monkeypatch):
         acc = db_mod.WallabagAccount(
             user_id=u.id, instance_url="https://wb.example.com",
             client_id="c", client_secret="s",
-            access_token="expired-server-side", refresh_token="rtk",
-            token_expires_at=datetime.now(UTC) + timedelta(hours=1),  # not stale locally
+            username="a", password="p",
+            access_token="stale", refresh_token="rtk",
+            token_expires_at=datetime.now(UTC) - timedelta(seconds=1),
             enabled=True,
         )
         s.add(acc)
         s.commit()
 
-    responses = iter([401, 200])
-    tokens_used = []
+    calls = _install_fake_httpx(monkeypatch, [
+        {"status": 200, "json": {  # refresh_token exchange
+            "access_token": "fresh", "refresh_token": "rtk2",
+            "expires_in": 3600,
+        }},
+        {"status": 200},  # entries.json POST
+    ])
 
-    class FakeResp:
-        def __init__(self, code): self.status_code = code
-        def raise_for_status(self):
-            if self.status_code >= 400:
-                raise RuntimeError(f"HTTP {self.status_code}")
-        def json(self):
-            return {"access_token": "fresh", "refresh_token": "rtk",
-                    "expires_in": 3600}
+    import app.wallabag as wb
+    with Session(db_mod.engine) as s:
+        acc = s.exec(select(db_mod.WallabagAccount)).one()
+        assert wb.send_url(s, acc, "https://article/1") is True
+        s.refresh(acc)
+        assert acc.access_token == "fresh"
 
-    class FakeClient:
-        def __init__(self, *a, **kw): pass
-        def __enter__(self): return self
-        def __exit__(self, *a): pass
-        def post(self, url, data=None, json=None, **kw):
-            if url.endswith("/oauth/v2/token"):
-                return FakeResp(200)
-            tokens_used.append(kw["headers"]["Authorization"])
-            return FakeResp(next(responses))
+    assert calls[0]["url"].endswith("/oauth/v2/token")
+    assert calls[0]["data"]["grant_type"] == "refresh_token"
+    assert calls[1]["url"].endswith("/api/entries.json")
+    assert calls[1]["headers"]["Authorization"] == "Bearer fresh"
 
-    monkeypatch.setattr(wb.httpx, "Client", FakeClient)
 
+def test_send_url_retries_on_401(monkeypatch):
+    """Locally-fresh token that the server rejects with 401 → refresh
+    then retry the POST."""
+    import app.db as db_mod
+
+    _client()
+    with Session(db_mod.engine) as s:
+        u = db_mod.User(email="a@e.com", handle="a")
+        s.add(u)
+        s.commit()
+        s.refresh(u)
+        acc = db_mod.WallabagAccount(
+            user_id=u.id, instance_url="https://wb.example.com",
+            client_id="c", client_secret="s",
+            username="a", password="p",
+            access_token="expired-server-side", refresh_token="rtk",
+            token_expires_at=datetime.now(UTC) + timedelta(hours=1),
+            enabled=True,
+        )
+        s.add(acc)
+        s.commit()
+
+    calls = _install_fake_httpx(monkeypatch, [
+        {"status": 401},  # first entries.json POST
+        {"status": 200, "json": {  # refresh_token exchange
+            "access_token": "fresh", "refresh_token": "rtk",
+            "expires_in": 3600,
+        }},
+        {"status": 200},  # retry entries.json POST
+    ])
+
+    import app.wallabag as wb
     with Session(db_mod.engine) as s:
         acc = s.exec(select(db_mod.WallabagAccount)).one()
         assert wb.send_url(s, acc, "https://article/1") is True
 
-    assert tokens_used == ["Bearer expired-server-side", "Bearer fresh"]
+    posts = [c for c in calls if c["url"].endswith("/api/entries.json")]
+    assert [p["headers"]["Authorization"] for p in posts] == [
+        "Bearer expired-server-side", "Bearer fresh",
+    ]
+
+
+def test_refresh_falls_back_to_password_grant(monkeypatch):
+    """If refresh_token is rejected, the client falls back to a fresh
+    password_grant with the stored credentials."""
+    import app.db as db_mod
+
+    _client()
+    with Session(db_mod.engine) as s:
+        u = db_mod.User(email="a@e.com", handle="a")
+        s.add(u)
+        s.commit()
+        s.refresh(u)
+        acc = db_mod.WallabagAccount(
+            user_id=u.id, instance_url="https://wb.example.com",
+            client_id="c", client_secret="s",
+            username="a", password="p",
+            access_token="stale", refresh_token="rotten",
+            token_expires_at=datetime.now(UTC) - timedelta(seconds=1),
+            enabled=True,
+        )
+        s.add(acc)
+        s.commit()
+
+    calls = _install_fake_httpx(monkeypatch, [
+        {"status": 400, "json": {"error": "invalid_grant"}},  # refresh_token fails
+        {"status": 200, "json": {  # password grant fallback
+            "access_token": "fresh", "refresh_token": "rtk2",
+            "expires_in": 3600,
+        }},
+        {"status": 200},  # entries.json POST
+    ])
+
+    import app.wallabag as wb
+    with Session(db_mod.engine) as s:
+        acc = s.exec(select(db_mod.WallabagAccount)).one()
+        assert wb.send_url(s, acc, "https://article/1") is True
+
+    grants = [c["data"]["grant_type"] for c in calls if c["url"].endswith("/oauth/v2/token")]
+    assert grants == ["refresh_token", "password"]
 
 
 def test_send_url_safe_noop_when_disabled(monkeypatch):
@@ -354,6 +342,7 @@ def test_send_url_safe_noop_when_disabled(monkeypatch):
         acc = db_mod.WallabagAccount(
             user_id=u.id, instance_url="https://wb.example.com",
             client_id="c", client_secret="s",
+            username="a", password="p",
             access_token="atk", refresh_token="rtk",
             token_expires_at=datetime.now(UTC) + timedelta(hours=1),
             enabled=False,
@@ -432,14 +421,16 @@ def test_bookmark_enqueues_wallabag_send_when_enabled(monkeypatch):
     r = client.post(f"/items/{item_id}/bookmark")
     assert r.status_code == 200
     assert len(calls) == 1
-    uid, link, tags = calls[0]
+    _uid, link, tags = calls[0]
     assert link == "https://article/1"
     assert tags == ["Tech"]
 
 
-def test_bookmark_does_not_enqueue_when_no_wallabag(monkeypatch):
-    import app.bookmarks as bookmarks_mod
+def test_bookmark_does_not_crash_when_no_wallabag(monkeypatch):
+    """User without a WallabagAccount can still bookmark — the background
+    dispatcher self-guards and doesn't call HTTP."""
     import app.db as db_mod
+    import app.wallabag as wb
 
     with Session(db_mod.engine) as s:
         feed = db_mod.Feed(url="https://x.example/feed", title="Ex")
@@ -455,18 +446,12 @@ def test_bookmark_does_not_enqueue_when_no_wallabag(monkeypatch):
         s.refresh(item)
         item_id = item.id
 
+    def boom(*a, **kw):
+        raise AssertionError("no HTTP call expected")
+
+    monkeypatch.setattr(wb.httpx, "Client", boom)
+
     client = _client()
     _login(client, "alice@example.com")
-
-    calls = []
-    monkeypatch.setattr(
-        bookmarks_mod.wallabag, "send_url_safe",
-        lambda *a, **kw: calls.append(a),
-    )
-    client.post(f"/items/{item_id}/bookmark")
-    # send_url_safe is still called (it self-guards), but doesn't call HTTP.
-    # From the router's POV: it's fine either way — the important behavior
-    # is that no exception surfaces to the user.
-    # Assert it either wasn't called OR was called with a user_id lacking an account.
-    if calls:
-        assert calls[0][1] == "https://article/1"
+    r = client.post(f"/items/{item_id}/bookmark")
+    assert r.status_code == 200

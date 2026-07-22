@@ -77,11 +77,14 @@ to auto-archive bookmarked articles.
 Setup (per-user, one-time):
 
 1. On your Wallabag instance, go to **Developer → Create a new client**.
-2. Set the **Redirect URI** to `<your-rssfriends-base-url>/settings/wallabag/callback`.
-3. Copy the generated **client ID** and **client secret**.
-4. In rssFriends, open **Dashboard → Settings → Wallabag** and paste the
-   instance URL + client credentials, then click *Connect to Wallabag*.
-   You'll be redirected to your instance to approve, then bounced back.
+   The redirect URI field can be anything (Wallabag doesn't use it for
+   the password grant, which is the only OAuth flow it exposes).
+2. Copy the generated **client ID** and **client secret**.
+3. In rssFriends, open **Dashboard → Settings → Wallabag** and paste the
+   instance URL, client credentials, and your Wallabag username + password.
+   rssFriends exchanges those for a token pair via `grant_type=password`
+   (the flow used by KOReader, the mobile apps, and every other Wallabag
+   client — see https://doc.wallabag.org/developer/api/oauth/).
 
 Once connected, every new bookmark POSTs the article URL to your Wallabag
 in the background (best-effort — failures are logged but don't affect

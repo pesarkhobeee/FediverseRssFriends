@@ -20,8 +20,9 @@
   <h2 style="margin-top:0">Wallabag</h2>
   <p class="muted" style="margin:.25rem 0 .75rem">
     Send bookmarked articles to your <a href="https://wallabag.org" target="_blank" rel="noopener noreferrer">Wallabag</a> instance.
-    You'll need a client ID and secret — mint one at <code>{instance}/developer/client/create</code> on your Wallabag.
-    Use <code>{{ request.base_url }}settings/wallabag/callback</code> as the redirect URI.
+    Mint a client at <code>{instance}/developer/client/create</code> on your Wallabag, then paste
+    the client ID/secret plus your Wallabag username and password below.
+    (Wallabag's API only supports the password grant, so we exchange your credentials for a token.)
   </p>
 
   {% set flash = request.query_params.get('wallabag') %}
@@ -29,9 +30,7 @@
     <p class="muted" style="color:var(--accent)"><strong>Connected.</strong> New bookmarks will be sent to Wallabag.</p>
   {% elif flash == 'err' %}
     <p class="muted" style="color:var(--danger)"><strong>Connection failed.</strong>
-      {% set reason = request.query_params.get('reason') %}
-      {% if reason %}({{ reason }}){% endif %}
-      Double-check the instance URL, client ID/secret, and the redirect URI registered on your Wallabag.
+      Double-check the instance URL, client ID/secret, and your Wallabag username/password.
     </p>
   {% endif %}
 
@@ -69,6 +68,11 @@
              value="{{ wallabag_account.client_id if wallabag_account else '' }}">
       <label class="muted" for="wb-cs">Client secret</label>
       <input id="wb-cs" name="client_secret" class="input" type="password" required>
+      <label class="muted" for="wb-user">Wallabag username</label>
+      <input id="wb-user" name="username" class="input" required
+             value="{{ wallabag_account.username if wallabag_account else '' }}">
+      <label class="muted" for="wb-pw">Wallabag password</label>
+      <input id="wb-pw" name="password" class="input" type="password" required>
       <button class="btn" type="submit">Connect to Wallabag →</button>
     </form>
   {% endif %}
