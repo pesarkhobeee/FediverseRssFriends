@@ -5,14 +5,23 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}rssFriends{% endblock %}</title>
   <link rel="icon" type="image/svg+xml" href="{{ url_for('static', path='favicon.svg') }}?v={{ app_version }}">
+
+  {# Typography: Instrument Serif for headlines, Instrument Sans for UI.
+     `font-display: swap` (built into Google's CSS) means the system
+     fallback renders immediately and re-flows once the web font loads —
+     no invisible-text flash. Preconnect trims the TLS handshake. #}
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap">
+
   <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}?v={{ app_version }}">
 
   {# PWA: manifest + platform-specific icons + browser chrome colors.
      Service worker is registered near </body>. #}
   <link rel="manifest" href="/manifest.webmanifest?v={{ app_version }}">
   <link rel="apple-touch-icon" href="{{ url_for('static', path='icons/apple-touch-icon.png') }}?v={{ app_version }}">
-  <meta name="theme-color" content="#f0ece2" media="(prefers-color-scheme: light)">
-  <meta name="theme-color" content="#1a1815" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#FBF8F3" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#1A1512" media="(prefers-color-scheme: dark)">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="rssFriends">
   <script src="https://unpkg.com/htmx.org@2.0.3" defer></script>

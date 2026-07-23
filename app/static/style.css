@@ -1,90 +1,100 @@
-/* rssFriends visual language — inherited from lovelyRSS.
- *   background: warm light gray, generous whitespace
- *   accent:     olive-green pills for active chips + "New" badges
- *   cards:      full-width rows with favicon, title, chevron, "Updated X ago"
- *   type:       system sans, clear hierarchy with muted secondary text
- * Keep it Bootstrap-ish in spacing but no framework.
+/* rssFriends visual language — see docs/design-language.md.
+ *   background: warm cream, generous whitespace
+ *   accent:     burnt orange (#C75B1E) for primary CTA + "you are here"
+ *   type:       Instrument Serif for headlines, Instrument Sans for UI
+ *   corners:    pill buttons (99px), rounded cards (14-20px)
  */
 
 /* ----------------------------- Theme variables -----------------------------
    Two palettes: warm cream by day, deep warm charcoal by night. Both share
-   the same olive accent (brightened in dark for contrast). Rules of thumb:
+   the same burnt-orange accent (brightened in dark for contrast). Rules of
+   thumb:
      - :root = light defaults (backwards-compat, no theme attr needed).
      - [data-theme="dark"] = dark override, set by the JS toggle.
      - @media prefers-color-scheme: dark → auto-dark when no explicit choice.
      - [data-theme="light"] pins light even in a dark-preferring OS.
+   When changing tokens, update docs/design-language.md too.
 */
 :root {
-  --fg: #212529;
-  --muted: #6c757d;
-  --bg: #f0ece2;            /* warm cream page bg — matches lovelyRSS */
+  --fg: #221B12;
+  --muted: #6F6455;
+  --bg: #FBF8F3;            /* warm cream page bg */
   --surface: #ffffff;
-  --card: #eae5d7;          /* card bg — slightly warmer/darker than page */
-  --card-hover: #e2ddcd;
-  --border: #d9d4c4;
-  --accent: #7d8f2a;        /* olive-green pill for active chips + "New" */
-  --accent-fg: #ffffff;
-  --link: #2563eb;
-  --danger: #b3261e;
+  --card: #ffffff;          /* white cards on cream */
+  --card-hover: #F6F0E4;
+  --border: #EDE5D6;
+  --accent: #C75B1E;        /* burnt orange — primary CTA, brand mark */
+  --accent-fg: #FBF8F3;
+  --accent-bg: #F7E8DC;     /* pale accent bg for chips/callouts */
+  --accent-hover: #A94A14;
+  --link: #C75B1E;
+  --link-hover: #96430F;
+  --danger: #B3261E;
   --danger-fg: #ffffff;
-  --danger-bg: #fdf1ef;
-  --danger-border: #d9a8a4;
-  --star: #d4a017;
-  --warn-bg: #f7e8dd;
-  --warn-fg: #7a3a1e;
-  --warn-border: #e8c9b0;
-  --toast-bg: #2a2118;
-  --toast-fg: #f7f0e0;
-  --toast-border: #4a3a24;
-  --radius: 10px;
+  --danger-bg: #FDF1EF;
+  --danger-border: #D9A8A4;
+  --star: #D4A017;
+  --warn-bg: #F7E8DD;
+  --warn-fg: #7A3A1E;
+  --warn-border: #E8C9B0;
+  --toast-bg: #221B12;
+  --toast-fg: #F7F0E0;
+  --toast-border: #4A3A24;
+  --radius: 14px;           /* base card radius (was 10px) */
 }
 
 [data-theme="dark"] {
-  --fg: #e8e2d3;
-  --muted: #9c9484;
-  --bg: #1a1815;            /* deep warm charcoal — keeps the warm feel */
-  --surface: #221f1b;
-  --card: #26231f;
-  --card-hover: #2e2a25;
-  --border: #3a352d;
-  --accent: #a4b846;
-  --accent-fg: #1a1815;
-  --link: #8dc0ff;
-  --danger: #ea8078;
-  --danger-fg: #1a1815;
-  --danger-bg: #2a1e1c;
-  --danger-border: #5a3532;
-  --star: #f0c04a;
-  --warn-bg: #2f241c;
-  --warn-fg: #e8b088;
-  --warn-border: #4a3a2c;
-  --toast-bg: #2f2820;
-  --toast-fg: #f0e8d8;
-  --toast-border: #4a3f30;
+  --fg: #F0E8D8;
+  --muted: #A69B87;
+  --bg: #1A1512;            /* deep warm charcoal */
+  --surface: #221D18;
+  --card: #26221C;
+  --card-hover: #2F2A23;
+  --border: #3A342A;
+  --accent: #E97A3E;        /* brighter orange for dark bg contrast */
+  --accent-fg: #1A1512;
+  --accent-bg: #3A2818;
+  --accent-hover: #F09553;
+  --link: #E97A3E;
+  --link-hover: #F09553;
+  --danger: #EA8078;
+  --danger-fg: #1A1512;
+  --danger-bg: #2A1E1C;
+  --danger-border: #5A3532;
+  --star: #F0C04A;
+  --warn-bg: #2F241C;
+  --warn-fg: #E8B088;
+  --warn-border: #4A3A2C;
+  --toast-bg: #2F2820;
+  --toast-fg: #F0E8D8;
+  --toast-border: #4A3F30;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --fg: #e8e2d3;
-    --muted: #9c9484;
-    --bg: #1a1815;
-    --surface: #221f1b;
-    --card: #26231f;
-    --card-hover: #2e2a25;
-    --border: #3a352d;
-    --accent: #a4b846;
-    --accent-fg: #1a1815;
-    --link: #8dc0ff;
-    --danger: #ea8078;
-    --danger-fg: #1a1815;
-    --danger-bg: #2a1e1c;
-    --danger-border: #5a3532;
-    --star: #f0c04a;
-    --warn-bg: #2f241c;
-    --warn-fg: #e8b088;
-    --warn-border: #4a3a2c;
-    --toast-bg: #2f2820;
-    --toast-fg: #f0e8d8;
-    --toast-border: #4a3f30;
+    --fg: #F0E8D8;
+    --muted: #A69B87;
+    --bg: #1A1512;
+    --surface: #221D18;
+    --card: #26221C;
+    --card-hover: #2F2A23;
+    --border: #3A342A;
+    --accent: #E97A3E;
+    --accent-fg: #1A1512;
+    --accent-bg: #3A2818;
+    --accent-hover: #F09553;
+    --link: #E97A3E;
+    --link-hover: #F09553;
+    --danger: #EA8078;
+    --danger-fg: #1A1512;
+    --danger-bg: #2A1E1C;
+    --danger-border: #5A3532;
+    --star: #F0C04A;
+    --warn-bg: #2F241C;
+    --warn-fg: #E8B088;
+    --warn-border: #4A3A2C;
+    --toast-bg: #2F2820;
+    --toast-fg: #F0E8D8;
+    --toast-border: #4A3F30;
   }
 }
 
@@ -92,10 +102,24 @@
 
 body {
   margin: 0;
-  font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font: 16px/1.55 "Instrument Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   color: var(--fg);
   background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
+
+/* Serif headlines. Applied to hero + section headers; individual pages
+   can override where a sans headline reads better. */
+h1, h2, h3, .display {
+  font-family: "Instrument Serif", ui-serif, Georgia, serif;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+h1 { letter-spacing: -0.015em; line-height: 1.05; }
+h2 { line-height: 1.15; }
+h3 { line-height: 1.25; }
 
 /* Base anchor color. Without this, body-content links fall back to the
    browser's default (deep blue on light, unreadable on dark).
