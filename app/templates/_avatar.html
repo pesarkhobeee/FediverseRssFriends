@@ -1,0 +1,12 @@
+{# Avatar macro. Usage:
+     {% from "_avatar.html" import avatar %}
+     {{ avatar("some-handle") }}
+     {{ avatar("some-handle", size=64) }}
+   size = pixel diameter. Default 32 (matches Discover/timeline lists).
+   Renders a colored circle with 1-2 initials — see app/avatars.py. #}
+{% macro avatar(handle, size=32) -%}
+{% set bg = avatar_color(handle) %}
+{% set fg = avatar_text(bg) %}
+<span class="user-avatar" aria-hidden="true"
+      style="width:{{ size }}px;height:{{ size }}px;background:{{ bg }};color:{{ fg }};font-size:{{ (size * 0.42)|round(0, 'floor')|int }}px;">{{ avatar_initials(handle) }}</span>
+{%- endmacro %}

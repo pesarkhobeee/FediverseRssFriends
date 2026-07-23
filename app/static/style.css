@@ -1420,3 +1420,193 @@ img.favicon {
   color: var(--danger);
   font-size: 14px; font-weight: 500;
 }
+
+/* ============================================================
+   Radar page (user_radar.html)
+   Header with avatar + inline meta, chips as pills, inline RSS pill.
+   ============================================================ */
+
+/* Colored-initial user avatar — see app/avatars.py. Rendered as a
+   perfect circle with inline width/height/bg/color style attrs so it
+   works everywhere it's dropped, not just here. */
+.user-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-weight: 600;
+  font-family: "Instrument Sans", system-ui, sans-serif;
+  letter-spacing: 0.02em;
+  flex: 0 0 auto;
+  user-select: none;
+}
+
+/* Radar page header. Lives inside the 880px main container. */
+.radar-header {
+  margin-bottom: 1.5rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid var(--border);
+}
+.radar-header-main {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+.radar-header-identity {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  min-width: 0;
+}
+.radar-header-title-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.radar-header-title {
+  margin: 0;
+  font-family: "Instrument Serif", ui-serif, Georgia, serif;
+  font-weight: 400;
+  font-size: 36px;
+  line-height: 1.05;
+  letter-spacing: -0.01em;
+  color: var(--fg);
+  word-break: break-word;
+}
+.radar-header-meta {
+  font-size: 14.5px;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.radar-header-meta strong { color: var(--fg); font-weight: 600; }
+.radar-header-meta a { color: var(--muted); text-decoration: none; }
+.radar-header-meta a:hover { color: var(--fg); text-decoration: underline; }
+.radar-header-meta-sep { color: var(--border); }
+
+.radar-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.radar-header-actions .btn,
+.radar-header-actions .btn-ghost {
+  border-radius: 99px;
+  padding: 10px 20px;
+  font-weight: 600;
+}
+
+/* Meta strip under the header — inline links + RSS URL pill. */
+.radar-header-strip {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  font-size: 13px;
+  color: var(--muted);
+}
+.radar-strip-link {
+  color: var(--muted);
+  font-weight: 500;
+  text-decoration: none;
+}
+.radar-strip-link:hover { color: var(--fg); text-decoration: underline; }
+
+/* Compact inline "copy the RSS URL" pill. Reused for whole-radar (in
+   the header strip) and per-category (below the chips row). */
+.radar-rss-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 99px;
+  padding: 4px 4px 4px 12px;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 12px;
+  color: var(--muted);
+  max-width: 100%;
+  overflow: hidden;
+}
+.radar-rss-pill-url {
+  color: var(--muted);
+  text-decoration: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.radar-rss-pill-url:hover { color: var(--fg); }
+.radar-rss-pill-copy {
+  font-family: "Instrument Sans", system-ui, sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent);
+  background: var(--accent-bg);
+  border: none;
+  border-radius: 99px;
+  padding: 4px 10px;
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+.radar-rss-pill-copy:hover { background: var(--accent); color: var(--accent-fg); }
+
+.radar-fork-result:not(:empty) { display: block; margin-top: .5rem; }
+
+/* Chips (categories) — pill row above the feed list. */
+.radar-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 1rem 0;
+}
+.radar-chip {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 99px;
+  padding: 7px 15px;
+  text-decoration: none;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.radar-chip:hover { color: var(--fg); border-color: var(--muted); }
+.radar-chip-active {
+  background: var(--fg);
+  color: var(--bg);
+  border-color: var(--fg);
+  font-weight: 600;
+}
+.radar-chip-active:hover { color: var(--bg); }
+
+/* Per-category RSS row (appears when a category filter is active). */
+.radar-category-rss {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: .5rem 0 1rem;
+  flex-wrap: wrap;
+}
+.radar-category-rss-label {
+  font-size: 13px;
+  color: var(--muted);
+  font-family: "Instrument Serif", ui-serif, Georgia, serif;
+  font-size: 15px;
+}
+
+@media (max-width: 640px) {
+  .radar-header-title { font-size: 26px; }
+  .radar-header-identity .user-avatar { width: 52px !important; height: 52px !important; font-size: 20px !important; }
+  .radar-header-main { gap: 16px; }
+  .radar-header-actions { width: 100%; }
+  .radar-header-actions .btn,
+  .radar-header-actions .btn-ghost { flex: 1; text-align: center; }
+}

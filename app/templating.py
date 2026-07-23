@@ -11,6 +11,9 @@ from pathlib import Path
 from fastapi.templating import Jinja2Templates
 
 from . import __version__
+from .avatars import color as avatar_color
+from .avatars import initials as avatar_initials
+from .avatars import text_color as avatar_text
 from .utils import (
     clean_summary,
     relative_time,
@@ -30,4 +33,9 @@ def make_templates() -> Jinja2Templates:
     t.env.filters.setdefault("summary_was_truncated", summary_was_truncated)
     t.env.filters.setdefault("source_domain", source_domain)
     t.env.globals["app_version"] = __version__
+    # Avatar helpers (see app/avatars.py). Available in all templates as
+    # avatar_initials(handle) / avatar_color(handle) / avatar_text(bg).
+    t.env.globals["avatar_initials"] = avatar_initials
+    t.env.globals["avatar_color"] = avatar_color
+    t.env.globals["avatar_text"] = avatar_text
     return t

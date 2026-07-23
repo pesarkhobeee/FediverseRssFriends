@@ -1,89 +1,98 @@
 {% extends "base.html" %}
+{% from "_avatar.html" import avatar %}
 {% block title %}@{{ owner.handle }}'s radar on rssFriends{% endblock %}
 {% block meta_description %}{{ total_feeds }} feed{{ '' if total_feeds == 1 else 's' }} on @{{ owner.handle }}'s radar. Follow to see their bookmarks, subscriptions, and cross-posts on rssFriends.{% endblock %}
 {% block og_type %}profile{% endblock %}
 {% block content %}
-<section class="hero stack">
-  <h1>🌟 @{{ owner.handle }}'s radar</h1>
-  <p class="muted">
-    A collection of favorite RSS feeds
-    {% if owner.visibility != "public" %} · <span class="badge-visibility">{{ owner.visibility }}</span>{% endif %}
-  </p>
-  {% if last_updated %}
-    <p class="muted" style="font-size:.9rem">
-      Last updated: {{ last_updated.strftime('%Y-%m-%d %H:%M UTC') }}
-      · Next update every ~{{ refresh_interval_minutes }} minutes
-    </p>
+
+<section class="radar-header">
+  <div class="radar-header-main">
+    <div class="radar-header-identity">
+      {{ avatar(owner.handle, size=64) }}
+      <div class="radar-header-title-wrap">
+        <h1 class="radar-header-title">@{{ owner.handle }}'s radar</h1>
+        <div class="radar-header-meta">
+          <strong>{{ total_feeds }}</strong> feed{{ '' if total_feeds == 1 else 's' }}
+          <span class="radar-header-meta-sep">·</span>
+          <a href="/u/{{ owner.handle }}/followers"><strong>{{ followers_n }}</strong> follower{{ '' if followers_n == 1 else 's' }}</a>
+          <span class="radar-header-meta-sep">·</span>
+          <a href="/u/{{ owner.handle }}/following"><strong>{{ following_n }}</strong> following</a>
+          {% if owner.visibility != "public" %}
+            <span class="radar-header-meta-sep">·</span>
+            <span class="badge-visibility">{{ owner.visibility }}</span>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    <div class="radar-header-actions">
+      {% if user and not is_owner %}
+        {% with target=owner, state=follow_state %}
+          {% include "_follow_button.html" %}
+        {% endwith %}
+      {% endif %}
+      {% if is_owner %}
+        <a class="btn-ghost" href="/dashboard">Edit radar</a>
+      {% elif user %}
+        <button class="btn"
+                hx-post="/u/{{ owner.handle }}/fork"
+                hx-target="#fork-result"
+                hx-swap="innerHTML"
+                hx-confirm="Copy all of @{{ owner.handle }}'s feeds into your radar?">
+          Fork this radar
+        </button>
+      {% endif %}
+    </div>
+  </div>
+
+  {# Meta strip: last-updated + secondary links + inline copy-URL pill.
+     Compact single row on desktop, wraps to multi-line on mobile. #}
+  <div class="radar-header-strip">
+    {% if last_updated %}
+      <span>Last updated {{ last_updated|relative_time }} · refreshes every ~{{ refresh_interval_minutes }} min</span>
+    {% endif %}
+    <a href="/u/{{ owner.handle }}/bookmarks" class="radar-strip-link">Bookmarks</a>
+    <a href="/u/{{ owner.handle }}/activity" class="radar-strip-link">Activity</a>
+    <a href="/u/{{ owner.handle }}.opml" class="radar-strip-link">OPML</a>
+    {% set radar_rss_short = "rssfriends.com/u/" ~ owner.handle ~ ".rss" %}
+    <span class="radar-rss-pill" title="Whole radar as RSS">
+      <a class="radar-rss-pill-url" href="{{ reading_rss_url }}"
+         target="_blank" rel="noopener">{{ radar_rss_short }}</a>
+      <button type="button" class="radar-rss-pill-copy"
+              data-copy-url="{{ reading_rss_url }}"
+              title="Copy link to clipboard">Copy</button>
+    </span>
+  </div>
+
+  {% if user and not is_owner %}
+    <span id="fork-result" class="radar-fork-result"></span>
   {% endif %}
-  <p class="muted" style="font-size:.9rem">
-    <a href="/u/{{ owner.handle }}/followers" class="muted">
-      <strong>{{ followers_n }}</strong> follower{{ '' if followers_n == 1 else 's' }}</a>
-    ·
-    <a href="/u/{{ owner.handle }}/following" class="muted">
-      <strong>{{ following_n }}</strong> following</a>
-  </p>
-  <p>
-    {% if user and not is_owner %}
-      {% with target=owner, state=follow_state %}
-        {% include "_follow_button.html" %}
-      {% endwith %}
-    {% endif %}
-    <a class="btn-ghost" href="/u/{{ owner.handle }}/bookmarks">⭐ Bookmarks</a>
-    <a class="btn-ghost" href="/u/{{ owner.handle }}/activity">📜 Activity</a>
-    <a class="btn-ghost" href="/u/{{ owner.handle }}.opml">📥 OPML</a>
-    {% if is_owner %}
-      <a class="btn-ghost" href="/dashboard">Edit radar</a>
-    {% elif user %}
-      <button class="btn"
-              hx-post="/u/{{ owner.handle }}/fork"
-              hx-target="#fork-result"
-              hx-swap="innerHTML"
-              hx-confirm="Copy all of @{{ owner.handle }}'s feeds into your radar?">
-        🍴 Fork this radar
-      </button>
-      <span id="fork-result"></span>
-    {% endif %}
-  </p>
 </section>
 
-<h2 class="section-title">All Feeds ({{ total_feeds }})</h2>
-
 {% if all_categories %}
-<div class="chips" role="tablist" aria-label="Categories">
-  <a class="chip {% if not active_cat %}active{% endif %}" href="/u/{{ owner.handle }}">All</a>
+<div class="radar-chips" role="tablist" aria-label="Categories">
+  <a class="radar-chip {% if not active_cat %}radar-chip-active{% endif %}" href="/u/{{ owner.handle }}">All</a>
   {% for c in all_categories %}
-    <a class="chip {% if active_cat.lower() == c.name.lower() %}active{% endif %}"
+    <a class="radar-chip {% if active_cat.lower() == c.name.lower() %}radar-chip-active{% endif %}"
        href="/u/{{ owner.handle }}?cat={{ c.name }}">{{ c.name }}</a>
   {% endfor %}
 </div>
 {% endif %}
 
-{# Visible + copyable RSS URL box. Whole-radar URL when no filter,
-   per-category when one is filtered. Owners see it too — they often
-   want to share the URL of one of their own categories.
-
-   Per-category RSS is disabled for private radars (0.2.44), so we
-   don't show that variant there. The whole-radar RSS still works
-   for private via a signed token in reading_rss_url. #}
+{# Per-category RSS pill — appears only when a category filter is active.
+   Whole-radar RSS is already in the header meta strip. Per-category
+   RSS is disabled for private radars (0.2.44). #}
 {% if active_category and owner.visibility != "private" %}
   {% set rss_path = "/u/" ~ owner.handle ~ "/c/" ~ active_category.name ~ ".rss" %}
-  {% set rss_label = "📡 “" ~ active_category.name ~ "” as RSS:" %}
-{% elif not active_category %}
-  {% set rss_path = reading_rss_url %}
-  {% set rss_label = "📡 Whole radar as RSS:" %}
-{% else %}
-  {% set rss_path = None %}
-{% endif %}
-{% if rss_path %}
-  {% set rss_full = (request.base_url|string).rstrip("/") ~ rss_path %}
-  <div class="rss-box">
-    <span class="rss-box-label">{{ rss_label }}</span>
-    <a class="rss-box-url" href="{{ rss_path }}"
-       target="_blank" rel="noopener" title="Open feed">{{ rss_full }}</a>
-    <button type="button" class="btn-ghost rss-box-copy"
-            data-copy-url="{{ rss_path }}"
-            title="Copy link to clipboard">📋 Copy</button>
-    {% if active_category and user and user.id != owner.id and owner.visibility != "private" %}
+  {% set rss_short = "rssfriends.com/u/" ~ owner.handle ~ "/c/" ~ active_category.name ~ ".rss" %}
+  <div class="radar-category-rss">
+    <span class="radar-category-rss-label">“{{ active_category.name }}” as RSS</span>
+    <span class="radar-rss-pill">
+      <a class="radar-rss-pill-url" href="{{ rss_path }}" target="_blank" rel="noopener" title="Open feed">{{ rss_short }}</a>
+      <button type="button" class="radar-rss-pill-copy"
+              data-copy-url="{{ rss_path }}"
+              title="Copy link to clipboard">Copy</button>
+    </span>
+    {% if user and user.id != owner.id %}
       {% with category=active_category, owner_handle=owner.handle, state=category_follow_states.get(active_category.id, "none") %}
         {% include "_category_follow_button.html" %}
       {% endwith %}

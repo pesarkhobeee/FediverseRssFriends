@@ -78,7 +78,9 @@ def test_public_radar_shows_categories_and_feeds(monkeypatch):
     assert "@farid's radar" in r.text
     assert "Weblogs" in r.text
     assert "Proton Blog" in r.text
-    assert "All Feeds (1)" in r.text
+    # New radar header renders the count inline in the meta row:
+    # `<strong>1</strong> feed`. See app/templates/user_radar.html.
+    assert "<strong>1</strong> feed" in r.text
 
 
 def test_feed_card_has_feed_page_and_copy_link_buttons(monkeypatch):
