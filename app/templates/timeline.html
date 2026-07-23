@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_avatar.html" import avatar %}
 {% block title %}Friends on rssFriends{% endblock %}
 {% block meta_description %}What the people you follow on rssFriends have been bookmarking, adding, and forking lately.{% endblock %}
 {% block content %}
@@ -19,6 +20,9 @@
   {% for e in entries %}
     <li class="fav-item{% if e.activity.subject_url %} item-clickable{% endif %}">
       <div class="fav-head">
+        {% if e.actor %}
+          {{ avatar(e.actor.handle, size=32) }}
+        {% endif %}
         <span aria-hidden="true">{{ kind_icon.get(e.activity.kind, '') }}</span>
         <span>
           {% if e.actor %}

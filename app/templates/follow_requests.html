@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_avatar.html" import avatar %}
 {% block title %}Follow requests{% endblock %}
 {% block content %}
 <section class="hero stack">
@@ -12,6 +13,7 @@
   {% for r in requests %}
     <li class="fav-item" id="req-{{ r.follower.id }}">
       <div class="fav-head">
+        {{ avatar(r.follower.handle, size=32) }}
         <a class="title" href="/u/{{ r.follower.handle }}">@{{ r.follower.handle }}</a>
         <span class="spacer"></span>
         <span class="muted" style="font-size:.85rem">
