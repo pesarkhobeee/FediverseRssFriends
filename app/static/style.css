@@ -1506,7 +1506,8 @@ img.favicon {
   font-weight: 600;
 }
 
-/* Meta strip under the header — inline links + RSS URL pill. */
+/* Meta strip under the header — view toggle (left) + secondary links
+   + RSS URL pill (right). Wraps at narrow widths. */
 .radar-header-strip {
   display: flex;
   align-items: center;
@@ -1515,6 +1516,10 @@ img.favicon {
   font-size: 13px;
   color: var(--muted);
 }
+/* Pushes the RSS pill to the far end of the flex row. All other
+   items sit at the natural gap on the left. */
+.radar-rss-pill-right { margin-left: auto; }
+.radar-header-last-updated { color: var(--muted); }
 /* Header-strip action pills — same shape as the category chips below.
    Gives Bookmarks/Activity/OPML a proper tap target and visual weight
    equal to the RSS URL pill they sit next to. */
@@ -1847,7 +1852,7 @@ img.favicon {
   border: 1px solid var(--border);
   border-radius: 99px;
   padding: 3px;
-  margin: .5rem 0 1rem;
+  /* Sits inside .radar-header-strip — no margin needed (strip handles gap). */
 }
 .radar-view-btn {
   font-size: 13px;
