@@ -475,6 +475,9 @@ img.favicon {
   border-radius: 999px;
 }
 
+/* Add-subscription form now sits above the feed list — give it a
+   breathing gap so the input doesn't kiss the first feed row. */
+.category-add { margin-bottom: .75rem; }
 .feed-list { list-style: none; padding: 0; margin: 0 0 .75rem; }
 .feed-list .feed { border-radius: 8px; }
 .feed-list .feed + .feed { margin-top: .35rem; }

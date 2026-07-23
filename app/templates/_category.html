@@ -12,20 +12,11 @@
   </summary>
 
   <div class="category-body">
-    <ul class="feed-list" id="feeds-{{ entry.category.id }}">
-      <li class="empty-feeds muted">No feeds in this category yet — paste one below.</li>
-      {% for it in entry.subs %}
-        {% with sub=it.sub, feed=it.feed, item_count=it.item_count %}
-          {% include "_feed_row.html" %}
-        {% endwith %}
-      {% endfor %}
-    </ul>
-
-    {# Slot the discovery picker renders into when POST /feeds returns
-       multiple candidates (server sets HX-Retarget). #}
-    <div id="discovery-{{ entry.category.id }}"></div>
-
-    <form class="login-form"
+    {# Subscribe form sits at the TOP of the category (0.7.5) so users
+       don't have to scroll past every existing feed to add one. New
+       rows still append to the bottom of the list — the ordering
+       history stays chronological. #}
+    <form class="login-form category-add"
           hx-post="/feeds"
           hx-target="#feeds-{{ entry.category.id }}"
           hx-swap="beforeend"
@@ -35,5 +26,18 @@
              placeholder="https://example.com/feed.xml" />
       <button class="btn" type="submit">Subscribe to feed</button>
     </form>
+
+    {# Slot the discovery picker renders into when POST /feeds returns
+       multiple candidates (server sets HX-Retarget). #}
+    <div id="discovery-{{ entry.category.id }}"></div>
+
+    <ul class="feed-list" id="feeds-{{ entry.category.id }}">
+      <li class="empty-feeds muted">No feeds in this category yet — paste one above.</li>
+      {% for it in entry.subs %}
+        {% with sub=it.sub, feed=it.feed, item_count=it.item_count %}
+          {% include "_feed_row.html" %}
+        {% endwith %}
+      {% endfor %}
+    </ul>
   </div>
 </details>
