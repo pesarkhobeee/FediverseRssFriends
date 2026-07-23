@@ -44,9 +44,19 @@
     </div>
   </div>
 
-  {# Meta strip: view toggle on the left, secondary links + RSS pill
-     on the right. Compact single row on desktop; wraps at ≤640px. #}
+  {# Two-row meta strip:
+       Row 1: last-updated meta + Bookmarks/Activity/OPML pills.
+       Row 2: view toggle on the left, RSS URL pill on the right.
+     Both flex-wrap gracefully on narrow viewports. #}
   <div class="radar-header-strip">
+    {% if last_updated %}
+      <span class="radar-header-last-updated">Last updated {{ last_updated|relative_time }} · refreshes every ~{{ refresh_interval_minutes }} min</span>
+    {% endif %}
+    <a href="/u/{{ owner.handle }}/bookmarks" class="radar-strip-link">Bookmarks</a>
+    <a href="/u/{{ owner.handle }}/activity" class="radar-strip-link">Activity</a>
+    <a href="/u/{{ owner.handle }}.opml" class="radar-strip-link">OPML</a>
+  </div>
+  <div class="radar-header-strip radar-header-strip-toggle">
     <div class="radar-view-toggle" role="tablist" aria-label="View">
       <a class="radar-view-btn {% if view == 'feeds' %}radar-view-btn-active{% endif %}"
          data-view="feeds"
@@ -55,12 +65,6 @@
          data-view="stream"
          href="/u/{{ owner.handle }}?view=stream{% if active_cat %}&cat={{ active_cat }}{% endif %}">Stream</a>
     </div>
-    {% if last_updated %}
-      <span class="radar-header-last-updated">Last updated {{ last_updated|relative_time }} · refreshes every ~{{ refresh_interval_minutes }} min</span>
-    {% endif %}
-    <a href="/u/{{ owner.handle }}/bookmarks" class="radar-strip-link">Bookmarks</a>
-    <a href="/u/{{ owner.handle }}/activity" class="radar-strip-link">Activity</a>
-    <a href="/u/{{ owner.handle }}.opml" class="radar-strip-link">OPML</a>
     {% set radar_rss_short = "rssfriends.com/u/" ~ owner.handle ~ ".rss" %}
     <span class="radar-rss-pill radar-rss-pill-right" title="Whole radar as RSS">
       <a class="radar-rss-pill-url" href="{{ reading_rss_url }}"
