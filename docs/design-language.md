@@ -84,15 +84,26 @@ values in components.
 
 ## Typography
 
-Two families, both from Google Fonts:
+Three families, all from Google Fonts. The split mirrors how Instapaper
+does it — sans in the app chrome, serif when the user is *reading*.
 
-- **`Instrument Serif`** — headlines only (h1, h2, hero displays). One
-  weight (regular). Italic used for the *emphasized clause* pattern:
-  "Your RSS, *with friends.*" — sparingly, one italic phrase per hero.
-- **`Instrument Sans`** — everything else. Weights 400/500/600/650.
+- **`Instrument Serif`** — display headlines (h1, h2, hero titles). One
+  weight (regular). Italic reserved for the *emphasized clause* pattern
+  in hero copy — "Your RSS, *with friends.*" — one italic phrase max.
+- **`Instrument Sans`** — the default UI font. Every button, chip, form
+  field, nav item, radar list, timeline row. Weights 400/500/600/700.
+- **`Source Serif 4`** — the **reading body** for prose-heavy pages
+  (`/help`, hero copy, verify/onboarding text). Weights 400/500/600.
+  Applied via the `.prose` utility class OR by the `.help-block`
+  container. Do **not** use it for UI-shaped content (lists of items,
+  chips, tables); reserve it for actual paragraphs of prose.
 
-Fallback stack: `system-ui, -apple-system, "Segoe UI", Roboto, sans-serif`
-(if Google Fonts is blocked or slow — `font-display: swap` prevents FOIT).
+Fallback stacks (in case Google Fonts is blocked/slow —
+`font-display: swap` prevents FOIT while loading):
+
+- Serif display: `ui-serif, Georgia, serif`
+- Sans UI:       `system-ui, -apple-system, "Segoe UI", Roboto, sans-serif`
+- Serif reading: `ui-serif, Georgia, serif`
 
 ### Type scale
 

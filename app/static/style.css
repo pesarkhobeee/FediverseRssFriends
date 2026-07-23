@@ -121,6 +121,36 @@ h1 { letter-spacing: -0.015em; line-height: 1.05; }
 h2 { line-height: 1.15; }
 h3 { line-height: 1.25; }
 
+/* Prose reading style — used on help, hero blurbs, and any long-form
+   copy where we want the eye to relax into a book/article rhythm.
+   Only touches paragraphs/lists inside the container; headlines
+   inside .prose stay serif-Instrument (already default) so the visual
+   contrast between heading and body remains. */
+.prose {
+  font-family: "Source Serif 4", ui-serif, Georgia, serif;
+  font-size: 17px;
+  line-height: 1.65;
+  color: var(--fg);
+  max-width: 68ch;
+  text-wrap: pretty;
+}
+.prose p, .prose li { font-size: 17px; line-height: 1.65; }
+.prose p + p { margin-top: 1em; }
+.prose strong { font-weight: 600; }
+.prose em { font-style: italic; }
+.prose code {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: .92em;
+  background: var(--accent-bg);
+  color: var(--fg);
+  padding: .1em .4em;
+  border-radius: 6px;
+}
+/* Serif prose reads best a hair looser than sans on mobile. */
+@media (max-width: 640px) {
+  .prose, .prose p, .prose li { font-size: 16.5px; line-height: 1.7; }
+}
+
 /* Base anchor color. Without this, body-content links fall back to the
    browser's default (deep blue on light, unreadable on dark).
    Wrapped in :where() so specificity stays 0 — any class-level color
@@ -802,9 +832,22 @@ img.favicon {
 /* Help page — table of contents + h2 spacing */
 .help-toc ul { columns: 2; column-gap: 1.25rem; padding-left: 1.1rem; margin: .35rem 0 0; }
 .help-toc li { break-inside: avoid; margin: .15rem 0; }
-.help-block { margin: 1.6rem 0; }
-.help-block h2 { margin: 0 0 .35rem; font-size: 1.15rem; scroll-margin-top: 1rem; }
-.help-block p, .help-block ul { margin: .3rem 0; }
+/* /help is our long-form docs page — switch its body copy to the
+   Source Serif 4 reading face. Headings stay Instrument Serif (already
+   the default for h2/h3), so the visual contrast between heading and
+   body is preserved. Only paragraphs, lists, and code chips flip. */
+.help-block { margin: 1.6rem 0; max-width: 68ch; }
+.help-block h2 { margin: 0 0 .35rem; font-size: 1.5rem; scroll-margin-top: 1rem; }
+.help-block p,
+.help-block ul,
+.help-block ol,
+.help-block li {
+  margin: .3rem 0;
+  font-family: "Source Serif 4", ui-serif, Georgia, serif;
+  font-size: 17px;
+  line-height: 1.65;
+  text-wrap: pretty;
+}
 .help-block code {
   background: var(--card); padding: .05rem .35rem;
   border-radius: 4px; font-size: .95em;
