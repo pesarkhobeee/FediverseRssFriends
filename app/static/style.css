@@ -1773,6 +1773,9 @@ img.favicon {
   padding: 4px 11px;
   cursor: pointer;
   border: none;
+  white-space: nowrap;    /* anon "Sign in" state must never wrap */
+  text-decoration: none;
+  display: inline-block;
 }
 .discover-feed-card-foot .feed-cta .btn:hover {
   background: var(--accent); color: var(--accent-fg);

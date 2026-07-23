@@ -50,7 +50,7 @@ def test_anonymous_visitor_sees_sign_in_cta():
     assert r.status_code == 200
     assert "Example Blog" in r.text
     assert "First post" in r.text
-    assert "Sign in to add" in r.text
+    assert "Sign in" in r.text
     # Inline login form on the page so they can start signing in.
     assert 'action="/login"' in r.text
 
@@ -128,7 +128,7 @@ def test_signed_in_already_subscribed_sees_in_radar_badge():
 
 
 def test_discover_popular_shows_state_aware_cta_per_row():
-    """Anonymous sees "Sign in to add"
+    """Anonymous sees "Sign in"
     a signed-in user who's subscribed
     to one of the popular feeds sees "Following" on THAT row and
     "Add to my radar" on the others."""
@@ -158,9 +158,9 @@ def test_discover_popular_shows_state_aware_cta_per_row():
             ))
         s.commit()
 
-    # Anonymous — every row shows "Sign in to add".
+    # Anonymous — every row shows "Sign in".
     r_anon = _client().get("/discover")
-    assert r_anon.text.count("Sign in to add") >= 2
+    assert r_anon.text.count("Sign in") >= 2
 
     # Signed-in, no subs — every row shows "Add to my radar".
     alice = _client()
