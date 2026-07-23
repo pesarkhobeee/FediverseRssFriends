@@ -1,90 +1,111 @@
 {% extends "base.html" %}
-{% block title %}Discover{% endblock %}
+{% from "_avatar.html" import avatar %}
+{% block title %}Discover · rssFriends{% endblock %}
+{% block meta_description %}New radars, popular feeds, and the most-forked curators on rssFriends. Only public radars are listed.{% endblock %}
 {% block content %}
-<section class="hero stack">
-  <h1>🔭 Discover</h1>
-  <p class="muted">New radars, popular feeds, most-forked curators. Only public radars are listed.</p>
-</section>
 
-<section class="card">
-  <h2 style="margin-top:0">🔍 Find a friend</h2>
-  <p class="muted" style="margin:.25rem 0 .75rem">
-    Type a handle — we'll find the closest matches even if you misspell it.
+<section class="discover-hero">
+  <h1 class="discover-hero-title">Discover</h1>
+  <p class="discover-hero-lead">
+    New radars, popular feeds, and the most-forked curators. Only public
+    radars are listed.
   </p>
-  <input class="input"
-         type="search"
-         name="q"
-         placeholder="e.g. farid, jane, curator..."
-         autocomplete="off"
-         hx-get="/discover/search"
-         hx-target="#user-search-results"
-         hx-trigger="keyup changed delay:250ms, search"
-         hx-swap="innerHTML" />
-  <div id="user-search-results" style="margin-top:.75rem"></div>
+  <div class="discover-search">
+    <input class="input discover-search-input"
+           type="search"
+           name="q"
+           placeholder="Find a friend — type a handle, typos welcome"
+           autocomplete="off"
+           hx-get="/discover/search"
+           hx-target="#user-search-results"
+           hx-trigger="keyup changed delay:250ms, search"
+           hx-swap="innerHTML" />
+  </div>
+  <div id="user-search-results" class="discover-search-results"></div>
 </section>
 
-<h2 class="section-title">🌱 Recent radars</h2>
-{% if recent_users %}
-<ul class="fav-list">
-  {% for r in recent_users %}
-    <li class="fav-item">
-      <div class="fav-head">
-        <a class="title" href="/u/{{ r.user.handle }}">@{{ r.user.handle }}</a>
-        <span class="spacer"></span>
-        <span class="muted" style="font-size:.85rem">
-          {{ r.feeds }} feed{{ '' if r.feeds == 1 else 's' }} ·
-          {{ r.followers }} follower{{ '' if r.followers == 1 else 's' }} ·
-          joined {{ r.user.created_at|relative_time }}
-        </span>
+<section class="discover-grid">
+  {# ─── Left column: recent radars + most-forked ─────────────────── #}
+  <div class="discover-col">
+    <h2 class="discover-h2">Recent radars</h2>
+    {% if recent_users %}
+      <div class="discover-radar-list">
+        {% for r in recent_users %}
+          <a class="discover-radar-row" href="/u/{{ r.user.handle }}">
+            {{ avatar(r.user.handle, size=36) }}
+            <div class="discover-radar-row-body">
+              <div class="discover-radar-row-handle">@{{ r.user.handle }}</div>
+              <div class="discover-radar-row-meta">
+                {{ r.feeds }} feed{{ '' if r.feeds == 1 else 's' }} ·
+                {{ r.followers }} follower{{ '' if r.followers == 1 else 's' }}
+              </div>
+            </div>
+            <span class="discover-radar-row-joined">
+              {{ r.user.created_at|relative_time }}
+            </span>
+          </a>
+        {% endfor %}
       </div>
-    </li>
-  {% endfor %}
-</ul>
-{% else %}
-<p class="muted">No public radars yet.</p>
-{% endif %}
+    {% else %}
+      <p class="muted">No public radars yet.</p>
+    {% endif %}
 
-<h2 class="section-title">🔥 Popular feeds</h2>
-{% if popular_feeds %}
-<ul class="fav-list">
-  {% for p in popular_feeds %}
-    <li class="fav-item">
-      <div class="fav-head">
-        {% if p.feed.favicon_url %}
-          <img class="favicon" src="{{ p.feed.favicon_url }}" alt="" loading="lazy" />
-        {% endif %}
-        <a class="title" href="/f/{{ p.feed.id }}">{{ p.feed.title }}</a>
-        <span class="spacer"></span>
-        <span class="muted" style="font-size:.85rem; margin-right:.75rem">
-          {{ p.subscribers }} subscriber{{ '' if p.subscribers == 1 else 's' }}
-        </span>
-        {% with feed=p.feed, state=p.cta_state %}
-          {% include "_feed_cta.html" %}
-        {% endwith %}
+    <h2 class="discover-h2 discover-h2-spaced">Most-forked curators</h2>
+    {% if most_forked %}
+      <div class="discover-forked-list">
+        {% for f in most_forked %}
+          <a class="discover-forked-card" href="/u/{{ f.user.handle }}">
+            {{ avatar(f.user.handle, size=36) }}
+            <div class="discover-forked-body">
+              <div class="discover-forked-handle">@{{ f.user.handle }}</div>
+              <div class="discover-forked-meta">
+                curator on rssFriends
+              </div>
+            </div>
+            <span class="discover-forked-badge">
+              forked ×{{ f.forks }}
+            </span>
+          </a>
+        {% endfor %}
       </div>
-    </li>
-  {% endfor %}
-</ul>
-{% else %}
-<p class="muted">No feeds have been subscribed to publicly yet.</p>
-{% endif %}
+    {% else %}
+      <p class="muted">Nobody has been forked yet.</p>
+    {% endif %}
+  </div>
 
-<h2 class="section-title">🍴 Most-forked curators</h2>
-{% if most_forked %}
-<ul class="fav-list">
-  {% for f in most_forked %}
-    <li class="fav-item">
-      <div class="fav-head">
-        <a class="title" href="/u/{{ f.user.handle }}">@{{ f.user.handle }}</a>
-        <span class="spacer"></span>
-        <span class="muted" style="font-size:.85rem">
-          forked {{ f.forks }} time{{ '' if f.forks == 1 else 's' }}
-        </span>
+  {# ─── Right column: popular feeds grid ─────────────────────────── #}
+  <div class="discover-col">
+    <div class="discover-h2-row">
+      <h2 class="discover-h2">Popular feeds</h2>
+      <span class="muted" style="font-size:13px">by subscriber count</span>
+    </div>
+    {% if popular_feeds %}
+      <div class="discover-feeds-grid">
+        {% for p in popular_feeds %}
+          <div class="discover-feed-card">
+            <div class="discover-feed-card-head">
+              {% if p.feed.favicon_url %}
+                <img class="favicon discover-feed-icon"
+                     src="{{ p.feed.favicon_url }}" alt="" loading="lazy" />
+              {% else %}
+                <span class="favicon discover-feed-icon" aria-hidden="true">📡</span>
+              {% endif %}
+              <a class="discover-feed-title" href="/f/{{ p.feed.id }}">{{ p.feed.title }}</a>
+            </div>
+            <div class="discover-feed-card-foot">
+              <span class="muted" style="font-size:12.5px">
+                {{ p.subscribers }} subscriber{{ '' if p.subscribers == 1 else 's' }}
+              </span>
+              {% with feed=p.feed, state=p.cta_state %}
+                {% include "_feed_cta.html" %}
+              {% endwith %}
+            </div>
+          </div>
+        {% endfor %}
       </div>
-    </li>
-  {% endfor %}
-</ul>
-{% else %}
-<p class="muted">Nobody has been forked yet.</p>
-{% endif %}
+    {% else %}
+      <p class="muted">No feeds have been subscribed to publicly yet.</p>
+    {% endif %}
+  </div>
+</section>
 {% endblock %}

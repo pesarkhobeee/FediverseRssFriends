@@ -1,18 +1,19 @@
 {# Fuzzy user search results (HTMX partial). Expects `q`, `results`. #}
+{% from "_avatar.html" import avatar %}
 {% if not q %}
   {# Empty query — clear the results area. #}
 {% elif results %}
-  <ul class="fav-list">
+  <div class="discover-radar-list">
     {% for u in results %}
-      <li class="fav-item">
-        <div class="fav-head">
-          <a class="title" href="/u/{{ u.handle }}">@{{ u.handle }}</a>
-          <span class="spacer"></span>
-          <a class="btn-ghost" href="/u/{{ u.handle }}">View radar →</a>
+      <a class="discover-radar-row" href="/u/{{ u.handle }}">
+        {{ avatar(u.handle, size=36) }}
+        <div class="discover-radar-row-body">
+          <div class="discover-radar-row-handle">@{{ u.handle }}</div>
+          <div class="discover-radar-row-meta">View radar →</div>
         </div>
-      </li>
+      </a>
     {% endfor %}
-  </ul>
+  </div>
 {% else %}
   <p class="muted">No public radars match “{{ q }}”.</p>
 {% endif %}

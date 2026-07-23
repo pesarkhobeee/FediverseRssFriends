@@ -1610,3 +1610,209 @@ img.favicon {
   .radar-header-actions .btn,
   .radar-header-actions .btn-ghost { flex: 1; text-align: center; }
 }
+
+/* ============================================================
+   Discover page (discover.html)
+   Editorial hero + two-column main grid.
+   ============================================================ */
+.discover-hero {
+  padding: 32px 0 24px;
+  display: flex; flex-direction: column; gap: 16px;
+}
+.discover-hero-title {
+  margin: 0;
+  font-family: "Instrument Serif", ui-serif, Georgia, serif;
+  font-weight: 400;
+  font-size: 48px;
+  line-height: 1.05;
+  letter-spacing: -0.015em;
+}
+.discover-hero-lead {
+  margin: 0;
+  font-family: "Source Serif 4", ui-serif, Georgia, serif;
+  font-size: 17px; line-height: 1.55;
+  color: var(--muted);
+  max-width: 60ch;
+}
+.discover-search { display: flex; gap: 10px; max-width: 520px; }
+.discover-search-input {
+  flex: 1;
+  padding: 13px 18px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--fg);
+  font-size: 15px;
+}
+.discover-search-input:focus { outline: none; border-color: var(--accent); }
+.discover-search-results:not(:empty) { margin-top: .5rem; max-width: 620px; }
+
+.discover-grid {
+  display: grid;
+  grid-template-columns: 0.9fr 1.1fr;
+  gap: 40px;
+  align-items: start;
+  padding: 16px 0 64px;
+}
+.discover-col { display: flex; flex-direction: column; gap: 14px; }
+.discover-h2 {
+  margin: 0;
+  font-family: "Instrument Serif", ui-serif, Georgia, serif;
+  font-weight: 400;
+  font-size: 26px;
+  letter-spacing: -0.005em;
+}
+.discover-h2-spaced { margin-top: 24px; }
+.discover-h2-row {
+  display: flex; align-items: baseline; justify-content: space-between;
+}
+
+/* Radar list — recent + search results. */
+.discover-radar-list {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+}
+.discover-radar-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 18px;
+  color: var(--fg);
+  text-decoration: none;
+  border-bottom: 1px solid var(--border);
+  transition: background 120ms ease-out;
+}
+.discover-radar-row:last-child { border-bottom: none; }
+.discover-radar-row:hover {
+  background: var(--card-hover);
+  text-decoration: none;
+}
+.discover-radar-row-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.discover-radar-row-handle {
+  font-size: 15px; font-weight: 600; color: var(--fg);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.discover-radar-row-meta { font-size: 12.5px; color: var(--muted); }
+.discover-radar-row-joined { font-size: 12px; color: var(--muted); flex: 0 0 auto; }
+
+/* Most-forked list — same shape but wrapped in dark-ink card for the
+   first one? Simpler: keep them as a normal list, but color the
+   forked badge as an accent pill. */
+.discover-forked-list { display: flex; flex-direction: column; gap: 10px; }
+.discover-forked-card {
+  display: flex; align-items: center; gap: 14px;
+  background: var(--fg);
+  color: var(--bg);
+  border-radius: 16px;
+  padding: 16px 20px;
+  text-decoration: none;
+}
+.discover-forked-card:hover { text-decoration: none; opacity: 0.94; }
+.discover-forked-card + .discover-forked-card {
+  /* subsequent forked cards get a lighter treatment so the top one pops */
+  background: var(--surface);
+  color: var(--fg);
+  border: 1px solid var(--border);
+}
+.discover-forked-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.discover-forked-handle { font-size: 15px; font-weight: 600; }
+.discover-forked-meta { font-size: 12.5px; opacity: 0.7; }
+.discover-forked-card + .discover-forked-card .discover-forked-meta { opacity: 1; color: var(--muted); }
+.discover-forked-badge {
+  font-size: 12px; font-weight: 600;
+  background: var(--bg); color: var(--fg);
+  border-radius: 99px;
+  padding: 5px 12px;
+  flex: 0 0 auto;
+}
+.discover-forked-card + .discover-forked-card .discover-forked-badge {
+  background: var(--accent-bg); color: var(--accent);
+}
+
+/* Popular feeds — 2-column mini grid. */
+.discover-feeds-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.discover-feed-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px;
+  display: flex; flex-direction: column; gap: 10px;
+  min-height: 92px;
+}
+.discover-feed-card-head { display: flex; align-items: center; gap: 10px; }
+.discover-feed-icon {
+  width: 24px; height: 24px; border-radius: 6px; object-fit: contain;
+  background: var(--bg);
+  flex: 0 0 24px;
+}
+.discover-feed-title {
+  font-size: 14px; font-weight: 600; color: var(--fg);
+  line-height: 1.3;
+  overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  text-decoration: none;
+}
+.discover-feed-title:hover { text-decoration: underline; }
+.discover-feed-card-foot {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; margin-top: auto;
+}
+/* Compact "+ Add" pill in the popular-feeds grid — same shape as the
+   accent pill from the radar RSS strip. Overrides the default .btn
+   sizing that _feed_cta.html emits. */
+.discover-feed-card-foot .feed-cta .btn {
+  font-size: 12px; font-weight: 600;
+  color: var(--accent);
+  background: var(--accent-bg);
+  border-radius: 99px;
+  padding: 4px 11px;
+  cursor: pointer;
+  border: none;
+}
+.discover-feed-card-foot .feed-cta .btn:hover {
+  background: var(--accent); color: var(--accent-fg);
+}
+.discover-feed-card-foot .cta-badge {
+  font-size: 12px; color: var(--muted); font-weight: 500;
+}
+
+@media (max-width: 800px) {
+  .discover-grid { grid-template-columns: 1fr; gap: 32px; }
+  .discover-hero-title { font-size: 36px; }
+}
+@media (max-width: 540px) {
+  .discover-feeds-grid { grid-template-columns: 1fr; }
+  .discover-hero-title { font-size: 30px; }
+}
+
+/* Help — Follow vs Subscribe side-by-side cards. */
+.help-duo-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin: .5rem 0;
+}
+.help-duo-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 18px 20px;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.help-duo-card-title {
+  font-size: 15px; font-weight: 650;
+  color: var(--accent);
+}
+.help-duo-card-body {
+  font-family: "Source Serif 4", ui-serif, Georgia, serif;
+  font-size: 14.5px; line-height: 1.6;
+  color: var(--fg);
+}
+@media (max-width: 560px) {
+  .help-duo-cards { grid-template-columns: 1fr; }
+}

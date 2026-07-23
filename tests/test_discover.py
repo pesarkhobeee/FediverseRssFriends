@@ -267,6 +267,23 @@ def test_discover_page_has_search_input():
     assert "Find a friend" in r.text
 
 
+def test_discover_layout_has_new_structure():
+    """Sanity check that the 0.7.1 redesign markup renders — two-column
+    grid, hero, and avatars on radar rows. If any of these grep-strings
+    disappear, the layout has regressed."""
+    a = _client()
+    _login(a, "a@e.com")
+
+    r = _client().get("/discover")
+    assert r.status_code == 200
+    body = r.text
+    assert 'class="discover-grid"' in body        # two-column layout
+    assert 'class="discover-hero"' in body        # editorial hero
+    assert "discover-radar-list" in body          # radar rows container
+    assert 'class="user-avatar"' in body          # colored initials avatar
+    assert ">A<" in body                          # @a's uppercase initial rendered
+
+
 def test_most_forked_curators_ranking():
     """User with more fork activity events ranks first."""
     a = _client()
@@ -316,10 +333,10 @@ def test_most_forked_curators_ranking():
     b.post("/u/d/fork")
 
     r = _client().get("/discover")
-    # Both appear at least once (recent + forks lists), but the "forked N times"
-    # numbers should reflect the counts.
-    assert "forked 2 times" in r.text  # @a was forked twice
-    assert "forked 1 time" in r.text   # @d was forked once
+    # Both appear at least once (recent + forks lists). Count is rendered
+    # inline in the pill badge as "forked ×N" (compact form since 0.7.1).
+    assert "forked ×2" in r.text  # @a was forked twice
+    assert "forked ×1" in r.text  # @d was forked once
     # And @a's fork line appears before @d's in the "Most-forked" section.
     section = r.text[r.text.find("Most-forked"):]
     assert section.find("@a") < section.find("@d")
