@@ -1516,14 +1516,9 @@ img.favicon {
   font-size: 13px;
   color: var(--muted);
 }
-/* Pushes the RSS pill to the far end of the flex row. All other
-   items sit at the natural gap on the left. */
-.radar-rss-pill-right { margin-left: auto; }
+/* Pushes the view toggle to the far right of the single meta row. */
+.radar-view-toggle-right { margin-left: auto; }
 .radar-header-last-updated { color: var(--muted); }
-/* The second-row strip (view toggle + RSS pill) sits below the
-   first-row meta/pill strip; small top margin holds them apart
-   visually without a hard divider. */
-.radar-header-strip-toggle { margin-top: .5rem; }
 /* Header-strip action pills — same shape as the category chips below.
    Gives Bookmarks/Activity/OPML a proper tap target and visual weight
    equal to the RSS URL pill they sit next to. */

@@ -115,7 +115,7 @@ def test_stream_toggle_renders_both_buttons_on_radar_header():
     _seed_owner_with_items(item_count=1)
     r = _client().get("/u/owner")
     body = r.text
-    assert 'class="radar-view-toggle"' in body
+    assert "radar-view-toggle" in body
     assert 'data-view="feeds"' in body
     assert 'data-view="stream"' in body
     # By default view=feeds is active.
