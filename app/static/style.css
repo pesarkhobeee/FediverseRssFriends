@@ -1836,3 +1836,85 @@ img.favicon {
 @media (max-width: 560px) {
   .help-duo-cards { grid-template-columns: 1fr; }
 }
+
+/* ============================================================
+   Radar view toggle + Stream view (0.8.0)
+   ============================================================ */
+.radar-view-toggle {
+  display: inline-flex;
+  gap: 4px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 99px;
+  padding: 3px;
+  margin: .5rem 0 1rem;
+}
+.radar-view-btn {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+  background: transparent;
+  border: none;
+  border-radius: 99px;
+  padding: 5px 14px;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 120ms ease-out, color 120ms ease-out;
+}
+.radar-view-btn:hover { color: var(--fg); text-decoration: none; }
+.radar-view-btn-active {
+  background: var(--fg);
+  color: var(--bg);
+  font-weight: 600;
+}
+.radar-view-btn-active:hover { color: var(--bg); }
+
+/* Stream — merged newest-first item list. Uses .fav-item shell so
+   dark-mode / hover / spacing come "for free" from the existing
+   .fav-item styles; row-specific overrides layered on top. */
+.stream-list { list-style: none; padding: 0; margin: 1rem 0; }
+.stream-row .fav-head { align-items: flex-start; gap: 12px; }
+.stream-row-favicon {
+  width: 32px !important; height: 32px !important; flex: 0 0 32px !important;
+  border-radius: 8px; object-fit: contain;
+  margin-top: 2px;
+}
+.stream-row-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.stream-row-title {
+  font-family: "Instrument Sans", system-ui, sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--fg);
+  text-decoration: none;
+  line-height: 1.4;
+}
+.stream-row-title:hover { color: var(--accent); }
+.stream-row-meta {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.stream-row-source { font-weight: 500; }
+.stream-row-cat {
+  /* Uses existing .chip small styles but tuned tighter for the meta row */
+  font-size: 11px !important;
+  padding: 1px 8px !important;
+}
+.stream-row-time { font-size: 12.5px; }
+.stream-row-bookmark { flex: 0 0 auto; align-self: flex-start; margin-top: 2px; }
+
+.stream-load-more {
+  list-style: none;
+  padding: 1rem 0;
+  text-align: center;
+}
+.stream-load-more .btn-ghost {
+  border-radius: 99px;
+  padding: 10px 24px;
+  font-weight: 600;
+}
+
+@media (max-width: 540px) {
+  .stream-row-title { font-size: 14.5px; }
+  .stream-row-favicon { width: 28px !important; height: 28px !important; flex: 0 0 28px !important; }
+}

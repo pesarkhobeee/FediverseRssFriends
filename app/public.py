@@ -432,11 +432,73 @@ def user_opml(
     )
 
 
+STREAM_PAGE_SIZE = 100  # items per page in the merged newest-first stream
+
+
+def _load_stream(
+    db: Session,
+    owner: User,
+    category_filter: str | None,
+    limit: int = STREAM_PAGE_SIZE,
+    offset: int = 0,
+) -> tuple[list[dict], bool]:
+    """Merged newest-first item stream across all of owner's subscriptions.
+
+    Returns (rows, has_more). Each row = {item, feed, category_name}.
+    `has_more` says whether a subsequent page exists (peek limit+1)."""
+    # Resolve the set of subscription rows in scope (optionally filtered
+    # by category name). We need the category row to render the chip.
+    sub_query = (
+        select(Subscription, Feed, Category)
+        .join(Feed, Feed.id == Subscription.feed_id)
+        .join(Category, Category.id == Subscription.category_id)
+        .where(Subscription.user_id == owner.id)
+    )
+    if category_filter:
+        sub_query = sub_query.where(
+            Category.name.ilike(category_filter)  # case-insensitive match
+        )
+    subs = db.exec(sub_query).all()
+    if not subs:
+        return [], False
+
+    feed_ids = {feed.id for _s, feed, _c in subs}
+    feed_by_id = {feed.id: feed for _s, feed, _c in subs}
+    cat_by_feed = {feed.id: cat.name for _s, feed, cat in subs}
+
+    # Peek limit+1 so we know if there's another page without a count query.
+    items = db.exec(
+        select(FeedItem)
+        .where(FeedItem.feed_id.in_(feed_ids))
+        .order_by(
+            FeedItem.published_at.desc().nulls_last(),
+            FeedItem.fetched_at.desc(),
+        )
+        .offset(offset)
+        .limit(limit + 1)
+    ).all()
+
+    has_more = len(items) > limit
+    items = items[:limit]
+
+    rows = [
+        {
+            "item": it,
+            "feed": feed_by_id[it.feed_id],
+            "category_name": cat_by_feed.get(it.feed_id, ""),
+        }
+        for it in items
+    ]
+    return rows, has_more
+
+
 @router.get("/u/{handle}", response_class=HTMLResponse)
 def user_radar(
     handle: str,
     request: Request,
     cat: str | None = None,
+    view: str = "feeds",
+    offset: int = 0,
     viewer: User | None = Depends(current_user),
     db: Session = Depends(get_session),
 ):
@@ -470,6 +532,37 @@ def user_radar(
             status_code=403,
         )
 
+    view = view if view in ("feeds", "stream") else "feeds"
+
+    # HTMX "Load more" in the stream view targets ONLY the item list —
+    # not the whole page. When the request comes in with HX-Request=true
+    # and the "streampage" trigger set, return just the partial.
+    if view == "stream" and request.headers.get("HX-Request") == "true":
+        if not can_view(viewer, owner, db=db):
+            raise HTTPException(status.HTTP_403_FORBIDDEN, "this radar is private")
+        stream_rows, has_more = _load_stream(db, owner, cat, offset=max(0, offset))
+        viewer_bookmarks: set[int] = set()
+        if viewer and stream_rows:
+            item_ids = [r["item"].id for r in stream_rows]
+            viewer_bookmarks = set(db.exec(
+                select(Bookmark.feed_item_id)
+                .where(Bookmark.user_id == viewer.id)
+                .where(Bookmark.feed_item_id.in_(item_ids))
+            ).all())
+        return templates.TemplateResponse(
+            request,
+            "_stream_page.html",
+            {
+                "owner": owner,
+                "user": viewer,
+                "stream_rows": stream_rows,
+                "stream_has_more": has_more,
+                "stream_next_offset": offset + STREAM_PAGE_SIZE,
+                "viewer_bookmarks": viewer_bookmarks,
+                "active_cat": cat,
+            },
+        )
+
     ctx = _load_public_radar(db, owner, cat, viewer=viewer)
     ctx["user"] = viewer
     ctx["is_owner"] = bool(viewer and viewer.id == owner.id)
@@ -478,6 +571,22 @@ def user_radar(
     ctx["following_n"] = following_count(db, owner.id)
     ctx["reading_rss_url"] = _signed_url(f"/u/{owner.handle}.rss")
     ctx["activity_rss_url"] = _signed_url(f"/u/{owner.handle}/activity.rss")
+    ctx["view"] = view
+    if view == "stream":
+        stream_rows, has_more = _load_stream(db, owner, cat, offset=max(0, offset))
+        ctx["stream_rows"] = stream_rows
+        ctx["stream_has_more"] = has_more
+        ctx["stream_next_offset"] = offset + STREAM_PAGE_SIZE
+        # Bookmark state for viewer over these items.
+        viewer_bookmarks = set()
+        if viewer and stream_rows:
+            item_ids = [r["item"].id for r in stream_rows]
+            viewer_bookmarks = set(db.exec(
+                select(Bookmark.feed_item_id)
+                .where(Bookmark.user_id == viewer.id)
+                .where(Bookmark.feed_item_id.in_(item_ids))
+            ).all())
+        ctx["viewer_bookmarks"] = viewer_bookmarks
     return templates.TemplateResponse(request, "user_radar.html", ctx)
 
 

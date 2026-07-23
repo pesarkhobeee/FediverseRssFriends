@@ -1,0 +1,55 @@
+{# Merged newest-first item stream (one "page" — STREAM_PAGE_SIZE rows).
+   Rendered both as the initial view inside user_radar.html AND as the
+   partial returned to HTMX "Load more" clicks (main.py flips on
+   HX-Request). Reused → keep the swap target simple: rows + optional
+   load-more button.
+
+   Expects: stream_rows, stream_has_more, stream_next_offset, owner,
+   viewer_bookmarks, active_cat, user.
+
+   Item rows carry the .item-clickable class from 0.4.5 so the whole
+   card is a tap target. #}
+{% for row in stream_rows %}
+  <li class="fav-item item-clickable stream-row">
+    <div class="fav-head">
+      {% if row.feed.favicon_url %}
+        <img class="favicon stream-row-favicon" src="{{ row.feed.favicon_url }}" alt="" loading="lazy" />
+      {% else %}
+        <span class="favicon stream-row-favicon" aria-hidden="true">📡</span>
+      {% endif %}
+      <span class="stream-row-body">
+        <a class="item-title stream-row-title" href="{{ row.item.link }}"
+           target="_blank" rel="noopener">{{ row.item.title }}</a>
+        <span class="stream-row-meta">
+          <span class="stream-row-source">{{ row.feed.title }}</span>
+          {% if row.category_name %}
+            <a class="chip small stream-row-cat"
+               href="/u/{{ owner.handle }}?view=stream&amp;cat={{ row.category_name }}">{{ row.category_name }}</a>
+          {% endif %}
+          <span class="stream-row-time muted">
+            {{ row.item.published_at|relative_time or "recently" }}
+          </span>
+        </span>
+      </span>
+      {% if user %}
+        <span class="stream-row-bookmark">
+          {% with item_id=row.item.id, is_bookmarked=(row.item.id in viewer_bookmarks) %}
+            {% include "_bookmark.html" %}
+          {% endwith %}
+        </span>
+      {% endif %}
+    </div>
+  </li>
+{% endfor %}
+
+{# Load-more sentinel: HTMX GET replaces this <li> with the next page
+   of rows (which itself may contain a fresh sentinel, or not). Rendered
+   only if the current page has more results behind it. #}
+{% if stream_has_more %}
+  <li class="stream-load-more" id="stream-load-more">
+    <button class="btn-ghost"
+            hx-get="/u/{{ owner.handle }}?view=stream{% if active_cat %}&cat={{ active_cat }}{% endif %}&offset={{ stream_next_offset }}"
+            hx-target="#stream-load-more"
+            hx-swap="outerHTML">Load more items…</button>
+  </li>
+{% endif %}

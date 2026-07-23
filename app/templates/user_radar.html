@@ -68,15 +68,30 @@
   {% endif %}
 </section>
 
+{% set view_qs = "&view=" ~ view if view == "stream" else "" %}
 {% if all_categories %}
 <div class="radar-chips" role="tablist" aria-label="Categories">
-  <a class="radar-chip {% if not active_cat %}radar-chip-active{% endif %}" href="/u/{{ owner.handle }}">All</a>
+  <a class="radar-chip {% if not active_cat %}radar-chip-active{% endif %}"
+     href="/u/{{ owner.handle }}{% if view == 'stream' %}?view=stream{% endif %}">All</a>
   {% for c in all_categories %}
     <a class="radar-chip {% if active_cat.lower() == c.name.lower() %}radar-chip-active{% endif %}"
-       href="/u/{{ owner.handle }}?cat={{ c.name }}">{{ c.name }}</a>
+       href="/u/{{ owner.handle }}?cat={{ c.name }}{{ view_qs }}">{{ c.name }}</a>
   {% endfor %}
 </div>
 {% endif %}
+
+{# View toggle: "By feed" (expandable feed cards) vs "Stream" (merged
+   newest-first item list). Choice persists per-browser in
+   localStorage; the redirect JS in base.html (see radar-view snippet)
+   applies the preference on subsequent visits. #}
+<div class="radar-view-toggle" role="tablist" aria-label="View">
+  <a class="radar-view-btn {% if view == 'feeds' %}radar-view-btn-active{% endif %}"
+     data-view="feeds"
+     href="/u/{{ owner.handle }}{% if active_cat %}?cat={{ active_cat }}{% endif %}">By feed</a>
+  <a class="radar-view-btn {% if view == 'stream' %}radar-view-btn-active{% endif %}"
+     data-view="stream"
+     href="/u/{{ owner.handle }}?view=stream{% if active_cat %}&cat={{ active_cat }}{% endif %}">Stream</a>
+</div>
 
 {# Per-category RSS pill — appears only when a category filter is active.
    Whole-radar RSS is already in the header meta strip. Per-category
@@ -100,60 +115,111 @@
   </div>
 {% endif %}
 
-<div class="stack" style="margin-top:1rem">
-  {% if not active_cat %}
-    {# Flat view — every feed on the radar sorted by newest item. #}
-    {% for it in flat_subs %}
-      {% with show_category=True %}
-        {% include "_public_feed_card.html" %}
-      {% endwith %}
-    {% endfor %}
-    {% if not flat_subs %}
-      {% if is_owner %}
-        <section class="onboard-card">
-          <h2 style="margin-top:0">👋 Welcome, @{{ owner.handle }}</h2>
-          <p class="muted" style="margin:.25rem 0 1rem">
-            Your radar is empty. Here's how to fill it — you can do any of
-            these first, in any order.
-          </p>
-          <ol class="onboard-steps">
-            <li>
-              <strong>📥 Have an existing reading list?</strong>
-              Import your OPML file — any RSS reader can export one.
-              <br><a class="btn-ghost" href="/dashboard#import-opml">Import OPML</a>
-            </li>
-            <li>
-              <strong>➕ Add feeds one at a time.</strong>
-              Create a category ("Blogs", "News", "GitHub"), then paste
-              any RSS or Atom URL.
-              <br><a class="btn-ghost" href="/dashboard">Open Dashboard</a>
-            </li>
-            <li>
-              <strong>🔭 Or start by following someone.</strong>
-              Browse recent radars and popular curators; add a feed
-              from theirs with one click.
-              <br><a class="btn-ghost" href="/discover">Open Discover</a>
-            </li>
-          </ol>
-          <p class="muted" style="font-size:.9rem; margin:1rem 0 0">
-            Not sure what "radar" or "category" means?
-            <a href="/help">Read the short intro →</a>
-          </p>
-        </section>
-      {% else %}
-        <p class="muted">This radar is empty.</p>
+{% if view == "stream" %}
+  <ul class="stream-list fav-list" id="stream-list">
+    {% include "_stream_page.html" %}
+    {% if not stream_rows %}
+      <li class="muted" style="padding:1rem 0">
+        {% if active_cat %}
+          Nothing under “{{ active_cat }}”.
+        {% else %}
+          No items yet. New items appear here as feeds are refreshed.
+        {% endif %}
+      </li>
+    {% endif %}
+  </ul>
+{% else %}
+  <div class="stack" style="margin-top:1rem">
+    {% if not active_cat %}
+      {# Flat view — every feed on the radar sorted by newest item. #}
+      {% for it in flat_subs %}
+        {% with show_category=True %}
+          {% include "_public_feed_card.html" %}
+        {% endwith %}
+      {% endfor %}
+      {% if not flat_subs %}
+        {% if is_owner %}
+          <section class="onboard-card">
+            <h2 style="margin-top:0">👋 Welcome, @{{ owner.handle }}</h2>
+            <p class="muted" style="margin:.25rem 0 1rem">
+              Your radar is empty. Here's how to fill it — you can do any of
+              these first, in any order.
+            </p>
+            <ol class="onboard-steps">
+              <li>
+                <strong>📥 Have an existing reading list?</strong>
+                Import your OPML file — any RSS reader can export one.
+                <br><a class="btn-ghost" href="/dashboard#import-opml">Import OPML</a>
+              </li>
+              <li>
+                <strong>➕ Add feeds one at a time.</strong>
+                Create a category ("Blogs", "News", "GitHub"), then paste
+                any RSS or Atom URL.
+                <br><a class="btn-ghost" href="/dashboard">Open Dashboard</a>
+              </li>
+              <li>
+                <strong>🔭 Or start by following someone.</strong>
+                Browse recent radars and popular curators; add a feed
+                from theirs with one click.
+                <br><a class="btn-ghost" href="/discover">Open Discover</a>
+              </li>
+            </ol>
+            <p class="muted" style="font-size:.9rem; margin:1rem 0 0">
+              Not sure what "radar" or "category" means?
+              <a href="/help">Read the short intro →</a>
+            </p>
+          </section>
+        {% else %}
+          <p class="muted">This radar is empty.</p>
+        {% endif %}
+      {% endif %}
+    {% else %}
+      {# Category filter active — show that category's feeds only, still sorted. #}
+      {% for entry in categories_view %}
+        {% for it in entry.subs %}
+          {% include "_public_feed_card.html" %}
+        {% endfor %}
+      {% endfor %}
+      {% if not (categories_view|selectattr("subs")|list) %}
+        <p class="muted">Nothing under “{{ active_cat }}”.</p>
       {% endif %}
     {% endif %}
-  {% else %}
-    {# Category filter active — show that category's feeds only, still sorted. #}
-    {% for entry in categories_view %}
-      {% for it in entry.subs %}
-        {% include "_public_feed_card.html" %}
-      {% endfor %}
-    {% endfor %}
-    {% if not (categories_view|selectattr("subs")|list) %}
-      <p class="muted">Nothing under “{{ active_cat }}”.</p>
-    {% endif %}
-  {% endif %}
-</div>
+  </div>
+{% endif %}
+
+{# View toggle persistence (localStorage).
+   - Clicking a toggle records the choice in `rssfriends-radar-view`.
+   - On page load, if the URL doesn't already carry `view=` and a pref
+     is stored, redirect to include it. Skipped when the current URL
+     already matches, or when the pref is the default ("feeds").
+   - Owner + private-radar edge cases: this JS never runs on the
+     locked page (that template doesn't include this script). #}
+<script>
+  (function () {
+    var KEY = "rssfriends-radar-view";
+    var url = new URL(window.location.href);
+    var current = url.searchParams.get("view") || "feeds";
+    var stored;
+    try { stored = localStorage.getItem(KEY); } catch (_) { stored = null; }
+
+    // Redirect to the preferred view if the URL doesn't already have
+    // a `view=` param. Only for logged-in users' own visits — a shared
+    // link with no view= should render "feeds" as authored, not force
+    // stream on other visitors. That check is: only redirect when the
+    // pref differs from the current URL AND `view` is absent.
+    if (!url.searchParams.has("view") && stored === "stream" && current !== "stream") {
+      url.searchParams.set("view", "stream");
+      window.location.replace(url.toString());
+      return;
+    }
+
+    // Persist toggle clicks.
+    var toggles = document.querySelectorAll(".radar-view-btn");
+    for (var i = 0; i < toggles.length; i++) {
+      toggles[i].addEventListener("click", function (evt) {
+        try { localStorage.setItem(KEY, evt.currentTarget.dataset.view); } catch (_) {}
+      });
+    }
+  })();
+</script>
 {% endblock %}
