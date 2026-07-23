@@ -1,32 +1,164 @@
 {% extends "base.html" %}
+{% block title %}rssFriends — a social RSS reader{% endblock %}
+{% block meta_description %}Follow the web, share what you read, and discover new feeds through the people whose taste you trust.{% endblock %}
+{% block main_class %}landing-page{% endblock %}
 {% block content %}
+
 {% if deleted %}
-  <section class="card" style="border-color:var(--danger-border); background:var(--danger-bg)">
-    <p style="margin:0">Your account was deleted. Thanks for trying rssfriends 👋</p>
+  <section class="card" style="border-color:var(--danger-border); background:var(--danger-bg); max-width:520px; margin: 1rem auto 0;">
+    <p style="margin:0">Your account was deleted. Thanks for trying rssFriends 👋</p>
   </section>
 {% endif %}
-<section class="hero stack">
-  <h1>🌟 Your RSS, with friends.</h1>
-  <p class="muted">A social RSS reader — follow the web, share what you read, discover through people.</p>
+
+{# ─── Hero ────────────────────────────────────────────────────────── #}
+<section class="landing-hero">
+  <div class="landing-hero-copy">
+    <div class="eyebrow">A social RSS reader</div>
+    <h1 class="landing-h1">Your RSS, <em>with friends.</em></h1>
+    <p class="landing-lead">
+      Follow the web, share what you read, and discover new feeds through
+      the people whose taste you trust.
+    </p>
+
+    {# Inline signup. Posts via HTMX so the response replaces just this
+       card — no full-page bounce. Falls back to a normal POST if JS is off. #}
+    <div id="landing-signup" class="landing-signup">
+      <form method="post" action="/login"
+            hx-post="/login" hx-target="#landing-signup" hx-swap="outerHTML"
+            class="landing-signup-form">
+        <input type="email" name="email" required autocomplete="email"
+               placeholder="you@example.com" class="input landing-signup-input" />
+        <button type="submit" class="btn landing-signup-btn">Send magic link</button>
+      </form>
+      <p class="landing-signup-note">No password. Same form for new and returning readers.</p>
+    </div>
+  </div>
+
+  {# ─── Preview card (decorative — hard-coded content) ─────────────── #}
+  <div class="landing-hero-preview">
+    <div class="preview-halo"></div>
+    <div class="preview-card">
+      <div class="preview-card-head">
+        <span class="preview-avatar" style="background:#264653">FA</span>
+        <div>
+          <div class="preview-card-title">@farid's radar</div>
+          <div class="preview-card-sub">245 feeds · 4 followers</div>
+        </div>
+        <span class="preview-card-cta">Fork radar</span>
+      </div>
+      <div class="preview-chips">
+        <span class="preview-chip preview-chip-active">All</span>
+        <span class="preview-chip">News</span>
+        <span class="preview-chip">Weblogs</span>
+        <span class="preview-chip">GitHub</span>
+      </div>
+      <div class="preview-rows">
+        <div class="preview-row">
+          <span class="preview-favicon" style="background:#E76F51">SW</span>
+          <div class="preview-row-body">
+            <div class="preview-row-title">Simon Willison's Weblog</div>
+            <div class="preview-row-meta">Everyone should know SIMD · 3h ago</div>
+          </div>
+          <span class="preview-new">NEW</span>
+        </div>
+        <div class="preview-row">
+          <span class="preview-favicon" style="background:#E9C46A; color:#221B12">HN</span>
+          <div class="preview-row-body">
+            <div class="preview-row-title">Hacker News: Best</div>
+            <div class="preview-row-meta">GigaToken: 1000× faster tokenization · 5h</div>
+          </div>
+          <span class="preview-new">NEW</span>
+        </div>
+        <div class="preview-row">
+          <span class="preview-favicon" style="background:#2A9D8F">MH</span>
+          <div class="preview-row-body">
+            <div class="preview-row-title">Mitchell Hashimoto</div>
+            <div class="preview-row-meta">Everyone Should Know SIMD · yesterday</div>
+          </div>
+          <span class="preview-row-star">☆</span>
+        </div>
+      </div>
+      <div class="preview-card-foot">
+        <span>Auto-refreshed every ~30 min</span>
+        <span class="preview-card-foot-cta">Subscribe as RSS</span>
+      </div>
+    </div>
+  </div>
 </section>
 
-<section id="login" class="login">
-  <form method="post" action="/login" class="login-form">
-    <input type="email" name="email" required autocomplete="email"
-           placeholder="you@example.com" class="input" />
-    <button type="submit" class="btn">Sign in with magic link</button>
-  </form>
-  <p class="muted" style="margin:.55rem 0 0; font-size:.85rem">
-    No password. Same form for new + returning users.
-  </p>
+{# ─── Feature grid ────────────────────────────────────────────────── #}
+<section class="landing-features">
+  <div class="landing-features-head">
+    <h2>Reading is better together</h2>
+    <div class="muted">Six reasons to bring your feeds here</div>
+  </div>
+  <div class="landing-features-grid">
+    <div class="feature-card">
+      <div class="feature-num">01</div>
+      <div class="feature-title">Your own radar</div>
+      <div class="feature-body">Bundle any RSS or Atom feeds into categories. Auto-refreshed in the background, always current.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-num">02</div>
+      <div class="feature-title">Follow and fork</div>
+      <div class="feature-body">See a friend's radar, cherry-pick a single feed, or fork the whole thing with one click.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-num">03</div>
+      <div class="feature-title">Public, unlisted, or private</div>
+      <div class="feature-body">Share your reading list on a personal page — or keep it entirely to yourself.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-num">04</div>
+      <div class="feature-title">Bookmark what matters</div>
+      <div class="feature-body">Save items for later and follow curators whose taste you trust. Wallabag integration included.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-num">05</div>
+      <div class="feature-title">Everything is RSS</div>
+      <div class="feature-body">Your reading list, bookmarks, and activity are all subscribable feeds themselves. Turtles all the way down.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-num">06</div>
+      <div class="feature-title">No tracking, no ads</div>
+      <div class="feature-body">Magic-link auth, self-hostable, one SQLite file. Your reading habits stay yours.</div>
+    </div>
+  </div>
 </section>
 
-<ul class="features-compact">
-  <li>📚 <b>Your own radar</b> — bundle any RSS or Atom feeds into categories. Auto-refreshed in the background.</li>
-  <li>🌐 <b>Public, unlisted, or private</b> — share your reading list on a personal page, or keep it to yourself.</li>
-  <li>🍴 <b>Follow and fork</b> — see a friend's radar, cherry-pick a feed or fork the whole thing with one click.</li>
-  <li>⭐ <b>Bookmark what matters</b> — save items, follow curators whose taste you trust.</li>
-  <li>🔗 <b>Everything is RSS</b> — your reading list, bookmarks, and activity are all subscribable feeds themselves.</li>
-  <li>🔒 <b>No tracking, no ads</b> — magic-link auth, self-hostable, one SQLite file.</li>
-</ul>
+{# ─── How it works ────────────────────────────────────────────────── #}
+<section class="landing-steps">
+  <div class="landing-steps-inner">
+    <div class="step">
+      <div class="step-eyebrow">STEP 1</div>
+      <div class="step-title">Bring your feeds</div>
+      <div class="step-body">Paste feed URLs or import your existing OPML — every RSS reader can export one.</div>
+    </div>
+    <div class="step">
+      <div class="step-eyebrow">STEP 2</div>
+      <div class="step-title">Curate categories</div>
+      <div class="step-body">Group feeds into News, Weblogs, YouTube — whatever makes sense for you.</div>
+    </div>
+    <div class="step">
+      <div class="step-eyebrow">STEP 3</div>
+      <div class="step-title">Share &amp; discover</div>
+      <div class="step-body">Your radar gets a public page. Friends follow it, fork it, and you discover through theirs.</div>
+    </div>
+  </div>
+</section>
+
+{# ─── Dark CTA ────────────────────────────────────────────────────── #}
+<section class="landing-cta-wrap">
+  <div class="landing-cta">
+    <div class="landing-cta-copy">
+      <div class="landing-cta-title">The open web, curated by people you like.</div>
+      <div class="landing-cta-sub">Free while in beta. Bring an OPML file and you're reading in under a minute.</div>
+    </div>
+    <div class="landing-cta-actions">
+      <a class="landing-cta-primary" href="#landing-signup">Get started</a>
+      <a class="landing-cta-secondary" href="/discover">Browse radars</a>
+    </div>
+  </div>
+</section>
+
 {% endblock %}

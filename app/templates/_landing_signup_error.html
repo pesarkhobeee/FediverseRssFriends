@@ -1,0 +1,22 @@
+{# HTMX-swap partial: replaces #landing-signup on POST /login failure.
+   Keeps the visible email in the form so the user can fix a typo without
+   re-typing. #}
+<div id="landing-signup" class="landing-signup">
+  <p class="landing-signup-error">
+    <strong>Couldn't send that link.</strong> {{ message }}
+  </p>
+  <form method="post" action="/login"
+        hx-post="/login" hx-target="#landing-signup" hx-swap="outerHTML"
+        class="landing-signup-form">
+    <input type="email" name="email" required autocomplete="email"
+           value="{{ email or '' }}" class="input landing-signup-input" />
+    <button type="submit" class="btn landing-signup-btn">Try again</button>
+  </form>
+  <p class="landing-signup-note">
+    {% if 'wait' in (message or '').lower() %}
+      Give it a minute — you just requested a link.
+    {% else %}
+      Double-check the email — a missing letter is the most common cause.
+    {% endif %}
+  </p>
+</div>

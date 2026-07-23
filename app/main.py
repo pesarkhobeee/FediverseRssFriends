@@ -82,16 +82,21 @@ def login(
     email: str = Form(...),
     db: Session = Depends(get_session),
 ):
+    # If the landing hero's inline signup posted via HTMX, return a
+    # partial that swaps just the signup card — no full-page bounce.
+    hx = request.headers.get("HX-Request") == "true"
     try:
         _, url = issue_magic_link(db, email)
     except HTTPException as e:
-        return render(request, "login_error.html", user=None, message=e.detail)
+        template = "_landing_signup_error.html" if hx else "login_error.html"
+        return render(request, template, user=None, message=e.detail, email=email)
     mail.send_magic_link(email.strip().lower(), url)
     # Dev mode: no email delivery configured at all → surface the link
     # on the page so the developer can click through without email.
     is_dev = not config.RESEND_API_KEY and not config.SMTP_HOST
     dev_link = url if is_dev else None
-    return render(request, "login_sent.html", user=None, email=email, dev_link=dev_link)
+    template = "_landing_signup_sent.html" if hx else "login_sent.html"
+    return render(request, template, user=None, email=email, dev_link=dev_link)
 
 
 @app.get("/auth/verify", response_class=HTMLResponse)

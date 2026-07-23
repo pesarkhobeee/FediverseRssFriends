@@ -1,0 +1,20 @@
+{# HTMX-swap partial: replaces #landing-signup on POST /login success.
+   Mirrors the tone of login_sent.html but scoped to fit inside the
+   landing hero card region. #}
+<div id="landing-signup" class="landing-signup landing-signup-sent">
+  <div class="landing-signup-sent-icon" aria-hidden="true">📬</div>
+  <div class="landing-signup-sent-title">Check your inbox</div>
+  <p class="landing-signup-sent-body">
+    We sent a sign-in link to <strong>{{ email }}</strong>.
+    It works for 15 minutes.
+  </p>
+  {% if dev_link %}
+    <p class="landing-signup-sent-body">
+      <a class="btn" href="{{ dev_link }}">Sign in now (dev mode)</a>
+    </p>
+  {% endif %}
+  <p class="landing-signup-note">
+    No email in a minute? Check spam or
+    <a href="#" onclick="location.reload(); return false;">try again</a>.
+  </p>
+</div>

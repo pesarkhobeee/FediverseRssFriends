@@ -96,7 +96,7 @@
       </button>
     </nav>
   </header>
-  <main>{% block content %}{% endblock %}</main>
+  <main class="{% block main_class %}{% endblock %}">{% block content %}{% endblock %}</main>
 
   <div id="net-toast" class="net-toast" role="alert" aria-live="polite" hidden>
     <span class="net-toast-icon" aria-hidden="true">🚧</span>

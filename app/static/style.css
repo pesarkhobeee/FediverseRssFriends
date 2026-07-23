@@ -221,6 +221,10 @@ nav a.nav-user { color: var(--fg); font-weight: 600; }
 
 /* Layout */
 main { max-width: 880px; margin: 0 auto; padding: 2rem 1.25rem; }
+/* The landing page manages its own section widths + padding (each section
+   has its own max-width: 1120px inner container). Free it from the app's
+   880px main constraint so the hero, feature grid, and dark CTA can breathe. */
+main.landing-page { max-width: none; padding: 0; }
 .muted { color: var(--muted); }
 .stack > * + * { margin-top: 1rem; }
 
@@ -1116,4 +1120,303 @@ img.favicon {
   .item-summary { font-size: .86rem; }
   .item-summary .full { font-size: .88rem; }
   .item-summary summary { padding: .35rem 0; }   /* larger tap target */
+}
+
+/* ============================================================
+   Landing page (index.html)
+   Editorial hero, 6-card feature grid, 3-step band, dark CTA.
+   Kept in its own block so the app UI CSS above stays untouched.
+   ============================================================ */
+
+.landing-hero {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 72px 32px 56px;
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 64px;
+  align-items: center;
+  box-sizing: border-box;
+}
+.landing-hero-copy { display: flex; flex-direction: column; gap: 22px; }
+.eyebrow {
+  font-size: 13px; font-weight: 600; letter-spacing: 0.12em;
+  color: var(--accent); text-transform: uppercase;
+}
+.landing-h1 {
+  margin: 0;
+  font-family: "Instrument Serif", ui-serif, Georgia, serif;
+  font-weight: 400;
+  font-size: 60px;
+  line-height: 1.02;
+  letter-spacing: -0.015em;
+  text-wrap: balance;
+}
+.landing-h1 em { font-style: italic; color: var(--accent); }
+.landing-lead {
+  margin: 0;
+  font-family: "Source Serif 4", ui-serif, Georgia, serif;
+  font-size: 19px; line-height: 1.55;
+  color: var(--muted);
+  max-width: 44ch;
+  text-wrap: pretty;
+}
+.landing-signup { max-width: 460px; }
+.landing-signup-form { display: flex; gap: 10px; }
+.landing-signup-input {
+  flex: 1;
+  padding: 13px 18px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--fg);
+  font-size: 15px;
+}
+.landing-signup-input:focus { outline: none; border-color: var(--accent); }
+.landing-signup-btn {
+  padding: 13px 22px;
+  border-radius: 12px;
+  font-size: 15px; font-weight: 600;
+  background: var(--accent); color: var(--accent-fg);
+  border: none; cursor: pointer;
+  white-space: nowrap;
+}
+.landing-signup-btn:hover { background: var(--accent-hover); filter: none; }
+.landing-signup-note {
+  margin: 10px 0 0;
+  font-size: 13px; color: var(--muted);
+}
+
+/* Preview card on the right of the hero. Decorative, hard-coded rows. */
+.landing-hero-preview { position: relative; }
+.preview-halo {
+  position: absolute; inset: -24px -12px auto auto;
+  width: 180px; height: 180px; border-radius: 50%;
+  background: radial-gradient(circle, var(--accent-bg) 0%, rgba(247,232,220,0) 70%);
+  z-index: 0;
+}
+.preview-card {
+  position: relative; z-index: 1;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  box-shadow: 0 24px 48px -24px rgba(63,45,20,.18);
+  overflow: hidden;
+}
+.preview-card-head {
+  padding: 18px 22px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 12px;
+}
+.preview-avatar {
+  width: 32px; height: 32px; border-radius: 50%;
+  color: var(--accent-fg);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 600; flex: 0 0 32px;
+}
+.preview-card-title { font-size: 14px; font-weight: 600; color: var(--fg); }
+.preview-card-sub { font-size: 12px; color: var(--muted); }
+.preview-card-cta {
+  margin-left: auto;
+  font-size: 12px; font-weight: 600;
+  background: var(--accent-bg); color: var(--accent);
+  border-radius: 99px; padding: 5px 12px;
+}
+.preview-chips {
+  display: flex; gap: 8px; padding: 14px 22px 4px; flex-wrap: wrap;
+}
+.preview-chip {
+  font-size: 12px; font-weight: 500; color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 99px; padding: 4px 12px;
+}
+.preview-chip-active {
+  background: var(--fg); color: var(--bg); border-color: var(--fg); font-weight: 600;
+}
+.preview-rows { display: flex; flex-direction: column; }
+.preview-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 22px; border-bottom: 1px solid var(--border);
+}
+.preview-row:last-child { border-bottom: none; }
+.preview-favicon {
+  width: 28px; height: 28px; border-radius: 8px;
+  color: #fff; display: inline-flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 600; flex: 0 0 28px;
+}
+.preview-row-body { flex: 1; min-width: 0; }
+.preview-row-title { font-size: 14px; font-weight: 600; color: var(--fg); }
+.preview-row-meta { font-size: 12px; color: var(--muted); }
+.preview-new {
+  font-size: 11px; font-weight: 600;
+  color: #2A9D8F;
+  letter-spacing: 0.06em;
+}
+.preview-row-star {
+  width: 20px; height: 20px; border-radius: 50%;
+  border: 1.5px solid var(--border); color: var(--muted);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 12px;
+}
+.preview-card-foot {
+  padding: 12px 22px;
+  background: var(--bg);
+  border-top: 1px solid var(--border);
+  font-size: 12px; color: var(--muted);
+  display: flex; justify-content: space-between;
+}
+.preview-card-foot-cta { color: var(--accent); font-weight: 600; }
+
+/* ── Feature grid ── */
+.landing-features {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 24px 32px 72px;
+  box-sizing: border-box;
+}
+.landing-features-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 24px; margin-bottom: 28px;
+}
+.landing-features-head h2 {
+  margin: 0;
+  font-family: "Instrument Serif", ui-serif, Georgia, serif;
+  font-weight: 400; font-size: 34px; letter-spacing: -0.01em;
+  line-height: 1.15;
+}
+.landing-features-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+.feature-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 24px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.feature-num {
+  font-family: "Instrument Serif", ui-serif, Georgia, serif;
+  font-size: 22px; color: var(--accent);
+}
+.feature-title { font-size: 16px; font-weight: 650; color: var(--fg); }
+.feature-body {
+  font-family: "Source Serif 4", ui-serif, Georgia, serif;
+  font-size: 15px; line-height: 1.55; color: var(--muted);
+  text-wrap: pretty;
+}
+
+/* ── 3-step band ── */
+.landing-steps {
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.landing-steps-inner {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 64px 32px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 44px;
+  box-sizing: border-box;
+}
+.step { display: flex; flex-direction: column; gap: 10px; }
+.step-eyebrow {
+  font-size: 13px; font-weight: 600; letter-spacing: 0.12em;
+  color: var(--accent);
+}
+.step-title {
+  font-family: "Instrument Serif", ui-serif, Georgia, serif;
+  font-size: 26px; color: var(--fg);
+}
+.step-body {
+  font-family: "Source Serif 4", ui-serif, Georgia, serif;
+  font-size: 15px; line-height: 1.55; color: var(--muted);
+  text-wrap: pretty;
+}
+
+/* ── Dark CTA block ── */
+.landing-cta-wrap {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 72px 32px;
+  box-sizing: border-box;
+}
+.landing-cta {
+  background: var(--fg);
+  border-radius: 24px;
+  padding: 52px 48px;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 40px;
+}
+.landing-cta-copy { display: flex; flex-direction: column; gap: 12px; max-width: 56ch; }
+.landing-cta-title {
+  font-family: "Instrument Serif", ui-serif, Georgia, serif;
+  font-size: 34px; color: var(--bg);
+  letter-spacing: -0.01em; text-wrap: balance;
+}
+.landing-cta-sub {
+  font-family: "Source Serif 4", ui-serif, Georgia, serif;
+  font-size: 16px; line-height: 1.55; color: #B5A88F;
+}
+.landing-cta-actions { display: flex; gap: 12px; flex-shrink: 0; }
+.landing-cta-primary,
+.landing-cta-secondary {
+  font-size: 15px; font-weight: 600;
+  padding: 13px 24px; border-radius: 99px;
+  white-space: nowrap; text-decoration: none;
+  display: inline-block;
+}
+.landing-cta-primary { background: var(--bg); color: var(--fg); }
+.landing-cta-primary:hover { background: #EDE2CC; color: var(--fg); text-decoration: none; }
+.landing-cta-secondary {
+  color: var(--bg); border: 1px solid #4A4030;
+}
+.landing-cta-secondary:hover { border-color: var(--bg); color: var(--bg); text-decoration: none; }
+
+/* ── Responsive: single column below ~800px ── */
+@media (max-width: 900px) {
+  .landing-hero { grid-template-columns: 1fr; padding: 48px 20px 40px; gap: 40px; }
+  .landing-h1 { font-size: 44px; }
+  .landing-features-grid { grid-template-columns: 1fr 1fr; }
+  .landing-steps-inner { grid-template-columns: 1fr; gap: 28px; padding: 48px 20px; }
+  .landing-cta { flex-direction: column; align-items: flex-start; padding: 36px 28px; }
+  .landing-cta-actions { width: 100%; }
+  .landing-features { padding: 8px 20px 56px; }
+  .landing-cta-wrap { padding: 48px 20px; }
+}
+@media (max-width: 560px) {
+  .landing-h1 { font-size: 38px; }
+  .landing-features-grid { grid-template-columns: 1fr; }
+  .landing-signup-form { flex-direction: column; }
+  .landing-signup-btn { width: 100%; }
+  .landing-cta-title { font-size: 26px; }
+  .landing-cta-actions { flex-direction: column; }
+  .landing-cta-primary, .landing-cta-secondary { width: 100%; text-align: center; }
+}
+
+/* Landing signup — post-submit states */
+.landing-signup-sent {
+  padding: 20px 22px;
+  background: var(--accent-bg);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+}
+.landing-signup-sent-icon { font-size: 22px; margin-bottom: 6px; }
+.landing-signup-sent-title {
+  font-family: "Instrument Serif", ui-serif, Georgia, serif;
+  font-size: 22px; color: var(--fg);
+  margin-bottom: 4px;
+}
+.landing-signup-sent-body {
+  font-family: "Source Serif 4", ui-serif, Georgia, serif;
+  font-size: 15px; line-height: 1.55; color: var(--fg);
+  margin: 6px 0;
+}
+.landing-signup-error {
+  margin: 0 0 10px;
+  color: var(--danger);
+  font-size: 14px; font-weight: 500;
 }
