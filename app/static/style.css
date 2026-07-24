@@ -1518,7 +1518,35 @@ img.favicon {
 }
 /* Pushes the view toggle to the far right of the single meta row. */
 .radar-view-toggle-right { margin-left: auto; }
-.radar-header-last-updated { color: var(--muted); }
+/* Two-line stacked "Last updated" label: primary line + small
+   refresh-interval subtitle underneath. Kept inline-flex so it
+   participates in the strip's flex layout without growing the
+   surrounding row height noticeably. */
+.radar-header-last-updated {
+  color: var(--muted);
+  display: inline-flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+.radar-header-last-updated-sub { font-size: 11.5px; opacity: 0.85; }
+
+/* Compact "Copy RSS" pill — replaces the previous URL-inline pill.
+   Same accent-orange treatment as the discover "+ Add" pill so the
+   visual language stays consistent. */
+.radar-rss-copy-btn {
+  font-family: "Instrument Sans", system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  background: var(--accent-bg);
+  border: none;
+  border-radius: 99px;
+  padding: 5px 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 120ms ease-out, color 120ms ease-out;
+}
+.radar-rss-copy-btn:hover { background: var(--accent); color: var(--accent-fg); }
 /* Header-strip action pills — same shape as the category chips below.
    Gives Bookmarks/Activity/OPML a proper tap target and visual weight
    equal to the RSS URL pill they sit next to. */

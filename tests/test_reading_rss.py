@@ -142,12 +142,11 @@ def test_hero_shows_rss_link_for_visitor():
     _seed_owner_with_two_items()
     r = _client().get("/u/owner")
     assert r.status_code == 200
-    # 0.2.46: replaced the tiny hero button with a visible copyable
-    # rss-box below the chips. The URL is still present, plus a Copy
-    # button uses the shared data-copy-url handler.
-    assert 'href="/u/owner.rss"' in r.text
+    # 0.8.4: header meta strip no longer displays the URL inline;
+    # instead a compact "Copy RSS" button carries the URL in its
+    # data-copy-url attr. Same shared clipboard handler as before.
     assert 'data-copy-url="/u/owner.rss"' in r.text
-    assert "Whole radar as RSS" in r.text
+    assert "Copy RSS" in r.text
 
 
 def test_hero_shows_signed_rss_link_for_approved_private_follower():
