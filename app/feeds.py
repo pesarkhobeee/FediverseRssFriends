@@ -55,18 +55,36 @@ _REDDIT_SUB_RE = re.compile(
 )
 _GITHUB_PROFILE_RE = re.compile(r"^https?://github\.com/[^/?#]+/?$", re.IGNORECASE)
 
+# YouTube shapes that have a deterministic feed URL — no HTML scraping
+# needed. See normalize_feed_url() for context.
+_YT_USER_RE = re.compile(
+    r"^https?://(?:www\.)?youtube\.com/user/([A-Za-z0-9_-]+)/?$", re.IGNORECASE
+)
+_YT_CHANNEL_RE = re.compile(
+    r"^https?://(?:www\.)?youtube\.com/channel/(UC[A-Za-z0-9_-]{22})/?$",
+    re.IGNORECASE,
+)
+
 
 def normalize_feed_url(url: str) -> str:
     """Rewrite well-known 'feed-like but not actually a feed' URLs to their
-    real endpoint. Two rules — the sources that most often appear as plain
-    profile URLs in exported OPML files:
+    real endpoint. Rules cover the sources that most often appear as plain
+    profile URLs in exported OPML files or pasted by hand:
 
-      github.com/schacon        → github.com/schacon.atom
-      reddit.com/r/rss/         → reddit.com/r/rss/.rss
+      github.com/schacon                → github.com/schacon.atom
+      reddit.com/r/rss/                 → reddit.com/r/rss/.rss
+      youtube.com/user/{X}              → youtube.com/feeds/videos.xml?user={X}
+      youtube.com/channel/{UC...}       → youtube.com/feeds/videos.xml?channel_id={UC...}
 
     URLs that already look like real feeds (github.com/user.atom,
-    github.com/org/repo/releases.atom, reddit.com/r/x/.rss, .../top.rss)
-    are returned untouched.
+    github.com/org/repo/releases.atom, reddit.com/r/x/.rss, .../top.rss,
+    youtube.com/feeds/videos.xml?...) are returned untouched.
+
+    YouTube shapes are handled here specifically because our egress IP
+    (EU-hosted) triggers Google's GDPR consent-wall on the /user/ and
+    /channel/ paths — so HTML-scraping discovery of <link rel="alternate">
+    can never see the RSS tag from us. The /feeds/videos.xml endpoints
+    are unauthenticated and consent-free.
     """
     url = (url or "").strip()
     if not url:
@@ -81,6 +99,14 @@ def normalize_feed_url(url: str) -> str:
     m = _REDDIT_SUB_RE.match(url)
     if m:
         return f"{m.group(1)}/.rss"
+
+    m = _YT_USER_RE.match(url)
+    if m:
+        return f"https://www.youtube.com/feeds/videos.xml?user={m.group(1)}"
+
+    m = _YT_CHANNEL_RE.match(url)
+    if m:
+        return f"https://www.youtube.com/feeds/videos.xml?channel_id={m.group(1)}"
 
     return url
 
@@ -112,12 +138,39 @@ def _http_get_text(url: str, timeout: float = 3.0) -> str | None:
             timeout=timeout,
             follow_redirects=True,
             headers={"User-Agent": USER_AGENT},
+            cookies=_CONSENT_COOKIES,
         ) as client:
             r = client.get(url)
             r.raise_for_status()
             return r.text
     except Exception:
         return None
+
+
+# Google/YouTube's GDPR consent wall serves EU-IP visitors an
+# interstitial page instead of the requested URL — that page has no
+# <link rel="alternate"> RSS tag, so HTML-scraping discovery on
+# youtube.com/@handle etc. always drew a blank from our EU-hosted
+# container. Presenting these cookies preemptively tells Google we've
+# already consented, so channel pages render as normal on the first
+# request (no consent-page bounce).
+#
+# CONSENT=YES is the canonical "user chose accept" sentinel; SOCS=CAI
+# is the newer Google Session Overlay Consent Signal that some
+# YouTube endpoints check in addition. Both scoped to `.youtube.com`
+# so the cookies are sent to BOTH `www.youtube.com` and
+# `consent.youtube.com` — a plain `cookies={...}` dict would scope to
+# only the initial host and drop the cookie on the cross-subdomain
+# redirect, sending us back to the wall.
+def _build_consent_cookies() -> "httpx.Cookies":
+    jar = httpx.Cookies()
+    jar.set("CONSENT", "YES+cb.20210328-17-p0.en+FX+842",
+            domain=".youtube.com", path="/")
+    jar.set("SOCS", "CAI", domain=".youtube.com", path="/")
+    return jar
+
+
+_CONSENT_COOKIES = _build_consent_cookies()
 
 
 def _youtube_channel_avatar(feed_url: str) -> str | None:
@@ -243,6 +296,7 @@ def resolve_feed(url: str) -> dict:
             timeout=FETCH_TIMEOUT,
             follow_redirects=True,
             headers={"User-Agent": USER_AGENT},
+            cookies=_CONSENT_COOKIES,
         ) as client:
             r = client.get(url)
             r.raise_for_status()

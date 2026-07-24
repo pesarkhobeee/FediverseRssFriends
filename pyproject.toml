@@ -1,6 +1,6 @@
 [project]
 name = "rssfriends"
-version = "0.8.5"
+version = "0.8.6"
 description = "Multi-user RSS radar with follow, favorites, and activity feeds"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -30,6 +30,11 @@ dev = [
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.pytest.ini_options]
+markers = [
+  "network: test hits real external endpoints (may flake on flaky net; skip with `-m 'not network'`)",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["app"]

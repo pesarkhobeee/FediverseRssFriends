@@ -19,7 +19,7 @@ from sqlmodel import Session, select
 
 from . import config
 from .db import Feed, FeedItem, User, _now, engine
-from .feeds import USER_AGENT, _favicon_for, github_owner, resolve_avatar
+from .feeds import _CONSENT_COOKIES, USER_AGENT, _favicon_for, github_owner, resolve_avatar
 
 log = logging.getLogger(__name__)
 
@@ -88,6 +88,7 @@ def _icon_is_reachable(url: str, timeout: float = 3.0) -> bool:
             timeout=timeout,
             follow_redirects=True,
             headers={"User-Agent": USER_AGENT},
+            cookies=_CONSENT_COOKIES,
         ) as client:
             r = client.head(url)
             if 200 <= r.status_code < 300:
@@ -159,6 +160,7 @@ def fetch_one(db: Session, feed: Feed) -> tuple[int, str | None]:
             timeout=FETCH_TIMEOUT,
             follow_redirects=True,
             headers={"User-Agent": USER_AGENT},
+            cookies=_CONSENT_COOKIES,
         ) as client:
             r = client.get(feed.url)
             r.raise_for_status()
