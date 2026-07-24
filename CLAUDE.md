@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## What rssFriends is
+
+**A social radar for the open web** — not a reader. No unread counters, no backlog, no algorithm. Users *watch* feeds and people they trust; they don't clear a queue. Every URL is subscribable, every export is OPML, and the roadmap points at ActivityPub. When writing copy or naming things, prefer **radar / watch / catch / signal / feeds / friends** over **reader / read / inbox / articles / subscribers**. See `docs/design-language.md` for the full voice notes.
+
 ## Commands
 
 **Package + venv management via `uv`.** All dev commands go through it.

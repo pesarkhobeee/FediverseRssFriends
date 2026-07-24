@@ -1,6 +1,8 @@
 # rssFriends
 
-Multi-user, self-hosted RSS radar. Sign in with a magic link, curate feeds by category, share your radar publicly, follow other users, star items, and expose your activity as an RSS feed.
+**A social radar for the open web.** Watch the feeds and people you trust; share what caught your eye. No backlog, no unread counters, no algorithm — just signals worth catching.
+
+Self-hosted, magic-link auth, one SQLite file. Curate feeds by category, share your radar publicly, follow other users, bookmark items, and expose your activity as an RSS feed. RSS today; ActivityPub-shaped tomorrow.
 
 Stack: **FastAPI + HTMX + Jinja2 + SQLite (WAL) + APScheduler**, managed with **uv**. No JS build step, no Redis, no worker process. One Docker container.
 

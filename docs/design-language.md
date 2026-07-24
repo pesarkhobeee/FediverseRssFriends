@@ -1,5 +1,25 @@
 # rssFriends design language
 
+## Product voice
+
+**rssFriends is a social radar for the open web — not a reader.** No
+unread counters, no backlog, no algorithm. Copy should:
+
+- Say **watch** / **catch** / **signal**, not "read" / "consume" /
+  "inbox". Users are scanning a horizon, not clearing a queue.
+- Say **radar** / **feeds** / **friends**, not "articles" / "posts" /
+  "subscribers". "Reader" is what other products are.
+- Lean **open** and **portable**. RSS today, ActivityPub-shaped
+  tomorrow. Every URL is subscribable, every export is OPML, every
+  user can leave with their data.
+- Skip guilt language. No "unread", no "you missed", no red-badge
+  urgency. If a user hasn't checked in for a week, that's fine; the
+  radar doesn't accumulate shame.
+
+Tagline: **"A social radar for the open web."**
+
+## Visual identity
+
 The visual identity: **warm, editorial, low-chrome**. Cream page, dark
 ink, burnt-orange accent, serif headlines against a clean sans body.
 Owes a lot to well-designed reading products (Are.na, Substack, Craft)

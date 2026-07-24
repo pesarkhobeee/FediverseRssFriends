@@ -185,8 +185,9 @@ def pwa_manifest() -> JSONResponse:
             "name": "rssFriends",
             "short_name": "rssFriends",
             "description": (
-                "A social RSS reader — follow curators, share what you "
-                "bookmark, cross-post from Mastodon and YouTube."
+                "A social radar for the open web — watch the feeds and "
+                "people you trust, share what caught your eye. No backlog, "
+                "no algorithm."
             ),
             "start_url": "/",
             "scope": "/",
