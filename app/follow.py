@@ -16,6 +16,7 @@ from sqlmodel import Session, func, select
 from . import activity, mail
 from .auth import current_user, login_required
 from .db import Category, CategoryFollow, Follow, User, _now, get_session
+from .public import maybe_redirect_to_canonical, resolve_handle
 from .templating import make_templates
 
 templates = make_templates()
@@ -75,7 +76,7 @@ def follow(
     viewer: User = Depends(login_required),
     db: Session = Depends(get_session),
 ):
-    target = db.exec(select(User).where(User.handle == handle)).first()
+    target = resolve_handle(db, handle)
     if not target:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "user not found")
     if target.id == viewer.id:
@@ -118,7 +119,7 @@ def unfollow(
     viewer: User = Depends(login_required),
     db: Session = Depends(get_session),
 ):
-    target = db.exec(select(User).where(User.handle == handle)).first()
+    target = resolve_handle(db, handle)
     if not target:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "user not found")
     row = db.get(Follow, (viewer.id, target.id))
@@ -169,7 +170,7 @@ def follow_category(
     keeps behavior consistent."""
     from .public import can_view
 
-    owner = db.exec(select(User).where(User.handle == handle)).first()
+    owner = resolve_handle(db, handle)
     if not owner:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "user not found")
     if owner.id == viewer.id:
@@ -260,7 +261,7 @@ def unfollow_category(
     viewer: User = Depends(login_required),
     db: Session = Depends(get_session),
 ):
-    owner = db.exec(select(User).where(User.handle == handle)).first()
+    owner = resolve_handle(db, handle)
     if not owner:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "user not found")
     cat = db.get(Category, cat_id)
@@ -366,9 +367,12 @@ def followers_page(
 ):
     from .public import can_view  # avoid cycle at import time
 
-    owner = db.exec(select(User).where(User.handle == handle)).first()
+    owner = resolve_handle(db, handle)
     if not owner:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "user not found")
+    redirect = maybe_redirect_to_canonical(request, handle, owner)
+    if redirect is not None:
+        return redirect
     if not can_view(viewer, owner, db=db):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "this radar is private")
     rows = db.exec(
@@ -400,9 +404,12 @@ def following_page(
 ):
     from .public import can_view
 
-    owner = db.exec(select(User).where(User.handle == handle)).first()
+    owner = resolve_handle(db, handle)
     if not owner:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "user not found")
+    redirect = maybe_redirect_to_canonical(request, handle, owner)
+    if redirect is not None:
+        return redirect
     if not can_view(viewer, owner, db=db):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "this radar is private")
     rows = db.exec(

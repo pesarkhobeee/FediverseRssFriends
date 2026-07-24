@@ -6,6 +6,7 @@ Visibility rules (single dependency, used everywhere a user's radar leaks):
 - private  → only the owner (follow-based access lands in step 8)
 """
 
+import re
 from datetime import UTC, datetime, timedelta
 from xml.sax.saxutils import escape as xml_escape
 
@@ -22,6 +23,7 @@ from .db import (
     Feed,
     FeedItem,
     Follow,
+    HandleAlias,
     Subscription,
     User,
     get_session,
@@ -36,6 +38,51 @@ templates = make_templates()
 router = APIRouter()
 
 RECENT_ITEMS_PER_FEED = 5
+
+
+def resolve_handle(db: Session, handle: str) -> User | None:
+    """Return the User for a handle, treating retired handles as aliases.
+
+    Looks up:
+      1. Live `User.handle` (case-sensitive — handles are lowercase throughout).
+      2. `HandleAlias.old_handle` → resolves to the current owner of that alias.
+
+    Returns None if the handle is neither live nor a retired alias.
+    Callers that render GET responses should follow up with
+    `maybe_redirect_to_canonical` so old-handle URLs 301 to current.
+    """
+    if not handle:
+        return None
+    user = db.exec(select(User).where(User.handle == handle)).first()
+    if user:
+        return user
+    alias = db.exec(select(HandleAlias).where(HandleAlias.old_handle == handle)).first()
+    if alias:
+        return db.get(User, alias.user_id)
+    return None
+
+
+def maybe_redirect_to_canonical(
+    request: Request, requested_handle: str, owner: User,
+) -> RedirectResponse | None:
+    """If the URL path used a retired alias, 301 to the canonical path.
+
+    - Only redirects on GET (POST/DELETE/PUT: serve normally under the
+      alias, since some HTTP clients / RSS libs don't preserve method
+      across 301).
+    - Preserves the rest of the path (`.rss`, `/bookmarks`,
+      `/c/News.rss`, `/activity/N`, etc.) and any query string.
+    """
+    if requested_handle == owner.handle:
+        return None
+    if request.method != "GET":
+        return None
+    old_prefix = f"/u/{requested_handle}"
+    new_prefix = f"/u/{owner.handle}"
+    new_path = request.url.path.replace(old_prefix, new_prefix, 1)
+    if request.url.query:
+        new_path = f"{new_path}?{request.url.query}"
+    return RedirectResponse(new_path, status_code=301)
 
 
 def can_view(viewer: User | None, target: User, db: Session | None = None) -> bool:
@@ -231,9 +278,12 @@ def user_reading_rss(
     allowed; private + ?as=&t= signed-token allowed while the Follow
     row remains approved.
     """
-    owner = db.exec(select(User).where(User.handle == handle)).first()
+    owner = resolve_handle(db, handle)
     if not owner:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "user not found")
+    redirect = maybe_redirect_to_canonical(request, handle, owner)
+    if redirect is not None:
+        return redirect
 
     allowed = False
     if owner.visibility != "private":  # noqa: SIM114 — branches are semantically distinct
@@ -313,9 +363,12 @@ def user_category_rss(
     """Items scoped to a single category on this user's radar. The
     "every category is an RSS feed" surface — subscribe in any RSS
     reader to get just that curatorial slice, not the whole radar."""
-    owner = db.exec(select(User).where(User.handle == handle)).first()
+    owner = resolve_handle(db, handle)
     if not owner:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "user not found")
+    redirect = maybe_redirect_to_canonical(request, handle, owner)
+    if redirect is not None:
+        return redirect
     if not can_view(viewer, owner, db=db):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "this radar is private")
 
@@ -382,12 +435,16 @@ def user_category_rss(
 @router.get("/u/{handle}.opml", response_class=PlainTextResponse)
 def user_opml(
     handle: str,
+    request: Request,
     viewer: User | None = Depends(current_user),
     db: Session = Depends(get_session),
 ):
-    owner = db.exec(select(User).where(User.handle == handle)).first()
+    owner = resolve_handle(db, handle)
     if not owner:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "user not found")
+    redirect = maybe_redirect_to_canonical(request, handle, owner)
+    if redirect is not None:
+        return redirect
     if not can_view(viewer, owner, db=db):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "this radar is private")
 
@@ -502,9 +559,12 @@ def user_radar(
     viewer: User | None = Depends(current_user),
     db: Session = Depends(get_session),
 ):
-    owner = db.exec(select(User).where(User.handle == handle)).first()
+    owner = resolve_handle(db, handle)
     if not owner:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "user not found")
+    redirect = maybe_redirect_to_canonical(request, handle, owner)
+    if redirect is not None:
+        return redirect
 
     from .follow import follow_state, follower_count, following_count
 
@@ -602,6 +662,161 @@ def set_visibility(
     db.add(user)
     db.commit()
     return RedirectResponse("/dashboard", status_code=303)
+
+
+# ---------- Handle rename (0.9.0) ----------
+
+# Same regex applied at signup — lowercase a-z + digits + hyphens, must
+# start with a letter, 3-32 chars. Prevents confusable/reserved-looking
+# strings ('123', '--foo--') from becoming URL segments.
+_HANDLE_RE = re.compile(r"^[a-z][a-z0-9-]{2,31}$")
+
+# Path segments already claimed by app routes. Renaming into any of
+# these would collide with the URL router. Keep in sync when adding
+# new top-level routes.
+_RESERVED_HANDLES = frozenset({
+    "login", "logout", "dashboard", "feed", "discover", "help", "settings",
+    "follow-requests", "u", "f", "items", "feeds", "categories",
+    "subscriptions", "activity", "auth", "static", "sw.js",
+    "manifest.webmanifest", "healthz", "version", "followers", "following",
+    "account", "admin", "api", "search", "well-known",
+})
+
+RENAME_COOLDOWN_DAYS = 30
+
+
+@router.post("/settings/handle")
+def rename_handle(
+    new_handle: str = Form(...),
+    user: User = Depends(login_required),
+    db: Session = Depends(get_session),
+):
+    """Rename the signed-in user's handle.
+
+    On success:
+      - Retires the old handle in HandleAlias (permanently reserved).
+      - Rewrites denormalized `@old-handle` string mentions in Activity.
+      - Rewrites Activity.subject_url paths containing /u/{old}/… .
+      - Rewrites Feed.url rows for category-follow auto-created feeds
+        that embed the handle (`rssfriends.com/u/{old}/c/{cat}.rss`).
+      - Sets user.last_renamed_at for the 30-day cooldown.
+    """
+    from .db import HandleAlias
+
+    new_handle = (new_handle or "").strip().lower()
+
+    if new_handle == user.handle:
+        return RedirectResponse("/dashboard?panel=settings", status_code=303)
+
+    if not _HANDLE_RE.match(new_handle):
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "Handle must be 3-32 characters: lowercase letters, digits, or "
+            "hyphens; starting with a letter.",
+        )
+
+    if new_handle in _RESERVED_HANDLES:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            f"'{new_handle}' is a reserved name inside rssFriends. Pick another.",
+        )
+
+    now = datetime.now(UTC)
+    if user.last_renamed_at is not None:
+        last = user.last_renamed_at
+        if last.tzinfo is None:
+            last = last.replace(tzinfo=UTC)
+        elapsed = now - last
+        if elapsed < timedelta(days=RENAME_COOLDOWN_DAYS):
+            days_left = RENAME_COOLDOWN_DAYS - elapsed.days
+            raise HTTPException(
+                status.HTTP_429_TOO_MANY_REQUESTS,
+                f"You renamed recently. Try again in {days_left} day"
+                f"{'' if days_left == 1 else 's'}.",
+            )
+
+    # Live-user collision.
+    if db.exec(select(User).where(User.handle == new_handle)).first():
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            f"'{new_handle}' is already taken by another user.",
+        )
+    # Retired-alias collision (including the user's OWN prior aliases —
+    # deliberately: renaming back to a prior name would confuse the
+    # redirect chain, so we forbid it. Users who typo'd get their new
+    # handle stuck until cooldown expires and they rename to something
+    # else again).
+    if db.exec(select(HandleAlias).where(HandleAlias.old_handle == new_handle)).first():
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            f"'{new_handle}' was used by another (or your prior) account and "
+            "is permanently reserved.",
+        )
+
+    old_handle = user.handle
+
+    # 1. Retire the old handle.
+    db.add(HandleAlias(old_handle=old_handle, user_id=user.id, renamed_at=now))
+
+    # 2. Rewrite denormalized Activity rows. Two shapes:
+    #    - `subject == "@old"` (follow/fork rows) → `"@new"`
+    #    - `subject_url` starting with "/u/old" or containing "/u/old/"
+    #    Fetch matching rows and rewrite in Python — the dataset is
+    #    small (single-user activity history) and this avoids
+    #    DB-specific string-manipulation SQL.
+    old_at = f"@{old_handle}"
+    new_at = f"@{new_handle}"
+    old_prefix = f"/u/{old_handle}"
+    new_prefix = f"/u/{new_handle}"
+
+    for row in db.exec(
+        select(Activity)
+        .where(Activity.user_id == user.id)  # only the renaming user's rows
+    ).all():
+        changed = False
+        if row.subject == old_at:
+            row.subject = new_at
+            changed = True
+        if row.subject_url and (
+            row.subject_url == old_prefix or row.subject_url.startswith(old_prefix + "/")
+        ):
+            row.subject_url = new_prefix + row.subject_url[len(old_prefix):]
+            changed = True
+        if changed:
+            db.add(row)
+    # Also rewrite subject_url pointing at THIS user across everyone
+    # else's activity (e.g. `@viewer followed @old`, where subject_url
+    # is /u/old). Same rewrite rule; wider scope.
+    for row in db.exec(
+        select(Activity)
+        .where(Activity.user_id != user.id)
+        .where(Activity.ref_type == "user")
+        .where(Activity.ref_id == user.id)
+    ).all():
+        if row.subject == old_at:
+            row.subject = new_at
+            db.add(row)
+        if row.subject_url and (
+            row.subject_url == old_prefix or row.subject_url.startswith(old_prefix + "/")
+        ):
+            row.subject_url = new_prefix + row.subject_url[len(old_prefix):]
+            db.add(row)
+
+    # 3. Rewrite category-follow-created Feed URLs
+    #    (`rssfriends.com/u/{handle}/c/{cat}.rss`).
+    old_feed_frag = f"/u/{old_handle}/c/"
+    new_feed_frag = f"/u/{new_handle}/c/"
+    for feed in db.exec(select(Feed).where(Feed.url.contains(old_feed_frag))).all():
+        feed.url = feed.url.replace(old_feed_frag, new_feed_frag, 1)
+        db.add(feed)
+
+    # 5. Finally: swap the User's handle + stamp the cooldown anchor.
+    user.handle = new_handle
+    user.last_renamed_at = now
+    db.add(user)
+
+    db.commit()
+    return RedirectResponse(f"/u/{new_handle}", status_code=303)
 
 
 # ---------- Wallabag integration ----------
@@ -707,7 +922,7 @@ def cherry_pick(
 ):
     """Subscribe the viewer to a feed shown on another user's radar. The
     category is copied from the owner's assignment."""
-    owner = db.exec(select(User).where(User.handle == handle)).first()
+    owner = resolve_handle(db, handle)
     if not owner or not can_view(viewer, owner, db=db):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "not found")
     if owner.id == viewer.id:
@@ -746,7 +961,7 @@ def fork(
     viewer: User = Depends(login_required),
     db: Session = Depends(get_session),
 ):
-    owner = db.exec(select(User).where(User.handle == handle)).first()
+    owner = resolve_handle(db, handle)
     if not owner or not can_view(viewer, owner, db=db):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "not found")
     if owner.id == viewer.id:
@@ -802,9 +1017,12 @@ def user_activity(
     viewer: User | None = Depends(current_user),
     db: Session = Depends(get_session),
 ):
-    owner = db.exec(select(User).where(User.handle == handle)).first()
+    owner = resolve_handle(db, handle)
     if not owner:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "user not found")
+    redirect = maybe_redirect_to_canonical(request, handle, owner)
+    if redirect is not None:
+        return redirect
     if not can_view(viewer, owner, db=db):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "this radar is private")
 
@@ -844,9 +1062,12 @@ def user_activity_rss(
     - private: caller must be the owner, an approved follower via session,
       OR present ?as={follower_handle}&t={hmac} tokens that match.
     """
-    owner = db.exec(select(User).where(User.handle == handle)).first()
+    owner = resolve_handle(db, handle)
     if not owner:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "user not found")
+    redirect = maybe_redirect_to_canonical(request, handle, owner)
+    if redirect is not None:
+        return redirect
 
     allowed = False
     if owner.visibility != "private":  # noqa: SIM114 — keep branches distinct for clarity

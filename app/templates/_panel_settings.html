@@ -1,4 +1,45 @@
-{# ⚙️ Settings — visibility + destructive account actions. #}
+{# ⚙️ Settings — handle, visibility, integrations, destructive actions. #}
+<section class="card">
+  <h2 style="margin-top:0">Your handle</h2>
+  <p class="muted" style="margin:.25rem 0 .75rem">
+    Your radar lives at <code>rssfriends.com/u/{{ user.handle }}</code>.
+    You can rename once every {{ rename_cooldown_days }} days. Old handles
+    stay permanently reserved and 301-redirect to your new one, so
+    external RSS subscribers keep working.
+  </p>
+
+  {% set rename_flash = request.query_params.get('handle') %}
+  {% if rename_flash == 'ok' %}
+    <p class="muted" style="color:var(--accent)"><strong>Renamed.</strong>
+      Your new radar is at <code>rssfriends.com/u/{{ user.handle }}</code>.
+    </p>
+  {% endif %}
+
+  {% if rename_available_in_days > 0 %}
+    <p class="muted">
+      You renamed recently. You can rename again in
+      <strong>{{ rename_available_in_days }}</strong>
+      day{{ '' if rename_available_in_days == 1 else 's' }}.
+    </p>
+  {% else %}
+    <form method="post" action="/settings/handle" class="login-form"
+          onsubmit="return confirm('Rename @{{ user.handle }} → @'+this.new_handle.value+'? Your old handle stays permanently reserved and cannot be reused.')">
+      <input class="input" type="text" name="new_handle"
+             minlength="3" maxlength="32"
+             pattern="[a-z][a-z0-9-]{2,31}"
+             placeholder="new-handle" required
+             style="max-width:280px" />
+      <button class="btn" type="submit">Rename →</button>
+    </form>
+    <p class="muted" style="margin:.5rem 0 0; font-size:.85rem">
+      ⚠️ External RSS readers that subscribed to your feed will follow
+      the redirect automatically. Some aggressive caches may keep the old
+      URL for a while — consider mentioning your new handle somewhere
+      followers will see.
+    </p>
+  {% endif %}
+</section>
+
 <section class="card">
   <h2 style="margin-top:0">Visibility</h2>
   <p class="muted" style="margin:.25rem 0 .75rem">

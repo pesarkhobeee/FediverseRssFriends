@@ -30,6 +30,29 @@ class User(SQLModel, table=True):
     # invalidates every previously-shared feed link.
     activity_secret: str = Field(default_factory=_rand_secret)
     created_at: datetime = Field(default_factory=_now)
+    # 0.9.0: handle-rename rate limit anchor. NULL = never renamed.
+    # Users may rename at most once every RENAME_COOLDOWN_DAYS.
+    last_renamed_at: datetime | None = Field(default=None)
+
+
+class HandleAlias(SQLModel, table=True):
+    """A retired handle. Created on every successful account rename.
+
+    Semantics (0.9.0):
+      - The old handle is permanently reserved — nobody else can claim
+        it, and the original owner can't rename BACK to it either
+        (prevents ping-pong renames that could confuse redirects).
+      - Every GET request to /u/{old_handle}/… 301-redirects to
+        /u/{current_handle}/…, so external RSS subscribers, followers'
+        bookmarks, and old shared links keep working forever.
+      - POSTs (follow/unfollow/fork) are served under the alias without
+        redirect — a 301 wouldn't preserve HTTP method on all clients.
+
+    See app/public.py::resolve_handle for the lookup path."""
+
+    old_handle: str = Field(primary_key=True)
+    user_id: int = Field(foreign_key="user.id", index=True)
+    renamed_at: datetime = Field(default_factory=_now)
 
 
 class MagicToken(SQLModel, table=True):
@@ -201,6 +224,15 @@ def _run_sqlite_migrations(conn) -> None:
     """Idempotent, ALTER-TABLE-based migrations for SQLite. Runs on every
     startup and is a no-op after the first successful run."""
     import secrets
+
+    # 0.9.0: User.last_renamed_at added for the rename rate-limit anchor.
+    # Nullable and defaults to NULL (users who never renamed).
+    if _sqlite_column_exists(conn, "user", "id") and not _sqlite_column_exists(
+        conn, "user", "last_renamed_at"
+    ):
+        conn.exec_driver_sql(
+            "ALTER TABLE user ADD COLUMN last_renamed_at TIMESTAMP"
+        )
 
     # activity_secret was added after the initial schema — backfill it.
     if _sqlite_column_exists(conn, "user", "id") and not _sqlite_column_exists(

@@ -17,7 +17,7 @@ from sqlmodel import Session, select
 from . import activity, wallabag
 from .auth import current_user, login_required
 from .db import Bookmark, Category, Feed, FeedItem, Subscription, User, get_session
-from .public import can_view
+from .public import can_view, maybe_redirect_to_canonical, resolve_handle
 from .templating import make_templates
 
 templates = make_templates()
@@ -95,9 +95,12 @@ def user_bookmarks(
     viewer: User | None = Depends(current_user),
     db: Session = Depends(get_session),
 ):
-    owner = db.exec(select(User).where(User.handle == handle)).first()
+    owner = resolve_handle(db, handle)
     if not owner:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "user not found")
+    redirect = maybe_redirect_to_canonical(request, handle, owner)
+    if redirect is not None:
+        return redirect
     if not can_view(viewer, owner, db=db):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "this radar is private")
 

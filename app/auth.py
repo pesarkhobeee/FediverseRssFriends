@@ -33,10 +33,18 @@ def _slugify_handle(email: str) -> str:
 
 
 def _unique_handle(db: Session, email: str) -> str:
+    """Slugify email → probe for the first free handle.
+    Rejects live handles AND retired aliases (which are permanently
+    reserved as of 0.9.0 to protect renamed users from impersonation)."""
+    from .db import HandleAlias
+
     base = _slugify_handle(email)
     handle = base
     i = 2
-    while db.exec(select(User).where(User.handle == handle)).first():
+    while (
+        db.exec(select(User).where(User.handle == handle)).first()
+        or db.exec(select(HandleAlias).where(HandleAlias.old_handle == handle)).first()
+    ):
         handle = f"{base}-{i}"
         i += 1
     return handle

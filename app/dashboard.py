@@ -87,8 +87,29 @@ def _load_feeds_context(db: Session, user: User) -> dict:
 
 
 def _load_settings_context(db: Session, user: User) -> dict:
+    from datetime import UTC, datetime, timedelta
+
     from . import wallabag as wb
-    return {"wallabag_account": wb.get_account(db, user)}
+    from .public import RENAME_COOLDOWN_DAYS
+
+    # Days remaining in the rename cooldown, 0 if the user can rename now.
+    days_left = 0
+    if user.last_renamed_at is not None:
+        last = user.last_renamed_at
+        if last.tzinfo is None:
+            last = last.replace(tzinfo=UTC)
+        elapsed = datetime.now(UTC) - last
+        remaining = timedelta(days=RENAME_COOLDOWN_DAYS) - elapsed
+        if remaining.total_seconds() > 0:
+            # Ceiling division to days: any remaining fraction rounds up
+            # (so "just past 29 full days" still says 1 day left).
+            days_left = max(1, remaining.days + (1 if remaining.seconds else 0))
+
+    return {
+        "wallabag_account": wb.get_account(db, user),
+        "rename_cooldown_days": RENAME_COOLDOWN_DAYS,
+        "rename_available_in_days": days_left,
+    }
 
 
 def _load_import_context(db: Session, user: User) -> dict:
