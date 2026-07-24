@@ -1,3 +1,12 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <text x="50%" y="50%" font-size="52" text-anchor="middle" dominant-baseline="central">🌟</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">
+  <!-- Classic RSS glyph: dot + two quarter-arcs radiating from
+       bottom-left. Same design as app/static/icons/*.png (PWA) so
+       the mark stays coherent across favicon, install icon, and
+       in-app RSS controls. Color = #F26522, the universal "RSS
+       orange" from the Feed Icons project. -->
+  <circle cx="5.5" cy="18.5" r="2.5" fill="#F26522"/>
+  <path d="M5.5 10.5 A8 8 0 0 1 13.5 18.5"
+        stroke="#F26522" stroke-width="3" fill="none" stroke-linecap="butt"/>
+  <path d="M5.5 4 A14.5 14.5 0 0 1 20 18.5"
+        stroke="#F26522" stroke-width="3" fill="none" stroke-linecap="butt"/>
 </svg>

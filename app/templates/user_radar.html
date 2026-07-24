@@ -62,7 +62,9 @@
     <button type="button" class="radar-rss-copy-btn"
             data-copy-url="{{ reading_rss_url }}"
             title="Copy the radar's RSS URL to your clipboard">
-      📡 Copy RSS
+      <img class="rss-glyph" src="{{ url_for('static', path='favicon.svg') }}?v={{ app_version }}"
+           alt="" aria-hidden="true" />
+      Copy RSS
     </button>
     <div class="radar-view-toggle radar-view-toggle-right" role="tablist" aria-label="View">
       <a class="radar-view-btn {% if view == 'feeds' %}radar-view-btn-active{% endif %}"
