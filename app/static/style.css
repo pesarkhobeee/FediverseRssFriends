@@ -178,7 +178,9 @@ header {
   gap: .35rem;
 }
 .brand-beta {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: .3em;
   padding: .05rem .35rem;
   font-size: .62rem;
   font-weight: 700;
@@ -189,6 +191,15 @@ header {
   text-transform: uppercase;
   vertical-align: middle;
   transform: translateY(-2px);
+}
+/* Version stamp inside the BETA chip — same fg but a softer weight and
+   a monospace look so it reads as a build tag, not a shouty word. */
+.brand-beta-version {
+  font-weight: 500;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  letter-spacing: 0;
+  opacity: 0.85;
+  text-transform: none;
 }
 nav { display: flex; flex-wrap: wrap; align-items: center; gap: .25rem 1rem; justify-content: flex-end; }
 nav a { text-decoration: none; color: var(--link); font-size: .95rem; }

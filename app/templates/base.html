@@ -71,7 +71,7 @@
 </head>
 <body>
   <header>
-    <a href="/" class="brand">rssFriends<span class="brand-beta" title="rssFriends is under active development">beta</span></a>
+    <a href="/" class="brand">rssFriends<span class="brand-beta" title="rssFriends is under active development — v{{ app_version }}">beta <span class="brand-beta-version">v{{ app_version }}</span></span></a>
     <nav>
       {% if user %}
         <a href="/u/{{ user.handle }}" class="nav-user" title="Your public radar">@{{ user.handle }}</a>
