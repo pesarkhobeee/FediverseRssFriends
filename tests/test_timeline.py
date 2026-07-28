@@ -157,3 +157,91 @@ def test_star_events_show_up_for_followers():
     assert "@b" in r.text
     assert "bookmarked" in r.text
     assert "Great post" in r.text
+
+
+def test_feed_shows_add_to_radar_pill_for_unfollowed_feed():
+    """/feed → 'subscribed' activity from a followee whose feed the
+    viewer does NOT yet have should render an "Add to my radar" pill
+    (via _feed_cta.html). Reused from /discover, so we grep for the
+    same signature ('Add to my radar' text)."""
+    from sqlmodel import Session, select
+
+    import app.db as db_mod
+
+    # b subscribes to a feed; a follows b.
+    a = _client()
+    _login(a, "a@e.com")
+    b = _client()
+    _login(b, "b@e.com")
+    b.post("/categories", data={"name": "News"})
+
+    with Session(db_mod.engine) as s:
+        b_row = s.exec(select(db_mod.User).where(db_mod.User.handle == "b")).one()
+        cat = s.exec(select(db_mod.Category).where(db_mod.Category.user_id == b_row.id)).one()
+        feed = db_mod.Feed(url="https://ex.example/feed", title="Example")
+        s.add(feed)
+        s.commit()
+        s.refresh(feed)
+        s.add(db_mod.Subscription(
+            user_id=b_row.id, feed_id=feed.id, category_id=cat.id, sort_order=1,
+        ))
+        import app.activity as act
+        act.record(
+            s, b_row, "subscribed", feed.title,
+            subject_url=feed.site_url or feed.url,
+            ref_type="feed", ref_id=feed.id,
+        )
+        s.commit()
+
+    a.post("/u/b/follow")
+    r = a.get("/feed")
+    assert r.status_code == 200
+    assert "Add to my radar" in r.text
+    assert 'class="timeline-cta"' in r.text
+
+
+def test_feed_hides_add_pill_when_viewer_already_subscribed():
+    """Same setup but the viewer ALSO subscribes to the same feed —
+    the pill should not render because they already have it."""
+    from sqlmodel import Session, select
+
+    import app.db as db_mod
+
+    a = _client()
+    _login(a, "a@e.com")
+    b = _client()
+    _login(b, "b@e.com")
+
+    # a and b each have a "News" category; both subscribe to the same feed.
+    r = a.post("/categories", data={"name": "News"})
+    r = b.post("/categories", data={"name": "News"})
+
+    with Session(db_mod.engine) as s:
+        a_row = s.exec(select(db_mod.User).where(db_mod.User.handle == "a")).one()
+        b_row = s.exec(select(db_mod.User).where(db_mod.User.handle == "b")).one()
+        a_cat = s.exec(select(db_mod.Category).where(db_mod.Category.user_id == a_row.id)).one()
+        b_cat = s.exec(select(db_mod.Category).where(db_mod.Category.user_id == b_row.id)).one()
+        feed = db_mod.Feed(url="https://ex.example/feed", title="Example")
+        s.add(feed)
+        s.commit()
+        s.refresh(feed)
+        s.add(db_mod.Subscription(
+            user_id=a_row.id, feed_id=feed.id, category_id=a_cat.id, sort_order=1,
+        ))
+        s.add(db_mod.Subscription(
+            user_id=b_row.id, feed_id=feed.id, category_id=b_cat.id, sort_order=1,
+        ))
+        import app.activity as act
+        act.record(
+            s, b_row, "subscribed", feed.title,
+            subject_url=feed.site_url or feed.url,
+            ref_type="feed", ref_id=feed.id,
+        )
+        s.commit()
+
+    a.post("/u/b/follow")
+    r = a.get("/feed")
+    assert r.status_code == 200
+    # b's activity row is present but pill is not (viewer already subs).
+    assert "@b" in r.text
+    assert "Add to my radar" not in r.text

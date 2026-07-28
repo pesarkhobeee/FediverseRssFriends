@@ -47,6 +47,18 @@
           {% endif %}
         </span>
         <span class="spacer"></span>
+        {# "Add to my radar" pill for activity that unambiguously
+           references a Feed the viewer doesn't yet follow. Hidden when
+           the viewer already has this feed (cta_state == "subscribed")
+           and for activity kinds without a single feed target
+           (followed/forked/created_category — feed is absent). #}
+        {% if e.feed and e.cta_state == "available" %}
+          <span class="timeline-cta">
+            {% with feed=e.feed, state=e.cta_state %}
+              {% include "_feed_cta.html" %}
+            {% endwith %}
+          </span>
+        {% endif %}
         <span class="muted" style="font-size:.85rem">{{ e.ts|relative_time }}</span>
       </div>
     </li>

@@ -1956,3 +1956,22 @@ img.favicon {
   .stream-row-title { font-size: 14.5px; }
   .stream-row-favicon { width: 28px !important; height: 28px !important; flex: 0 0 28px !important; }
 }
+
+/* Timeline (/feed) — compact "Add to my radar" pill, styled to match
+   the accent-orange treatment on /discover popular feeds. */
+.timeline-cta { flex: 0 0 auto; }
+.timeline-cta .feed-cta .btn {
+  font-size: 12px; font-weight: 600;
+  color: var(--accent);
+  background: var(--accent-bg);
+  border: none;
+  border-radius: 99px;
+  padding: 4px 11px;
+  cursor: pointer;
+  white-space: nowrap;
+  text-decoration: none;
+  display: inline-block;
+}
+.timeline-cta .feed-cta .btn:hover {
+  background: var(--accent); color: var(--accent-fg);
+}

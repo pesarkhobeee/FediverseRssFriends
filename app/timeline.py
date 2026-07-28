@@ -15,7 +15,17 @@ from sqlmodel import Session, select
 
 from . import activity
 from .auth import login_required
-from .db import Activity, Category, CategoryFollow, Follow, Subscription, User, get_session
+from .db import (
+    Activity,
+    Category,
+    CategoryFollow,
+    Feed,
+    FeedItem,
+    Follow,
+    Subscription,
+    User,
+    get_session,
+)
 from .templating import make_templates
 
 templates = make_templates()
@@ -101,7 +111,6 @@ def _load_timeline(db: Session, user: User) -> dict:
             .order_by(Activity.created_at.desc())
             .limit(FEED_LIMIT)
         ).all()
-        from .db import FeedItem
         fav_rows = db.exec(
             select(Activity)
             .join(FeedItem, FeedItem.id == Activity.ref_id)
@@ -131,6 +140,61 @@ def _load_timeline(db: Session, user: User) -> dict:
 
     entries.sort(key=lambda e: e["ts"], reverse=True)
     entries = entries[:FEED_LIMIT]
+
+    # Enrich entries with feed + "already on my radar?" state so the
+    # template can render an "Add to my radar" pill for feeds the
+    # viewer doesn't yet follow. Only activity that unambiguously
+    # references a Feed gets a pill:
+    #   - subscribed  (ref_type=feed)         → ref_id IS a feed_id
+    #   - bookmarked  (ref_type=item)         → item.feed_id
+    #   - posted      (ref_type=external_item) → item.feed_id
+    # followed / forked / created_category don't map to a single feed.
+    feed_ids_needed: set[int] = set()
+    item_ids_needed: set[int] = set()
+    for e in entries:
+        ev = e["activity"]
+        if ev.ref_type == "feed" and ev.ref_id is not None:
+            feed_ids_needed.add(ev.ref_id)
+        elif ev.ref_type in ("item", "external_item") and ev.ref_id is not None:
+            item_ids_needed.add(ev.ref_id)
+
+    # item_id → feed_id resolution in one query.
+    item_feed: dict[int, int] = {}
+    if item_ids_needed:
+        rows = db.exec(
+            select(FeedItem.id, FeedItem.feed_id)
+            .where(FeedItem.id.in_(item_ids_needed))
+        ).all()
+        item_feed = {i: f for i, f in rows}
+        feed_ids_needed.update(item_feed.values())
+
+    # Load feeds + viewer's existing subscriptions in bulk.
+    feed_by_id: dict[int, Feed] = {}
+    already_subscribed: set[int] = set()
+    if feed_ids_needed:
+        feeds = db.exec(select(Feed).where(Feed.id.in_(feed_ids_needed))).all()
+        feed_by_id = {f.id: f for f in feeds}
+        already_subscribed = set(db.exec(
+            select(Subscription.feed_id)
+            .where(Subscription.user_id == user.id)
+            .where(Subscription.feed_id.in_(feed_ids_needed))
+        ).all())
+
+    for e in entries:
+        ev = e["activity"]
+        feed_id: int | None = None
+        if ev.ref_type == "feed" and ev.ref_id is not None:
+            feed_id = ev.ref_id
+        elif ev.ref_type in ("item", "external_item") and ev.ref_id is not None:
+            feed_id = item_feed.get(ev.ref_id)
+        # Attach if we could map to a real Feed row. Skip if the actor
+        # IS the viewer (no point offering "add to my radar" for your
+        # own activity).
+        if feed_id and feed_id in feed_by_id:
+            actor_is_viewer = e["actor"] is not None and e["actor"].id == user.id
+            if not actor_is_viewer:
+                e["feed"] = feed_by_id[feed_id]
+                e["cta_state"] = "subscribed" if feed_id in already_subscribed else "available"
 
     return {
         "entries": entries,
