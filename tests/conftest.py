@@ -23,3 +23,17 @@ def _fresh_schema():
     SQLModel.metadata.drop_all(app.db.engine)
     app.db.init_db()
     yield
+
+
+@pytest.fixture(autouse=True)
+def _no_inline_fetch(monkeypatch):
+    """0.9.4: POST /feeds now runs a synchronous fetch_one after a
+    new subscribe so the user sees immediate item-count confirmation.
+    Bypass that in tests — otherwise every subscribe would hit the
+    real feed URL over the network (slow, flaky, and clobbers the
+    resolve_feed stubs several tests depend on for stable titles)."""
+    import app.dashboard
+    monkeypatch.setattr(
+        app.dashboard, "_fetch_inline_for_new_subscription",
+        lambda db, feed: 0,
+    )

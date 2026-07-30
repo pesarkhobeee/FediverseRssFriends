@@ -1986,3 +1986,31 @@ img.favicon {
 .timeline-cta .feed-cta .btn:hover {
   background: var(--accent); color: var(--accent-fg);
 }
+
+/* Just-added confirmation chip on a freshly-subscribed feed row.
+   Fades in on render, sits inline in the feed-meta slot. CSS-only —
+   the chip persists visually until the next page render, which is
+   fine because the row is being freshly inserted by HTMX in-place. */
+.feed-just-added-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent-fg);
+  background: var(--accent);
+  border-radius: 99px;
+  animation: feed-just-added-fade-in 200ms ease-out;
+}
+.feed-just-added-warn {
+  background: var(--warn-bg);
+  color: var(--warn-fg);
+  border: 1px solid var(--warn-border);
+}
+@keyframes feed-just-added-fade-in {
+  from { opacity: 0; transform: translateY(-2px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .feed-just-added-chip { animation: none; }
+}

@@ -423,7 +423,46 @@ def subscribe(
         sub, feed = _subscribe_to_url(db, user, category_id, url, meta=meta)
     else:
         sub, feed = _subscribe_to_url(db, user, category_id, url)
-    return _partial(request, "_feed_row.html", sub=sub, feed=feed, item_count=0)
+
+    # Fetch inline so the returned row can immediately show a real item
+    # count — this is the visible confirmation that the feed actually
+    # works. Bounded by FETCH_TIMEOUT (3s). Errors are captured on the
+    # Feed row by fetch_one() itself and rendered as a warning chip in
+    # the template, so this call never raises.
+    item_count = _fetch_inline_for_new_subscription(db, feed)
+    return _partial(
+        request, "_feed_row.html",
+        sub=sub, feed=feed, item_count=item_count, just_added=True,
+    )
+
+
+def _fetch_inline_for_new_subscription(db: Session, feed: Feed) -> int:
+    """Best-effort synchronous fetch used ONLY on first-subscribe so the
+    user gets immediate feedback. Existing Feed rows (someone else was
+    already subscribed) already have items — skip re-fetching those.
+
+    Returns the current item count on the Feed after fetch. Failures
+    are journaled on the Feed row (last_error / consecutive_failures)
+    and shown by _feed_row.html as a ⚠️ chip; never raises."""
+    from sqlalchemy import func
+
+    from .db import FeedItem
+
+    # If the feed already has items (another user was subscribed and
+    # the background scheduler populated it), just return the count.
+    existing = db.exec(
+        select(func.count(FeedItem.id)).where(FeedItem.feed_id == feed.id)
+    ).one()
+    if existing > 0:
+        return existing
+
+    try:
+        new, _err = fetch_one(db, feed)
+    except Exception:
+        # fetch_one guards its own exceptions; belt-and-braces here so a
+        # broken feed never blocks the subscribe response.
+        return 0
+    return new
 
 
 @router.post("/feeds/pick", response_class=HTMLResponse)
@@ -471,8 +510,14 @@ def subscribe_selected(
         return HTMLResponse("")
     fragments = []
     for sub, feed in added_rows:
+        # Same inline fetch as POST /feeds so the picker path also
+        # gets an immediate item-count confirmation per feed.
+        item_count = _fetch_inline_for_new_subscription(db, feed)
         fragments.append(templates.get_template("_feed_row.html").render(
-            {"sub": sub, "feed": feed, "item_count": 0, "request": request},
+            {
+                "sub": sub, "feed": feed, "item_count": item_count,
+                "just_added": True, "request": request,
+            },
         ))
     return HTMLResponse("\n".join(fragments))
 

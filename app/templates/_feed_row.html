@@ -1,5 +1,8 @@
-{# One feed row. Expects `sub`, `feed`, `item_count`. #}
-<li class="feed" id="sub-{{ sub.id }}">
+{# One feed row. Expects `sub`, `feed`, `item_count`. Optional:
+   `just_added` — set by the subscribe route to render a green
+   "✓ Just fetched" chip. Auto-hidden by CSS after ~4s so the row
+   settles into its normal appearance. #}
+<li class="feed{% if just_added %} feed-just-added{% endif %}" id="sub-{{ sub.id }}">
   {% if feed.favicon_url %}
     <img class="favicon" src="{{ feed.favicon_url }}" alt="" loading="lazy"
  />
@@ -12,11 +15,21 @@
     <span class="title">{{ feed.title }}</span>
   {% endif %}
   <span class="feed-meta muted">
-    {% if item_count %}{{ item_count }} items{% else %}no items yet{% endif %}
-    {% if feed.consecutive_failures and not item_count %}
-      · ⚠️ this URL doesn't look like a feed — try Edit URL or Remove
-    {% elif feed.consecutive_failures %}
-      · ⚠️ stale
+    {% if just_added %}
+      {% if item_count %}
+        <span class="feed-just-added-chip">✓ Fetched {{ item_count }} item{{ '' if item_count == 1 else 's' }}</span>
+      {% elif feed.consecutive_failures %}
+        <span class="feed-just-added-chip feed-just-added-warn">⚠️ Couldn't fetch — will retry in the background</span>
+      {% else %}
+        <span class="feed-just-added-chip feed-just-added-warn">⚠️ Fetched 0 items — background refresh will retry</span>
+      {% endif %}
+    {% else %}
+      {% if item_count %}{{ item_count }} items{% else %}no items yet{% endif %}
+      {% if feed.consecutive_failures and not item_count %}
+        · ⚠️ this URL doesn't look like a feed — try Edit URL or Remove
+      {% elif feed.consecutive_failures %}
+        · ⚠️ stale
+      {% endif %}
     {% endif %}
   </span>
   <span class="spacer"></span>

@@ -154,3 +154,73 @@ def _extract_id(html: str, prefix: str) -> int:
     idx = html.find(marker) + len(marker)
     end = html.find('"', idx)
     return int(html[idx:end])
+
+
+def test_subscribe_shows_fetched_confirmation_chip(monkeypatch):
+    """After adding a feed, the returned row should carry a
+    "✓ Fetched N items" chip so the user has immediate feedback
+    that the feed actually delivers content."""
+    import app.dashboard
+
+    _stub_resolve(monkeypatch, title="Test Blog", site="https://blog.example")
+
+    # Override the autouse no-op stub for THIS test: return a real
+    # fetched-count so the chip renders with a number.
+    def fake_fetch(db, feed):
+        # Simulate: 7 items fetched. Bump last_fetched_at on the row
+        # so we behave like the real fetch_one.
+        from datetime import UTC, datetime
+        feed.last_fetched_at = datetime.now(UTC)
+        db.add(feed)
+        db.commit()
+        return 7
+
+    monkeypatch.setattr(
+        app.dashboard, "_fetch_inline_for_new_subscription", fake_fetch,
+    )
+
+    client = _client()
+    _login(client, "alice@example.com")
+    r = client.post("/categories", data={"name": "News"})
+    cat_id = _extract_id(r.text, "category-")
+    r = client.post(
+        "/feeds",
+        data={"url": "https://blog.example/rss.xml", "category_id": cat_id},
+    )
+    assert r.status_code == 200
+    assert "feed-just-added-chip" in r.text
+    assert "Fetched 7 items" in r.text
+
+
+def test_subscribe_shows_warning_chip_on_fetch_failure(monkeypatch):
+    """When the inline fetch returns 0 items AND the feed row has
+    a consecutive_failures bump, show a warning-styled chip that
+    reassures the user the background refresh will retry."""
+    import app.dashboard
+
+    _stub_resolve(monkeypatch, title="Broken Blog", site="https://broken.example")
+
+    def fake_fetch_fail(db, feed):
+        # Simulate a fetch that failed and journaled the failure.
+        feed.consecutive_failures = 1
+        feed.last_error = "TimeoutError: connection timed out"
+        db.add(feed)
+        db.commit()
+        return 0
+
+    monkeypatch.setattr(
+        app.dashboard, "_fetch_inline_for_new_subscription", fake_fetch_fail,
+    )
+
+    client = _client()
+    _login(client, "alice@example.com")
+    r = client.post("/categories", data={"name": "News"})
+    cat_id = _extract_id(r.text, "category-")
+    r = client.post(
+        "/feeds",
+        data={"url": "https://broken.example/rss.xml", "category_id": cat_id},
+    )
+    assert r.status_code == 200
+    assert "feed-just-added-chip" in r.text
+    assert "feed-just-added-warn" in r.text
+    assert "will retry" in r.text
