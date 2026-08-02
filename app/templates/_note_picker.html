@@ -1,0 +1,18 @@
+{# Inline note editor. Swaps into #actions-{sub.id}. Cancels back to
+   the default action strip via /subscriptions/{id}/actions.
+   0.11.2: private per-user reminder note ("DHH → creator of Rails"). #}
+<form hx-post="/subscriptions/{{ sub.id }}/note"
+      hx-target="#sub-{{ sub.id }}"
+      hx-swap="outerHTML"
+      class="note-picker-form">
+  <input class="input note-picker-input" type="text" name="note"
+         maxlength="280" autofocus
+         placeholder="e.g. DHH → creator of Ruby on Rails"
+         value="{{ sub.note }}" />
+  <button class="btn" type="submit" title="Save note">Save</button>
+  <button class="btn-ghost" type="button"
+          hx-get="/subscriptions/{{ sub.id }}/actions"
+          hx-target="#actions-{{ sub.id }}"
+          hx-swap="innerHTML"
+          title="Cancel">Cancel</button>
+</form>

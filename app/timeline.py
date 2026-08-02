@@ -171,14 +171,20 @@ def _load_timeline(db: Session, user: User) -> dict:
     # Load feeds + viewer's existing subscriptions in bulk.
     feed_by_id: dict[int, Feed] = {}
     already_subscribed: set[int] = set()
+    # 0.11.2: viewer's private per-feed note (feed_id → note text) so
+    # the timeline byline can show "@dhh — creator of Rails" for feeds
+    # the reader has personally annotated.
+    viewer_note_by_feed: dict[int, str] = {}
     if feed_ids_needed:
         feeds = db.exec(select(Feed).where(Feed.id.in_(feed_ids_needed))).all()
         feed_by_id = {f.id: f for f in feeds}
-        already_subscribed = set(db.exec(
-            select(Subscription.feed_id)
+        my_subs = db.exec(
+            select(Subscription.feed_id, Subscription.note)
             .where(Subscription.user_id == user.id)
             .where(Subscription.feed_id.in_(feed_ids_needed))
-        ).all())
+        ).all()
+        already_subscribed = {fid for fid, _ in my_subs}
+        viewer_note_by_feed = {fid: n for fid, n in my_subs if n}
 
     for e in entries:
         ev = e["activity"]
@@ -195,6 +201,8 @@ def _load_timeline(db: Session, user: User) -> dict:
             if not actor_is_viewer:
                 e["feed"] = feed_by_id[feed_id]
                 e["cta_state"] = "subscribed" if feed_id in already_subscribed else "available"
+                if feed_id in viewer_note_by_feed:
+                    e["viewer_note"] = viewer_note_by_feed[feed_id]
 
     return {
         "entries": entries,

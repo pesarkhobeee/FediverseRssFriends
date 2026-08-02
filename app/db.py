@@ -90,6 +90,13 @@ class Subscription(SQLModel, table=True):
     feed_id: int = Field(foreign_key="feed.id", index=True)
     category_id: int = Field(foreign_key="category.id", index=True)
     sort_order: int = Field(default=0)
+    # 0.11.2: private per-user note. Shown as a subtitle under the feed
+    # title on the reader's timeline/bookmarks/activity. Never rendered
+    # publicly (RSS, other users' /u/{handle}, etc.). Purpose: help the
+    # user remember who a cryptic handle actually is ("DHH → Rails
+    # creator", "the_pythonist → @Samuel").
+    note: str = Field(default="", max_length=280,
+                      sa_column_kwargs={"server_default": ""})
 
 
 class FeedItem(SQLModel, table=True):
@@ -374,6 +381,15 @@ def _run_sqlite_migrations(conn) -> None:
                 conn.exec_driver_sql(
                     f"ALTER TABLE wallabagaccount ADD COLUMN {col} TEXT NOT NULL DEFAULT ''"
                 )
+
+    # 0.11.2: Subscription.note added for private per-user reminder notes
+    # ("DHH → Rails creator"). Backfilled to empty string.
+    if _sqlite_column_exists(conn, "subscription", "id") and not _sqlite_column_exists(
+        conn, "subscription", "note"
+    ):
+        conn.exec_driver_sql(
+            "ALTER TABLE subscription ADD COLUMN note TEXT NOT NULL DEFAULT ''"
+        )
 
     # 0.2.43: category follows started auto-adding a Subscription for
     # the category's RSS URL. We used to backfill this on every startup

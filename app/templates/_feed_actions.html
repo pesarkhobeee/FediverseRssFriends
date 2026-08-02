@@ -16,6 +16,13 @@
         hx-swap="innerHTML"
         title="Edit the feed's URL">✏️ Edit URL</button>
 <button class="btn-ghost"
+        hx-get="/subscriptions/{{ sub.id }}/note-picker"
+        hx-target="#actions-{{ sub.id }}"
+        hx-swap="innerHTML"
+        title="{% if sub.note %}Edit your private note{% else %}Add a private note (only you see it){% endif %}">
+  📝 {% if sub.note %}Note ✓{% else %}Note{% endif %}
+</button>
+<button class="btn-ghost"
         hx-get="/subscriptions/{{ sub.id }}/move-picker"
         hx-target="#actions-{{ sub.id }}"
         hx-swap="innerHTML"

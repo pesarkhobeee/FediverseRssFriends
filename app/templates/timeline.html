@@ -30,6 +30,11 @@
           {% else %}
             <span class="title">someone</span>
           {% endif %}
+          {# 0.11.2: viewer's own private note for this feed (if they
+             subscribe + noted it). Only rendered to the note author. #}
+          {% if e.viewer_note %}
+            <span class="viewer-note muted" title="Your private note">— {{ e.viewer_note }}</span>
+          {% endif %}
           {# For "posted" activity (personal feed cross-post), show the
              source domain as a small chip so followers see where it came
              from — attribution is self-declared, not verified. #}

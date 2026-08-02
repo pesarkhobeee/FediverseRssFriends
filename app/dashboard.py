@@ -609,6 +609,45 @@ def move_picker(
     return _partial(request, "_move_picker.html", sub=sub, categories=categories)
 
 
+@router.get("/subscriptions/{sub_id}/note-picker", response_class=HTMLResponse)
+def note_picker(
+    sub_id: int,
+    request: Request,
+    user: User = Depends(login_required),
+    db: Session = Depends(get_session),
+):
+    """0.11.2: inline picker to edit the private per-user note on a
+    subscription. Swaps into the row's actions cell."""
+    sub = _get_owned_subscription(db, user, sub_id)
+    feed = db.get(Feed, sub.feed_id)
+    return _partial(request, "_note_picker.html", sub=sub, feed=feed)
+
+
+@router.post("/subscriptions/{sub_id}/note", response_class=HTMLResponse)
+def save_subscription_note(
+    sub_id: int,
+    request: Request,
+    note: str = Form(""),
+    user: User = Depends(login_required),
+    db: Session = Depends(get_session),
+):
+    """Save the private note. Empty string = no note (falsey in templates).
+    Returns the whole row so the subtitle re-renders inline."""
+    sub = _get_owned_subscription(db, user, sub_id)
+    sub.note = (note or "").strip()[:280]
+    db.add(sub)
+    db.commit()
+    feed = db.get(Feed, sub.feed_id)
+    from sqlalchemy import func
+
+    from .db import FeedItem
+    item_count = db.exec(
+        select(func.count(FeedItem.id)).where(FeedItem.feed_id == feed.id)
+    ).one() or 0
+    return _partial(request, "_feed_row.html",
+                    sub=sub, feed=feed, item_count=item_count)
+
+
 @router.get("/subscriptions/{sub_id}/actions", response_class=HTMLResponse)
 def subscription_actions(
     sub_id: int,

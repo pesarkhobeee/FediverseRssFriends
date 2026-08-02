@@ -327,6 +327,22 @@ img.favicon {
   flex-wrap: wrap;
 }
 .feed-meta { font-size: .85rem; }
+
+/* 0.11.2: private per-user notes on subscriptions ("DHH → Rails creator").
+   Shown as an inline subtitle after the feed title on dashboard rows
+   and, when the viewer has annotated a feed, in the friends-timeline
+   byline. Same italic + muted treatment in both places. */
+.feed-title-wrap { display: inline-flex; align-items: baseline; gap: 6px;
+                   flex-wrap: wrap; min-width: 0; }
+.feed-note, .viewer-note {
+  font-style: italic;
+  font-size: .9em;
+}
+.note-picker-form {
+  display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  width: 100%;
+}
+.note-picker-input { flex: 1 1 240px; min-width: 0; }
 .refresh-status { font-size: .85rem; color: var(--muted); min-width: 0; }
 .htmx-request .refresh-status::before,
 .htmx-request#refresh-status::before { content: "Refreshing…"; color: var(--muted); }

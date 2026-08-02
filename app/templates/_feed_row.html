@@ -9,11 +9,16 @@
   {% else %}
     <span class="favicon" aria-hidden="true">📡</span>
   {% endif %}
-  {% if feed.site_url %}
-    <a class="title" href="{{ feed.site_url }}" target="_blank" rel="noopener">{{ feed.title }}</a>
-  {% else %}
-    <span class="title">{{ feed.title }}</span>
-  {% endif %}
+  <span class="feed-title-wrap">
+    {% if feed.site_url %}
+      <a class="title" href="{{ feed.site_url }}" target="_blank" rel="noopener">{{ feed.title }}</a>
+    {% else %}
+      <span class="title">{{ feed.title }}</span>
+    {% endif %}
+    {% if sub.note %}
+      <span class="feed-note muted" title="Your private note">— {{ sub.note }}</span>
+    {% endif %}
+  </span>
   <span class="feed-meta muted">
     {% if just_added %}
       {% if item_count %}

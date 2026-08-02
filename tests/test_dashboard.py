@@ -224,3 +224,110 @@ def test_subscribe_shows_warning_chip_on_fetch_failure(monkeypatch):
     assert "feed-just-added-chip" in r.text
     assert "feed-just-added-warn" in r.text
     assert "will retry" in r.text
+
+
+# ─── 0.11.2: private per-user notes on subscriptions ───────────────────
+
+
+def _make_sub(monkeypatch, client) -> int:
+    _stub_resolve(monkeypatch, title="DHH's Blog", site="https://dhh.dk")
+    cat_id = _extract_id(
+        client.post("/categories", data={"name": "Weblogs"}).text, "category-",
+    )
+    r = client.post("/feeds", data={"url": "https://dhh.dk/feed", "category_id": cat_id})
+    return _extract_id(r.text, "sub-")
+
+
+def test_note_picker_renders_input_and_save_button(monkeypatch):
+    client = _client()
+    _login(client)
+    sub_id = _make_sub(monkeypatch, client)
+    r = client.get(f"/subscriptions/{sub_id}/note-picker")
+    assert r.status_code == 200
+    assert 'name="note"' in r.text
+    assert "Save" in r.text
+    assert f"/subscriptions/{sub_id}/note" in r.text
+
+
+def test_note_save_persists_and_renders_subtitle(monkeypatch):
+    """POST /note stores the note; returned row markup shows it inline
+    as a subtitle after the feed title."""
+    from sqlmodel import Session
+
+    import app.db as db_mod
+
+    client = _client()
+    _login(client)
+    sub_id = _make_sub(monkeypatch, client)
+
+    r = client.post(f"/subscriptions/{sub_id}/note",
+                    data={"note": "creator of Ruby on Rails"})
+    assert r.status_code == 200
+    assert "creator of Ruby on Rails" in r.text
+    assert "feed-note" in r.text
+
+    with Session(db_mod.engine) as s:
+        sub = s.get(db_mod.Subscription, sub_id)
+        assert sub.note == "creator of Ruby on Rails"
+
+
+def test_note_save_trims_and_caps_at_280(monkeypatch):
+    from sqlmodel import Session
+
+    import app.db as db_mod
+
+    client = _client()
+    _login(client)
+    sub_id = _make_sub(monkeypatch, client)
+
+    long_note = "  " + ("x" * 400) + "  "
+    r = client.post(f"/subscriptions/{sub_id}/note", data={"note": long_note})
+    assert r.status_code == 200
+    with Session(db_mod.engine) as s:
+        sub = s.get(db_mod.Subscription, sub_id)
+        assert sub.note == "x" * 280
+
+
+def test_note_empty_string_clears_the_note(monkeypatch):
+    from sqlmodel import Session
+
+    import app.db as db_mod
+
+    client = _client()
+    _login(client)
+    sub_id = _make_sub(monkeypatch, client)
+
+    client.post(f"/subscriptions/{sub_id}/note", data={"note": "hello"})
+    client.post(f"/subscriptions/{sub_id}/note", data={"note": ""})
+    with Session(db_mod.engine) as s:
+        sub = s.get(db_mod.Subscription, sub_id)
+        assert sub.note == ""
+
+
+def test_note_picker_forbidden_for_other_users_subscription(monkeypatch):
+    """Sub id belongs to alice — bob cannot open its picker nor save."""
+    alice = _client()
+    _login(alice, "alice@example.com")
+    sub_id = _make_sub(monkeypatch, alice)
+
+    bob = _client()
+    _login(bob, "bob@example.com")
+    r = bob.get(f"/subscriptions/{sub_id}/note-picker")
+    assert r.status_code == 404
+    r = bob.post(f"/subscriptions/{sub_id}/note", data={"note": "hax"})
+    assert r.status_code == 404
+
+
+def test_note_button_shows_check_when_note_is_set(monkeypatch):
+    """The row's action strip flips 'Note' → 'Note ✓' after saving."""
+    client = _client()
+    _login(client)
+    sub_id = _make_sub(monkeypatch, client)
+
+    dash = client.get("/dashboard").text
+    # Extract the row's action label — before saving, no check.
+    assert "Note ✓" not in dash
+
+    client.post(f"/subscriptions/{sub_id}/note", data={"note": "hi"})
+    dash = client.get("/dashboard").text
+    assert "Note ✓" in dash
