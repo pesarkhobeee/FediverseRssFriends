@@ -3,7 +3,12 @@
 {% block meta_description %}Hand-curated collections of RSS feeds by topic, place, and language. Not just BBC and CNN — find the smaller, local, and native-language feeds you'd actually read.{% endblock %}
 {% block content %}
 <section class="collections-hero">
-  <h1 class="collections-hero-title">Collections</h1>
+  <div class="collections-hero-head">
+    <h1 class="collections-hero-title">Collections</h1>
+    {% if is_admin %}
+      <a class="btn" href="/collections/new">+ New collection</a>
+    {% endif %}
+  </div>
   <p class="collections-hero-lead">
     Hand-curated bundles of feeds by topic, place, and language.
     Community-suggested, curator-approved. Not just BBC and CNN —

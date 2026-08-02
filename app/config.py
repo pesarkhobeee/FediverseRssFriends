@@ -50,3 +50,15 @@ SUGGESTION_NOTIFY_ENABLED: bool = (
     os.getenv("RSSFRIENDS_SUGGESTION_NOTIFY_ENABLED", "1") != "0"
     and len(SUGGESTION_NOTIFY_EMAILS) > 0
 )
+
+# ─── Instance admins (0.11.1) ───────────────────────────────────────────
+# Comma-separated list of handles allowed to create/edit collections
+# and moderate every system-curated collection. If empty, the
+# first-registered user on the instance is the de-facto admin (matches
+# the pattern already used by _can_moderate for system-curated cols).
+#
+# Example: RSSFRIENDS_ADMIN_HANDLES=ahmadian-farid-1988,pesarkhobeee
+ADMIN_HANDLES: list[str] = [
+    h.strip() for h in os.getenv("RSSFRIENDS_ADMIN_HANDLES", "").split(",")
+    if h.strip()
+]

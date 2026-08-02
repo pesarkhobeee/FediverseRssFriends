@@ -30,9 +30,12 @@
       </div>
     </div>
     {% if can_moderate %}
-      <a class="btn-ghost" href="/collections/{{ collection.slug }}/manage">
-        Manage{% if pending_suggestions_count %} ({{ pending_suggestions_count }} pending){% endif %}
-      </a>
+      <div style="display:flex; gap:6px">
+        <a class="btn-ghost" href="/collections/{{ collection.slug }}/edit">Edit</a>
+        <a class="btn-ghost" href="/collections/{{ collection.slug }}/manage">
+          Manage{% if pending_suggestions_count %} ({{ pending_suggestions_count }} pending){% endif %}
+        </a>
+      </div>
     {% endif %}
   </div>
 

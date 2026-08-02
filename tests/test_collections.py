@@ -589,3 +589,182 @@ def test_language_filter_unknown_lang_shows_helpful_empty_state():
     r = _client().get("/collections?lang=zz")
     body = r.text
     assert "No collections in that language yet" in body
+
+
+# ─── 0.11.1: admin/curator UI for creating + editing collections ───────
+
+
+def test_non_admin_cannot_open_new_collection_form():
+    a = _client()
+    _login(a, "first@example.com")  # de-facto admin
+    b = _client()
+    _login(b, "second@example.com")
+    r = b.get("/collections/new")
+    assert r.status_code == 403
+
+
+def test_admin_creates_collection_then_it_shows_up_in_list():
+    import app.db as db_mod
+    a = _client()
+    _login(a, "first@example.com")
+    # +New button visible for admin on /collections
+    r = a.get("/collections")
+    assert 'href="/collections/new"' in r.text
+
+    r = a.post(
+        "/collections/new",
+        data={
+            "slug": "my-new-list",
+            "name": "My New List",
+            "description": "hand-picked stuff",
+            "language": "en",
+            "locale": "",
+            "is_official": "on",
+        },
+        follow_redirects=False,
+    )
+    assert r.status_code == 303
+    assert r.headers["location"].endswith("/collections/my-new-list")
+
+    with Session(db_mod.engine) as s:
+        col = s.exec(select(db_mod.Collection)
+                     .where(db_mod.Collection.slug == "my-new-list")).one()
+        assert col.name == "My New List"
+        assert col.is_official is True
+        assert col.curator_id is not None  # creator = curator
+
+
+def test_create_collection_rejects_bad_slug():
+    a = _client()
+    _login(a, "first@example.com")
+    r = a.post(
+        "/collections/new",
+        data={"slug": "Bad Slug!", "name": "X"},
+    )
+    assert r.status_code == 400
+
+
+def test_create_collection_duplicate_slug_returns_409():
+    a = _client()
+    _login(a, "first@example.com")
+    a.post("/collections/new",
+           data={"slug": "twice", "name": "First"}, follow_redirects=False)
+    r = a.post("/collections/new",
+               data={"slug": "twice", "name": "Second"})
+    assert r.status_code == 409
+
+
+def test_curator_can_edit_metadata_but_non_admin_cannot_flip_is_official():
+    """Curator of their own (non-official) collection may edit name/desc,
+    but toggling is_official is admin-only."""
+    import app.db as db_mod
+    # Admin creates a non-official collection, curated by user b via
+    # ownership transfer through direct DB (simulating handoff).
+    a = _client()
+    _login(a, "first@example.com")
+    a.post("/collections/new",
+           data={"slug": "my-list", "name": "My List", "is_official": ""},
+           follow_redirects=False)
+    b = _client()
+    _login(b, "curator-b@example.com")
+    with Session(db_mod.engine) as s:
+        col = s.exec(select(db_mod.Collection)
+                     .where(db_mod.Collection.slug == "my-list")).one()
+        u = s.exec(select(db_mod.User)
+                   .where(db_mod.User.email == "curator-b@example.com")).one()
+        col.curator_id = u.id
+        s.add(col)
+        s.commit()
+
+    # b (curator, not admin) tries to promote to official → stays False.
+    r = b.post(
+        "/collections/my-list/edit",
+        data={"name": "My List Renamed", "description": "d",
+              "language": "en", "locale": "", "is_official": "on",
+              "is_public": "on"},
+        follow_redirects=False,
+    )
+    assert r.status_code == 303
+    with Session(db_mod.engine) as s:
+        col = s.exec(select(db_mod.Collection)
+                     .where(db_mod.Collection.slug == "my-list")).one()
+        assert col.name == "My List Renamed"
+        assert col.is_official is False  # curator can't self-promote
+
+
+def test_non_curator_cannot_edit():
+    a = _client()
+    _login(a, "first@example.com")
+    b = _client()
+    _login(b, "outsider@example.com")
+    r = b.get("/collections/berlin-nachrichten/edit")
+    assert r.status_code == 403
+    r = b.post("/collections/berlin-nachrichten/edit",
+               data={"name": "Hacked"})
+    assert r.status_code == 403
+
+
+def test_curator_add_feed_skips_suggestion_queue(monkeypatch):
+    """POST /collections/{slug}/add-feed goes straight into the
+    collection — no CollectionSuggestion row created."""
+    import app.collections as collections_mod
+    import app.db as db_mod
+    import app.feeds
+
+    def fake_resolve(url):
+        return {"title": "Direct-Add Feed", "site_url": "https://ex.example",
+                "favicon_url": "", "is_feed": True}
+    monkeypatch.setattr(collections_mod, "resolve_feed", fake_resolve, raising=False)
+    monkeypatch.setattr(app.feeds, "resolve_feed", fake_resolve)
+
+    admin = _client()
+    _login(admin, "first@example.com")
+    r = admin.post(
+        "/collections/berlin-nachrichten/add-feed",
+        data={"feed_url": "https://ex.example/direct.rss", "note": "curator pick"},
+        follow_redirects=False,
+    )
+    assert r.status_code == 303
+
+    with Session(db_mod.engine) as s:
+        # No suggestion row created.
+        sugs = s.exec(select(db_mod.CollectionSuggestion)).all()
+        assert sugs == []
+        # Collection feed count grew from 12 to 13.
+        col = s.exec(select(db_mod.Collection)
+                     .where(db_mod.Collection.slug == "berlin-nachrichten")).one()
+        n = len(s.exec(select(db_mod.CollectionFeed)
+                       .where(db_mod.CollectionFeed.collection_id == col.id)).all())
+        assert n == 13
+
+
+def test_curator_add_feed_dedup_returns_409(monkeypatch):
+    """Adding the same URL twice returns 409 instead of silently duping."""
+    import app.collections as collections_mod
+    import app.feeds
+
+    def fake_resolve(url):
+        return {"title": "Dupe", "site_url": "", "favicon_url": "", "is_feed": True}
+    monkeypatch.setattr(collections_mod, "resolve_feed", fake_resolve, raising=False)
+    monkeypatch.setattr(app.feeds, "resolve_feed", fake_resolve)
+
+    admin = _client()
+    _login(admin, "first@example.com")
+    admin.post("/collections/berlin-nachrichten/add-feed",
+               data={"feed_url": "https://ex.example/dupe.rss"},
+               follow_redirects=False)
+    r = admin.post("/collections/berlin-nachrichten/add-feed",
+                   data={"feed_url": "https://ex.example/dupe.rss"},
+                   follow_redirects=False)
+    assert r.status_code == 409
+
+
+def test_non_curator_cannot_add_feed():
+    # First registration is the de-facto admin; establish that before b.
+    a = _client()
+    _login(a, "first@example.com")
+    b = _client()
+    _login(b, "outsider@example.com")
+    r = b.post("/collections/berlin-nachrichten/add-feed",
+               data={"feed_url": "https://ex.example/x.rss"})
+    assert r.status_code == 403

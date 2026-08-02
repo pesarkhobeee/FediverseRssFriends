@@ -2164,6 +2164,28 @@ img.favicon {
 }
 .collection-suggest-thanks { max-width: 560px; padding: 12px 0; }
 
+/* 0.11.1: admin/curator forms (new / edit collection, add feed inline) */
+.collections-hero-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap;
+}
+.collection-admin-form {
+  display: flex; flex-direction: column; gap: 14px; max-width: 640px;
+  margin-top: 16px;
+}
+.collection-admin-form label { display: block; }
+.collection-admin-label {
+  font-family: "Instrument Sans", system-ui, sans-serif;
+  font-weight: 500; font-size: 13px; color: var(--muted);
+  margin-bottom: 4px;
+}
+.collection-admin-hint { font-size: 12px; margin-top: 4px; }
+.collection-admin-checkbox {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 14px;
+}
+.collection-admin-checkbox input { margin: 0; }
+
 @media (max-width: 640px) {
   .collections-hero-title { font-size: 34px; }
   .collection-detail-title { font-size: 28px; }

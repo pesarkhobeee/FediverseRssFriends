@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}New collection · rssFriends{% endblock %}
+{% block content %}
+<section class="hero stack">
+  <p><a class="btn-ghost" href="/collections">← All collections</a></p>
+  <h1>New collection</h1>
+  <p class="muted" style="max-width:60ch">
+    Create a curated bundle of feeds around a topic + place + language.
+    You become its curator: you can accept community suggestions,
+    remove feeds, and edit the description.
+  </p>
+</section>
+
+<form method="post" action="/collections/new" class="collection-admin-form">
+  <label>
+    <div class="collection-admin-label">Slug</div>
+    <input class="input" type="text" name="slug" required
+           pattern="[a-z][a-z0-9-]{1,63}"
+           placeholder="e.g. amsterdam-nieuws" />
+    <div class="muted collection-admin-hint">
+      The URL slug: <code>/collections/&lt;slug&gt;</code>. Lowercase
+      letters, digits, hyphens; 2–64 chars; must start with a letter.
+      Can't be changed after creation.
+    </div>
+  </label>
+
+  <label>
+    <div class="collection-admin-label">Name</div>
+    <input class="input" type="text" name="name" required maxlength="120"
+           placeholder="e.g. Amsterdam — Nieuws" />
+    <div class="muted collection-admin-hint">
+      Displayed at the top of the collection page. Use the em-dash
+      pattern for locale/topic collections (Berlin — Nachrichten).
+    </div>
+  </label>
+
+  <label>
+    <div class="collection-admin-label">Description</div>
+    <textarea class="input" name="description" rows="4" maxlength="600"
+              placeholder="A short paragraph telling users why they'd want this on their radar."></textarea>
+  </label>
+
+  <div style="display:flex; gap:16px">
+    <label style="flex:1">
+      <div class="collection-admin-label">Language (ISO 639-1)</div>
+      <input class="input" type="text" name="language" maxlength="5"
+             placeholder="en / de / fa / nl / …" />
+    </label>
+    <label style="flex:1">
+      <div class="collection-admin-label">Locale</div>
+      <input class="input" type="text" name="locale" maxlength="64"
+             placeholder="Amsterdam, NL — leave empty for global topics" />
+    </label>
+  </div>
+
+  <label class="collection-admin-checkbox">
+    <input type="checkbox" name="is_official" checked>
+    <span>Feature on the /discover page (uncheck for personal / experimental collections)</span>
+  </label>
+
+  <div style="display:flex; gap:10px; margin-top:16px">
+    <button class="btn" type="submit">Create collection →</button>
+    <a class="btn-ghost" href="/collections">Cancel</a>
+  </div>
+</form>
+{% endblock %}

@@ -21,6 +21,7 @@ Post-MVP (v0.11+): user-created collections, upvoting, cross-instance
 federation via ActivityPub (see docs/federation-activitypub.md).
 """
 
+import re
 from datetime import UTC, datetime
 from xml.sax.saxutils import escape as xml_escape
 
@@ -28,7 +29,7 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request, sta
 from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
 from sqlmodel import Session, select
 
-from . import mail
+from . import config, mail
 from .auth import current_user, login_required
 from .db import (
     Collection,
@@ -72,17 +73,31 @@ def _load_collection_feeds(db: Session, collection_id: int) -> list[dict]:
     ]
 
 
-def _can_moderate(db: Session, user: User | None, col: Collection) -> bool:
-    """A user can moderate a collection if they are its curator OR
-    (for system-curated collections with curator_id NULL) they are the
-    first-registered user on the instance (de-facto root admin). MVP
-    heuristic; will be replaced by config-driven admin list."""
+def _is_admin(db: Session, user: User | None) -> bool:
+    """Instance-level admin check. Two paths:
+
+      1. `config.ADMIN_HANDLES` non-empty → user is in that list.
+      2. `config.ADMIN_HANDLES` empty (default) → the first-registered
+         user on the instance is the de-facto root admin. Zero-config
+         path for fresh instances; also matches how _can_moderate has
+         handled system-curated collections since 0.10.0.
+    """
     if not user:
         return False
-    if col.curator_id is not None:
-        return user.id == col.curator_id
+    if config.ADMIN_HANDLES:
+        return user.handle in config.ADMIN_HANDLES
     root = db.exec(select(User).order_by(User.id).limit(1)).first()
     return bool(root and root.id == user.id)
+
+
+def _can_moderate(db: Session, user: User | None, col: Collection) -> bool:
+    """A user can moderate a collection if they are its curator OR
+    an instance admin (see `_is_admin`)."""
+    if not user:
+        return False
+    if col.curator_id is not None and user.id == col.curator_id:
+        return True
+    return _is_admin(db, user)
 
 
 def _viewer_subs(db: Session, viewer: User | None, feed_ids: list[int]) -> set[int]:
@@ -140,8 +155,196 @@ def collections_list(
             "counts": counts,
             "active_lang": lang,
             "all_langs": all_langs,
+            "is_admin": _is_admin(db, viewer),
         },
     )
+
+
+# ─── Admin: create / edit collections + manually add feeds ─────────────
+#
+# All admin routes registered BEFORE the plain `/collections/{slug}`
+# matcher so FastAPI can't accidentally treat "new" as a slug.
+
+
+_SLUG_RE = re.compile(r"^[a-z][a-z0-9-]{1,63}$")
+
+
+@router.get("/collections/new", response_class=HTMLResponse)
+def new_collection_form(
+    request: Request,
+    user: User = Depends(login_required),
+    db: Session = Depends(get_session),
+):
+    """Admin-only. Renders the 'create a new collection' form."""
+    if not _is_admin(db, user):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "admin only")
+    return templates.TemplateResponse(
+        request, "collection_new.html", {"user": user},
+    )
+
+
+@router.post("/collections/new")
+def create_collection(
+    slug: str = Form(...),
+    name: str = Form(...),
+    description: str = Form(""),
+    language: str = Form(""),
+    locale: str = Form(""),
+    is_official: str = Form(""),
+    user: User = Depends(login_required),
+    db: Session = Depends(get_session),
+):
+    """Admin-only. Creates the Collection row + redirects to the new
+    detail page. The curator is the creating admin (nullable = system
+    only when created by the seed loop)."""
+    if not _is_admin(db, user):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "admin only")
+
+    slug = (slug or "").strip().lower()
+    name = (name or "").strip()
+    if not _SLUG_RE.match(slug):
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "slug must be 2-64 chars: lowercase letters, digits, hyphens; starting with a letter.",
+        )
+    if not name:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "name is required")
+    if db.exec(select(Collection).where(Collection.slug == slug)).first():
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, f"a collection with slug '{slug}' already exists",
+        )
+
+    col = Collection(
+        slug=slug,
+        name=name,
+        description=(description or "").strip(),
+        language=(language or "").strip().lower()[:5],
+        locale=(locale or "").strip()[:64],
+        curator_id=user.id,           # creator is the curator
+        is_official=(is_official == "on"),
+        is_public=True,
+        created_at=datetime.now(UTC),
+    )
+    db.add(col)
+    db.commit()
+    return RedirectResponse(f"/collections/{slug}", status_code=303)
+
+
+@router.get("/collections/{slug}/edit", response_class=HTMLResponse)
+def edit_collection_form(
+    slug: str,
+    request: Request,
+    user: User = Depends(login_required),
+    db: Session = Depends(get_session),
+):
+    col = _load_collection(db, slug)
+    if not _can_moderate(db, user, col):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "not the curator")
+    return templates.TemplateResponse(
+        request, "collection_edit.html",
+        {"user": user, "collection": col, "is_admin": _is_admin(db, user)},
+    )
+
+
+@router.post("/collections/{slug}/edit")
+def edit_collection(
+    slug: str,
+    name: str = Form(...),
+    description: str = Form(""),
+    language: str = Form(""),
+    locale: str = Form(""),
+    is_official: str = Form(""),
+    is_public: str = Form("on"),
+    user: User = Depends(login_required),
+    db: Session = Depends(get_session),
+):
+    """Curator or admin updates the collection's metadata (not the
+    slug — the slug is the URL and stable). is_official + is_public
+    are checkbox-style: present = True, absent = False."""
+    col = _load_collection(db, slug)
+    if not _can_moderate(db, user, col):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "not the curator")
+
+    name = (name or "").strip()
+    if not name:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "name is required")
+
+    col.name = name
+    col.description = (description or "").strip()
+    col.language = (language or "").strip().lower()[:5]
+    col.locale = (locale or "").strip()[:64]
+    # Only admins can flip is_official (curators of a personal collection
+    # can't self-promote it to the featured band).
+    if _is_admin(db, user):
+        col.is_official = (is_official == "on")
+    col.is_public = (is_public == "on")
+    db.add(col)
+    db.commit()
+    return RedirectResponse(f"/collections/{slug}", status_code=303)
+
+
+@router.post("/collections/{slug}/add-feed")
+def curator_add_feed(
+    slug: str,
+    feed_url: str = Form(...),
+    note: str = Form(""),
+    user: User = Depends(login_required),
+    db: Session = Depends(get_session),
+):
+    """Curator adds a feed to a collection directly, skipping the
+    suggestion queue. Runs through the standard normalize +
+    resolve_feed pipeline so we validate before committing anything."""
+    from .feeds import normalize_feed_url, resolve_feed
+
+    col = _load_collection(db, slug)
+    if not _can_moderate(db, user, col):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "not the curator")
+
+    url = normalize_feed_url((feed_url or "").strip())
+    if not url.startswith(("http://", "https://")):
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST, "URL must start with http:// or https://"
+        )
+
+    feed = db.exec(select(Feed).where(Feed.url == url)).first()
+    if not feed:
+        meta = resolve_feed(url)
+        if not meta.get("is_feed", False):
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                f"URL didn't resolve to a feed: {url}",
+            )
+        feed = Feed(
+            url=url, title=meta["title"],
+            site_url=meta.get("site_url", ""),
+            favicon_url=meta.get("favicon_url", ""),
+        )
+        db.add(feed)
+        db.flush()
+
+    # Dedup: already in collection → 409.
+    if db.exec(
+        select(CollectionFeed)
+        .where(CollectionFeed.collection_id == col.id)
+        .where(CollectionFeed.feed_id == feed.id)
+    ).first():
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, "that feed is already in this collection",
+        )
+
+    max_order = db.exec(
+        select(CollectionFeed.sort_order)
+        .where(CollectionFeed.collection_id == col.id)
+        .order_by(CollectionFeed.sort_order.desc())
+    ).first() or 0
+    db.add(CollectionFeed(
+        collection_id=col.id,
+        feed_id=feed.id,
+        note=(note or "").strip()[:500],
+        sort_order=max_order + 1,
+    ))
+    db.commit()
+    return RedirectResponse(f"/collections/{slug}/manage", status_code=303)
 
 
 # NOTE on route ordering: `/collections/{slug}.rss` must be registered
@@ -440,11 +643,16 @@ def manage_collection(
         .where(CollectionSuggestion.status == "pending")
         .order_by(CollectionSuggestion.created_at.desc())
     ).all()
+    # Also load the current feed list so the manage page can show
+    # "how many + what's in there" alongside the pending queue.
+    feeds = _load_collection_feeds(db, col.id)
     return templates.TemplateResponse(
         request, "collection_manage.html",
         {
             "user": user, "collection": col,
             "pending": [{"sug": s, "by": u} for s, u in pending],
+            "current_feeds": feeds,
+            "is_admin": _is_admin(db, user),
         },
     )
 

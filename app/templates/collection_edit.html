@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Edit · {{ collection.name }}{% endblock %}
+{% block content %}
+<section class="hero stack">
+  <p>
+    <a class="btn-ghost" href="/collections/{{ collection.slug }}">← Back to collection</a>
+    <a class="btn-ghost" href="/collections/{{ collection.slug }}/manage">Manage suggestions</a>
+  </p>
+  <h1>Edit: {{ collection.name }}</h1>
+  <p class="muted">
+    Slug <code>{{ collection.slug }}</code> is stable (it's the URL).
+    Everything else can be edited.
+  </p>
+</section>
+
+<form method="post" action="/collections/{{ collection.slug }}/edit"
+      class="collection-admin-form">
+  <label>
+    <div class="collection-admin-label">Name</div>
+    <input class="input" type="text" name="name" required maxlength="120"
+           value="{{ collection.name }}" />
+  </label>
+
+  <label>
+    <div class="collection-admin-label">Description</div>
+    <textarea class="input" name="description" rows="5" maxlength="600">{{ collection.description }}</textarea>
+  </label>
+
+  <div style="display:flex; gap:16px">
+    <label style="flex:1">
+      <div class="collection-admin-label">Language (ISO 639-1)</div>
+      <input class="input" type="text" name="language" maxlength="5"
+             value="{{ collection.language }}" />
+    </label>
+    <label style="flex:1">
+      <div class="collection-admin-label">Locale</div>
+      <input class="input" type="text" name="locale" maxlength="64"
+             value="{{ collection.locale }}" />
+    </label>
+  </div>
+
+  <label class="collection-admin-checkbox">
+    <input type="checkbox" name="is_public" {% if collection.is_public %}checked{% endif %}>
+    <span>Public (visible on <code>/collections</code> to everyone)</span>
+  </label>
+
+  {% if is_admin %}
+    <label class="collection-admin-checkbox">
+      <input type="checkbox" name="is_official" {% if collection.is_official %}checked{% endif %}>
+      <span>Official (featured on <code>/discover</code>) — admin-only toggle</span>
+    </label>
+  {% endif %}
+
+  <div style="display:flex; gap:10px; margin-top:16px">
+    <button class="btn" type="submit">Save changes</button>
+    <a class="btn-ghost" href="/collections/{{ collection.slug }}">Cancel</a>
+  </div>
+</form>
+{% endblock %}
