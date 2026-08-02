@@ -668,6 +668,14 @@ SEED_BERLIN_ENGLISH = {
          "Deutsche Welle — Germany (EN)", "https://www.dw.com/en/germany/",
          "https://www.dw.com/favicon.ico",
          "DW's Germany desk in English — national context expats read."),
+        # Added 0.10.4 from prod signal — 5 users had already subscribed
+        # to it manually, making it the second-most-subscribed Berlin
+        # feed on the instance.
+        ("https://allaboutberlin.com/guides/feed.rss",
+         "All About Berlin — Guides", "https://allaboutberlin.com/",
+         "https://allaboutberlin.com/favicon.ico",
+         "The definitive English-language practical guides for living in "
+         "Berlin — visas, taxes, apartments, health insurance."),
     ],
 }
 
@@ -958,6 +966,237 @@ SEED_LONGFORM = {
 }
 
 
+SEED_ENGINEER_WEBLOGS = {
+    "slug": "engineer-weblogs",
+    "name": "Engineer Weblogs",
+    "description": (
+        "The long tail of thoughtful engineers writing about their craft — "
+        "not household names, not framework hype. Personal blogs from working "
+        "engineers whose posts stick with you. Seeded from the feeds real "
+        "rssFriends users have already been reading."
+    ),
+    "language": "en",
+    "locale": "",
+    "is_official": True,
+    "curator_handle": "ahmadian-farid-1988",
+    "feeds": [
+        ("https://dave.cheney.net/feed",
+         "Dave Cheney", "https://dave.cheney.net/",
+         "https://dave.cheney.net/favicon.ico",
+         "Go internals, performance, engineering practice."),
+        ("https://drewdevault.com/blog/index.xml",
+         "Drew DeVault", "https://drewdevault.com/",
+         "https://drewdevault.com/favicon.ico",
+         "Open-source maintainer (SourceHut, sway); frank essays on the craft + community."),
+        ("https://scottchacon.com/atom.xml",
+         "Scott Chacon", "https://scottchacon.com/",
+         "https://scottchacon.com/favicon.ico",
+         "Git co-founder, ex-GitHub. Notes from someone who has shipped a lot."),
+        ("https://endler.dev/rss.xml",
+         "Matthias Endler", "https://endler.dev/",
+         "https://endler.dev/favicon.ico",
+         "Rust + Go + Corrode. Practical engineering essays."),
+        ("https://jesseduffield.com/feed.xml",
+         "Jesse Duffield (Pursuit Of Laziness)",
+         "https://jesseduffield.com/",
+         "https://jesseduffield.com/favicon.ico",
+         "Creator of lazygit + lazydocker. Terminal-UI thinking + Go internals."),
+        ("https://toot.cafe/@codepo8.rss",
+         "Chris Heilmann", "https://toot.cafe/@codepo8",
+         "https://toot.cafe/favicon.ico",
+         "Ex-Mozilla dev advocate; the web platform + accessibility "
+         "from someone who's shipped it."),
+        ("https://www.arp242.net/feed.xml",
+         "arp242.net (Martin Tournoij)",
+         "https://www.arp242.net/",
+         "https://www.arp242.net/favicon.ico",
+         "Go, Unix, quirky opinions. Author of goatcounter."),
+        ("https://ellie.wtf/index.xml",
+         "Ellie's Notes", "https://ellie.wtf/",
+         "https://ellie.wtf/favicon.ico",
+         "Compilers, formal methods, and cursed programming languages, illustrated."),
+        ("http://jackkelly.name/blog/rss.xml",
+         "Jack Kelly", "http://jackkelly.name/",
+         "http://jackkelly.name/favicon.ico",
+         "Haskell, static analysis, homelab notes."),
+        ("https://www.nicchan.me/feed.xml",
+         "Nic Chan", "https://www.nicchan.me/",
+         "https://www.nicchan.me/favicon.ico",
+         "Front-end + design + accessibility."),
+        ("https://noelberry.ca/rss.xml",
+         "Noel Berry", "https://noelberry.ca/",
+         "https://noelberry.ca/favicon.ico",
+         "Indie game dev (Celeste), engine work, design notes."),
+        ("https://brndn.io/index.xml",
+         "Brenden's Blog", "https://brndn.io/",
+         "https://brndn.io/favicon.ico",
+         "Prolific personal blog on tools, side projects, and shipping."),
+        ("https://blainsmith.com/rss.xml",
+         "Blain Smith", "https://blainsmith.com/",
+         "https://blainsmith.com/favicon.ico",
+         "Backend engineering, tooling, and everyday craft."),
+        ("https://rushter.com/blog/feed/",
+         "Artem Golubin (rushter.com)",
+         "https://rushter.com/",
+         "https://rushter.com/favicon.ico",
+         "Python internals + performance deep-dives."),
+        ("https://notes.pault.ag/index.xml",
+         "Paul's Notes (pault.ag)",
+         "https://notes.pault.ag/",
+         "https://notes.pault.ag/favicon.ico",
+         "Systems, security, packaging. Debian dev + reverse engineering."),
+        ("https://kristina-pianykh.github.io/blog/index.xml",
+         "Kristina Pianykh (Tada!)",
+         "https://kristina-pianykh.github.io/blog/",
+         "https://kristina-pianykh.github.io/favicon.ico",
+         "Learning-in-public log from a working engineer."),
+        ("https://iamyekta.com/post/index.xml",
+         "Yekta Leblebici", "https://iamyekta.com/",
+         "https://iamyekta.com/favicon.ico",
+         "Distributed systems + everyday backend work notes."),
+        ("https://www.loopwerk.io/articles/feed.xml",
+         "Loopwerk (Kevin Renskers)",
+         "https://www.loopwerk.io/",
+         "https://www.loopwerk.io/favicon.ico",
+         "Swift, Python, iOS. Prolific with ~150 posts on record."),
+        ("https://zachholman.com/atom.xml",
+         "Zach Holman", "https://zachholman.com/",
+         "https://zachholman.com/favicon.ico",
+         "Early GitHub employee. Startup + engineering culture essays."),
+        ("https://lea.verou.me/feed.xml",
+         "Lea Verou", "https://lea.verou.me/",
+         "https://lea.verou.me/favicon.ico",
+         "CSS wizard + web-standards contributor. Long-form technical writing."),
+        ("https://kentcdodds.com/blog/rss.xml",
+         "Kent C. Dodds", "https://kentcdodds.com/",
+         "https://kentcdodds.com/favicon.ico",
+         "React, testing, teaching. Prolific + practical."),
+    ],
+}
+
+
+SEED_CURIOUS_MINDS = {
+    "slug": "curious-minds",
+    "name": "Curious Minds",
+    "description": (
+        "Ideas, wonder, and the pleasure of thinking. Science, philosophy, "
+        "psychology, and internet essays that expand how you see the world. "
+        "Video, text, and everything in between — for people who read to "
+        "grow, not to keep up."
+    ),
+    "language": "en",
+    "locale": "",
+    "is_official": True,
+    "curator_handle": "ahmadian-farid-1988",
+    "feeds": [
+        ("https://www.youtube.com/feeds/videos.xml?channel_id=UCsXVk37bltHxD1rDPwtNM8Q",
+         "Kurzgesagt – In a Nutshell", "https://kurzgesagt.org/",
+         "https://www.youtube.com/favicon.ico",
+         "Animated deep-dives into science, philosophy, and existential questions."),
+        ("https://www.youtube.com/feeds/videos.xml?channel_id=UCvQECJukTDE2i6aCoMnS-Vg",
+         "Big Think", "https://bigthink.com/",
+         "https://www.youtube.com/favicon.ico",
+         "Short-form interviews with scientists, thinkers, and cultural figures."),
+        ("https://www.youtube.com/feeds/videos.xml?channel_id=UC3JhfsgFPLSLNEROQCdj-GQ",
+         "Headspace", "https://www.headspace.com/",
+         "https://www.youtube.com/favicon.ico",
+         "Mindfulness, sleep, focus. Short clips distilling a decade of guided meditation."),
+        ("https://waitbutwhy.com/feed",
+         "Wait But Why (Tim Urban)", "https://waitbutwhy.com/",
+         "https://waitbutwhy.com/favicon.ico",
+         "Long, stick-figured essays on AI, procrastination, Elon, and the human condition."),
+        ("https://www.quantamagazine.org/feed/",
+         "Quanta Magazine", "https://www.quantamagazine.org/",
+         "https://www.quantamagazine.org/favicon.ico",
+         "Rigorous science journalism — math, physics, biology, computer science."),
+        ("https://nautil.us/feed/",
+         "Nautilus", "https://nautil.us/",
+         "https://nautil.us/favicon.ico",
+         "Long-form science + culture essays. Slow reading, worth it."),
+        ("https://fs.blog/feed/",
+         "Farnam Street", "https://fs.blog/",
+         "https://fs.blog/favicon.ico",
+         "Mental models, decision-making, learning how to think."),
+        ("https://astralcodexten.substack.com/feed",
+         "Astral Codex Ten (Scott Alexander)",
+         "https://astralcodexten.substack.com/",
+         "https://substackcdn.com/favicon.ico",
+         "Psychiatry, rationality, book reviews, and predictions."),
+        ("https://www.themarginalian.org/feed/",
+         "The Marginalian (Maria Popova)",
+         "https://www.themarginalian.org/",
+         "https://www.themarginalian.org/favicon.ico",
+         "Meditations on art, science, and how to live — daily since 2006."),
+    ],
+}
+
+
+SEED_TECH_YOUTUBE = {
+    "slug": "tech-on-youtube",
+    "name": "Tech on YouTube",
+    "description": (
+        "Great tech YouTube channels, subscribable via RSS. "
+        "Homelabs, systems talks, tutorials, and long-form documentaries — "
+        "the good stuff, without the recommendation algorithm."
+    ),
+    "language": "en",
+    "locale": "",
+    "is_official": True,
+    "curator_handle": "ahmadian-farid-1988",
+    "feeds": [
+        ("https://www.youtube.com/feeds/videos.xml?channel_id=UCR-DXc1voovS8nhAvccRZhg",
+         "Jeff Geerling", "https://www.jeffgeerling.com/",
+         "https://www.youtube.com/favicon.ico",
+         "Homelab, Ansible, Raspberry Pi. Practical + patient."),
+        ("https://www.youtube.com/feeds/videos.xml?channel_id=UCCezIgC97PvUuR4_gbFUs5g",
+         "Corey Schafer", "https://coreyms.com/",
+         "https://www.youtube.com/favicon.ico",
+         "Deep Python tutorials from the fundamentals up."),
+        ("https://www.youtube.com/feeds/videos.xml?channel_id=UCKWaEZ-_VweaEx1j62do_vQ",
+         "IBM Technology", "https://www.ibm.com/",
+         "https://www.youtube.com/favicon.ico",
+         "Whiteboard explainers for cloud, AI, and enterprise systems."),
+        ("https://www.youtube.com/feeds/videos.xml?channel_id=UCGKEMK3s-ZPbjVOIuAV8clQ",
+         "Core Dumped", "https://www.youtube.com/@CoreDumpped",
+         "https://www.youtube.com/favicon.ico",
+         "OS internals, compilers, systems — animated deep-dives."),
+        ("https://www.youtube.com/feeds/videos.xml?channel_id=UC0fDG3byEcMtbOqPMymDNbw",
+         "/noclip", "https://noclip.video/",
+         "https://www.youtube.com/favicon.ico",
+         "Documentaries about how games (and their makers) come to life."),
+        ("https://www.youtube.com/feeds/videos.xml?channel_id=UCsUalyRg43M8D60mtHe6YcA",
+         "CultRepo (Coding Tech)",
+         "https://www.youtube.com/@CultRepo",
+         "https://www.youtube.com/favicon.ico",
+         "Conference talks + long-form tech education."),
+        ("https://www.youtube.com/feeds/videos.xml?channel_id=UChWB95_-n9rUc3H9srsn9bQ",
+         "Bplus Podcast", "https://www.youtube.com/@BplusPodcast",
+         "https://www.youtube.com/favicon.ico",
+         "Interviews with engineers, founders, and other builders."),
+        ("https://www.youtube.com/feeds/videos.xml?channel_id=UCsBjURrPoezykLs9EqgamOA",
+         "Fireship", "https://fireship.io/",
+         "https://www.youtube.com/favicon.ico",
+         "100-second tech explainers + weekly news."),
+        ("https://www.youtube.com/feeds/videos.xml?channel_id=UC8ENHE5xdFSwx71u3fDH5Xw",
+         "ThePrimeagen", "https://www.youtube.com/@ThePrimeagen",
+         "https://www.youtube.com/favicon.ico",
+         "Vim + Rust + rants. Loud, opinionated, sometimes right."),
+        ("https://www.youtube.com/feeds/videos.xml?channel_id=UCS0N5baNlQWJCUrhCEo8WlA",
+         "Ben Eater", "https://eater.net/",
+         "https://www.youtube.com/favicon.ico",
+         "Building an 8-bit CPU on a breadboard. The gold standard for hands-on hardware."),
+        ("https://www.youtube.com/feeds/videos.xml?channel_id=UC9x0AN7BWHpCDHSm9NiJFJQ",
+         "NetworkChuck", "https://networkchuck.com/",
+         "https://www.youtube.com/favicon.ico",
+         "Networking, cybersecurity, and cloud, with high energy."),
+        ("https://www.youtube.com/feeds/videos.xml?channel_id=UCP7WmQ_U4GB3K51Od9QvM0w",
+         "David Bombal", "https://davidbombal.com/",
+         "https://www.youtube.com/favicon.ico",
+         "Networking + hacking + career, with heavyweight guest interviews."),
+    ],
+}
+
+
 ALL_SEED_COLLECTIONS = (
     SEED_BERLIN_NACHRICHTEN,
     SEED_BERLIN_ENGLISH,
@@ -967,13 +1206,23 @@ ALL_SEED_COLLECTIONS = (
     SEED_STARTUP_CRAFT,
     SEED_TEHRAN_FARSI,
     SEED_LONGFORM,
+    SEED_ENGINEER_WEBLOGS,
+    SEED_CURIOUS_MINDS,
+    SEED_TECH_YOUTUBE,
 )
 
 
 def _seed_official_collections() -> None:
-    """Idempotently create the seed Collection(s). Runs on every startup;
-    skips any Collection whose slug already exists. Feed rows are also
-    deduped by URL via the existing UNIQUE constraint.
+    """Idempotently create + sync the seed Collection(s). Runs on every
+    startup with these guarantees:
+
+      - Collection missing → created with all its declared feeds.
+      - Collection present, seed adds a NEW url → CollectionFeed added.
+      - Collection present, seed lists a URL that was previously removed
+        by the curator via the UI → still re-added (we don't distinguish
+        "never had" from "removed"; this trade-off is documented as a
+        known bug on the same shape as CategoryFollow, see 0.9.5).
+      - Feed rows are deduped globally by URL (existing UNIQUE constraint).
 
     Gated by env var `RSSFRIENDS_SEED_COLLECTIONS` (default '1'):
     tests set this to '0' so the seeded Feed rows don't pollute test
@@ -987,38 +1236,51 @@ def _seed_official_collections() -> None:
 
     with Session(engine) as db:
         for seed in ALL_SEED_COLLECTIONS:
-            existing = db.exec(
+            col = db.exec(
                 select(Collection).where(Collection.slug == seed["slug"])
             ).first()
-            if existing:
-                continue  # already seeded
 
-            # Look up the intended curator by handle. Missing = None
-            # (system-curated: moderated by the de-facto root user).
-            curator_id: int | None = None
-            curator_user = db.exec(
-                select(User).where(User.handle == seed["curator_handle"])
-            ).first()
-            if curator_user:
-                curator_id = curator_user.id
+            if col is None:
+                # New collection — create it.
+                curator_id: int | None = None
+                curator_user = db.exec(
+                    select(User).where(User.handle == seed["curator_handle"])
+                ).first()
+                if curator_user:
+                    curator_id = curator_user.id
+                col = Collection(
+                    slug=seed["slug"],
+                    name=seed["name"],
+                    description=seed["description"],
+                    language=seed["language"],
+                    locale=seed["locale"],
+                    curator_id=curator_id,
+                    is_official=seed["is_official"],
+                    is_public=True,
+                    created_at=datetime.now(UTC),
+                )
+                db.add(col)
+                db.flush()  # get col.id
 
-            col = Collection(
-                slug=seed["slug"],
-                name=seed["name"],
-                description=seed["description"],
-                language=seed["language"],
-                locale=seed["locale"],
-                curator_id=curator_id,
-                is_official=seed["is_official"],
-                is_public=True,
-                created_at=datetime.now(UTC),
-            )
-            db.add(col)
-            db.flush()  # get col.id
+            # Existing CollectionFeed URLs on this collection → skip
+            # re-adding them (idempotent).
+            existing_urls = set(db.exec(
+                select(Feed.url)
+                .join(CollectionFeed, CollectionFeed.feed_id == Feed.id)
+                .where(CollectionFeed.collection_id == col.id)
+            ).all())
 
-            for order, (url, title, site_url, favicon_url, note) in enumerate(
-                seed["feeds"], start=1
-            ):
+            # Sort_order continues from where the previous batch left off,
+            # so newly-appended seed feeds land at the bottom.
+            max_order = db.exec(
+                select(CollectionFeed.sort_order)
+                .where(CollectionFeed.collection_id == col.id)
+                .order_by(CollectionFeed.sort_order.desc())
+            ).first() or 0
+
+            for i, (url, title, site_url, favicon_url, note) in enumerate(seed["feeds"]):
+                if url in existing_urls:
+                    continue
                 feed = db.exec(select(Feed).where(Feed.url == url)).first()
                 if not feed:
                     feed = Feed(
@@ -1031,7 +1293,7 @@ def _seed_official_collections() -> None:
                     collection_id=col.id,
                     feed_id=feed.id,
                     note=note,
-                    sort_order=order,
+                    sort_order=max_order + 1 + i,
                 ))
         db.commit()
 

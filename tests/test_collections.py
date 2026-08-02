@@ -48,13 +48,16 @@ def _login(client, email):
 EXPECTED_SEEDS = {
     # slug: (language, locale, feed_count)
     "berlin-nachrichten":        ("de", "Berlin, DE", 12),
-    "berlin-english":            ("en", "Berlin, DE",  3),
+    "berlin-english":            ("en", "Berlin, DE",  4),  # +1 in 0.10.4 (All About Berlin)
     "berlin-kultur":             ("de", "Berlin, DE",  5),
     "better-software-engineer":  ("en", "",           12),
     "better-product-manager":    ("en", "",            7),
     "startup-craft":             ("en", "",            6),
     "tehran-farsi":              ("fa", "Tehran, IR",  4),
     "longform-reads":            ("en", "",           10),
+    "engineer-weblogs":          ("en", "",           21),  # new in 0.10.4
+    "curious-minds":             ("en", "",            9),  # new in 0.10.4
+    "tech-on-youtube":           ("en", "",           12),  # new in 0.10.4
 }
 
 
@@ -89,6 +92,41 @@ def test_re_running_init_db_is_idempotent():
                 select(db_mod.Collection).where(db_mod.Collection.slug == slug)
             ).all()
             assert len(cols) == 1, f"{slug}: expected 1 row, got {len(cols)}"
+
+
+def test_seed_syncs_new_feeds_into_existing_collections():
+    """0.10.4: the seeder is idempotent PER FEED, not just per
+    collection. If a seed's `feeds` list grows in a future release,
+    those extra URLs must land on the next boot without wiping any
+    existing data. Simulates the All About Berlin addition."""
+    import app.db as db_mod
+    # Baseline: berlin-english currently has 4 feeds seeded.
+    with Session(db_mod.engine) as s:
+        col = s.exec(select(db_mod.Collection)
+                     .where(db_mod.Collection.slug == "berlin-english")).one()
+        before = len(s.exec(select(db_mod.CollectionFeed)
+                            .where(db_mod.CollectionFeed.collection_id == col.id)).all())
+        assert before == 4
+        # Delete one CollectionFeed row to simulate a future addition NOT
+        # yet on disk. Then re-run the seed and confirm it re-adds it.
+        one = s.exec(select(db_mod.CollectionFeed)
+                     .where(db_mod.CollectionFeed.collection_id == col.id)
+                     .limit(1)).one()
+        s.delete(one)
+        s.commit()
+        after_delete = len(s.exec(select(db_mod.CollectionFeed)
+                                  .where(db_mod.CollectionFeed.collection_id == col.id)).all())
+        assert after_delete == 3
+
+    # Re-run the seed.
+    db_mod._seed_official_collections()
+
+    with Session(db_mod.engine) as s:
+        col = s.exec(select(db_mod.Collection)
+                     .where(db_mod.Collection.slug == "berlin-english")).one()
+        after_reseed = len(s.exec(select(db_mod.CollectionFeed)
+                                  .where(db_mod.CollectionFeed.collection_id == col.id)).all())
+        assert after_reseed == 4  # re-added
 
 
 def test_berlin_spectator_feed_is_dual_listed():
