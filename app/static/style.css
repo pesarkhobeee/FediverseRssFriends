@@ -2014,3 +2014,163 @@ img.favicon {
 @media (prefers-reduced-motion: reduce) {
   .feed-just-added-chip { animation: none; }
 }
+
+/* ============================================================
+   Collections (0.10.0) — /collections + /collections/{slug}
+   ============================================================ */
+.collections-hero {
+  padding: 32px 0 24px;
+  display: flex; flex-direction: column; gap: 12px;
+}
+.collections-hero-title {
+  margin: 0;
+  font-family: "Instrument Serif", ui-serif, Georgia, serif;
+  font-weight: 400;
+  font-size: 44px;
+  letter-spacing: -0.015em;
+  line-height: 1.05;
+}
+.collections-hero-lead {
+  font-family: "Source Serif 4", ui-serif, Georgia, serif;
+  font-size: 17px; line-height: 1.55;
+  color: var(--muted);
+  max-width: 62ch;
+  margin: 0;
+}
+
+.collections-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
+  padding: 8px 0 40px;
+}
+.collection-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 20px;
+  display: flex; flex-direction: column; gap: 10px;
+  color: var(--fg);
+  text-decoration: none;
+  transition: background 120ms ease-out;
+}
+.collection-card:hover { background: var(--card-hover); text-decoration: none; }
+.collection-card-head {
+  display: flex; gap: 6px; flex-wrap: wrap;
+}
+.collection-badge {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.04em;
+  color: var(--accent); background: var(--accent-bg);
+  border-radius: 99px; padding: 3px 10px;
+  text-transform: uppercase;
+}
+.collection-locale, .collection-lang {
+  font-size: 11.5px; font-weight: 500; color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 99px; padding: 3px 10px;
+  background: var(--bg);
+}
+.collection-card-title {
+  font-family: "Instrument Serif", ui-serif, Georgia, serif;
+  font-size: 22px; color: var(--fg); line-height: 1.15;
+}
+.collection-card-desc {
+  font-family: "Source Serif 4", ui-serif, Georgia, serif;
+  font-size: 14.5px; color: var(--muted); line-height: 1.5;
+}
+.collection-card-foot { font-size: 13px; margin-top: auto; }
+.collection-card-foot strong { color: var(--fg); }
+
+/* Detail page */
+.collection-detail-hero {
+  padding: 20px 0 16px;
+  display: flex; flex-direction: column; gap: 14px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 20px;
+}
+.collection-detail-head {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 20px; flex-wrap: wrap;
+}
+.collection-detail-title {
+  margin: 0 0 8px;
+  font-family: "Instrument Serif", ui-serif, Georgia, serif;
+  font-weight: 400;
+  font-size: 36px; letter-spacing: -0.01em; line-height: 1.05;
+}
+.collection-detail-meta {
+  display: flex; align-items: center; gap: 8px;
+  flex-wrap: wrap; font-size: 13.5px; color: var(--muted);
+}
+.collection-detail-meta a { color: var(--muted); text-decoration: none; font-weight: 500; }
+.collection-detail-meta a:hover { color: var(--fg); text-decoration: underline; }
+.collection-detail-desc { max-width: 68ch; margin: 0; }
+
+.collection-add-all-wrap { margin-top: 8px; }
+.collection-add-all-wrap .btn {
+  border-radius: 99px;
+  padding: 11px 22px;
+  font-weight: 600;
+}
+
+.collection-add-all-result {
+  padding: 12px 0;
+}
+
+/* Feed rows within collection */
+.collection-feed-list {
+  display: flex; flex-direction: column; gap: 8px;
+  margin: 0 0 28px;
+}
+.collection-feed-row {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 16px;
+}
+.collection-feed-row-head {
+  display: flex; align-items: center; gap: 14px;
+}
+.collection-feed-row-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.collection-feed-title {
+  font-weight: 600; color: var(--fg); text-decoration: none;
+  font-size: 15px;
+}
+.collection-feed-title:hover { color: var(--accent); }
+.collection-feed-note {
+  font-family: "Source Serif 4", ui-serif, Georgia, serif;
+  font-size: 13.5px; line-height: 1.45;
+}
+.collection-feed-row-cta { flex: 0 0 auto; }
+.collection-feed-row-cta .btn {
+  font-size: 13px; padding: 6px 14px; border-radius: 99px;
+}
+.collection-feed-row-cta .cta-badge {
+  font-size: 12.5px; color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 99px; padding: 4px 11px;
+  background: var(--bg);
+}
+
+/* Suggest form */
+.collection-suggest { margin: 40px 0; padding-top: 24px; border-top: 1px solid var(--border); }
+.collection-suggest h2 {
+  margin: 0 0 8px;
+  font-family: "Instrument Serif", ui-serif, Georgia, serif;
+  font-weight: 400; font-size: 24px;
+}
+.collection-suggest-form {
+  display: flex; flex-direction: column; gap: 8px; max-width: 560px;
+}
+.collection-suggest-thanks { max-width: 560px; padding: 12px 0; }
+
+@media (max-width: 640px) {
+  .collections-hero-title { font-size: 34px; }
+  .collection-detail-title { font-size: 28px; }
+  .collection-feed-row-head { flex-wrap: wrap; }
+  .collection-feed-row-cta { width: 100%; }
+  .collection-feed-row-cta .btn,
+  .collection-feed-row-cta .cta-badge { display: block; text-align: center; }
+}
+
+.discover-collections { padding: 8px 0 32px; }

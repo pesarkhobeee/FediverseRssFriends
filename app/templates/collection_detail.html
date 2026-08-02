@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% from "_avatar.html" import avatar %}
+{% block title %}{{ collection.name }} · Collections{% endblock %}
+{% block meta_description %}{{ collection.description[:200] }}{% endblock %}
+{% block content %}
+
+<section class="collection-detail-hero">
+  <p><a class="btn-ghost" href="/collections">← All collections</a></p>
+  <div class="collection-detail-head">
+    <div>
+      <h1 class="collection-detail-title">{{ collection.name }}</h1>
+      <div class="collection-detail-meta">
+        {% if collection.is_official %}
+          <span class="collection-badge">Official</span>
+        {% endif %}
+        {% if collection.locale %}
+          <span class="collection-locale">{{ collection.locale }}</span>
+        {% endif %}
+        {% if collection.language %}
+          <span class="collection-lang">{{ collection.language }}</span>
+        {% endif %}
+        <span class="muted">·</span>
+        <span class="muted"><strong>{{ entries|length }}</strong> feed{{ '' if entries|length == 1 else 's' }}</span>
+        {% if curator %}
+          <span class="muted">·</span>
+          <span class="muted">curated by</span>
+          {{ avatar(curator.handle, size=20) }}
+          <a href="/u/{{ curator.handle }}">@{{ curator.handle }}</a>
+        {% endif %}
+      </div>
+    </div>
+    {% if can_moderate %}
+      <a class="btn-ghost" href="/collections/{{ collection.slug }}/manage">
+        Manage{% if pending_suggestions_count %} ({{ pending_suggestions_count }} pending){% endif %}
+      </a>
+    {% endif %}
+  </div>
+  {% if collection.description %}
+    <p class="collection-detail-desc prose">{{ collection.description }}</p>
+  {% endif %}
+
+  {% if user %}
+    <div id="collection-add-all" class="collection-add-all-wrap">
+      <button class="btn"
+              hx-post="/collections/{{ collection.slug }}/add-all"
+              hx-target="#collection-add-all"
+              hx-swap="outerHTML"
+              hx-confirm="Add {{ entries|length }} feed{{ '' if entries|length == 1 else 's' }} to your radar under the category '{{ collection.name }}'?">
+        + Add all {{ entries|length }} feed{{ '' if entries|length == 1 else 's' }} to my radar
+      </button>
+    </div>
+  {% else %}
+    <p><a class="btn" href="/#login">Sign in to add these to your radar</a></p>
+  {% endif %}
+</section>
+
+<section class="collection-feed-list">
+  {% for e in entries %}
+    {% include "_collection_feed_row.html" %}
+  {% endfor %}
+</section>
+
+{% if user %}
+<section class="collection-suggest">
+  <h2>Know a feed we're missing?</h2>
+  <p class="muted">Suggest a URL for the curator to review. Keep it native-language, spam-free, and on-topic for the collection.</p>
+  <div id="collection-suggest-form">
+    <form method="post" action="/collections/{{ collection.slug }}/suggest"
+          hx-post="/collections/{{ collection.slug }}/suggest"
+          hx-target="#collection-suggest-form"
+          hx-swap="outerHTML"
+          class="collection-suggest-form">
+      <input class="input" type="url" name="feed_url"
+             placeholder="https://…/rss.xml" required />
+      <input class="input" type="text" name="note"
+             placeholder="Optional: one-line note (why it belongs here)" maxlength="500" />
+      <button class="btn" type="submit">Suggest feed</button>
+    </form>
+  </div>
+</section>
+{% endif %}
+
+{% endblock %}

@@ -157,11 +157,13 @@ def discover(
     viewer: User | None = Depends(current_user),
     db: Session = Depends(get_session),
 ):
+    from .collections import load_featured_collections
     return templates.TemplateResponse(
         request,
         "discover.html",
         {
             "user": viewer,
+            "featured_collections": load_featured_collections(db, limit=6),
             "recent_users": _recent_public_users(db),
             "popular_feeds": _popular_feeds(db, viewer),
             "most_forked": _most_forked_curators(db),

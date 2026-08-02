@@ -11,6 +11,10 @@ os.environ["RSSFRIENDS_SESSION_SECRET"] = "test-secret"
 os.environ["RSSFRIENDS_BASE_URL"] = "http://testserver"
 os.environ.setdefault("RSSFRIENDS_MAGIC_LINK_MIN_INTERVAL", "0")
 os.environ["RSSFRIENDS_ENABLE_SCHEDULER"] = "0"
+# 0.10.0: don't auto-seed the Berlin collection on init_db during tests
+# — it adds 12 Feed rows that pollute unrelated tests' Feed-table
+# assumptions. Tests that need the seed opt in explicitly.
+os.environ["RSSFRIENDS_SEED_COLLECTIONS"] = "0"
 
 import pytest
 from sqlmodel import SQLModel

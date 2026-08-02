@@ -1,0 +1,15 @@
+{# HTMX-swap result of POST /collections/{slug}/add-all. #}
+<div id="collection-add-all" class="collection-add-all-wrap collection-add-all-result">
+  <div class="feed-just-added-chip">
+    ✓ Added {{ added }} feed{{ '' if added == 1 else 's' }} to your radar
+    under the category <strong>{{ collection.name }}</strong>.
+    {% if already %}
+      ({{ already }} were already there.)
+    {% endif %}
+  </div>
+  <p style="margin-top:.5rem">
+    <a class="btn-ghost" href="/u/{{ user.handle }}?cat={{ collection.name }}">
+      View them on your radar →
+    </a>
+  </p>
+</div>

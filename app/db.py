@@ -2,7 +2,7 @@ from collections.abc import Iterator
 from datetime import UTC, datetime
 
 from sqlalchemy import UniqueConstraint
-from sqlmodel import Field, Session, SQLModel, create_engine
+from sqlmodel import Field, Session, SQLModel, create_engine, select
 
 from .config import DATABASE_URL
 
@@ -159,6 +159,63 @@ class CategoryFollow(SQLModel, table=True):
     follower_id: int = Field(foreign_key="user.id", index=True)
     category_id: int = Field(foreign_key="category.id", index=True)
     created_at: datetime = Field(default_factory=_now, index=True)
+
+
+class Collection(SQLModel, table=True):
+    """Community-curated collection of feeds around a topic + place + language.
+
+    Started 0.10.0 to solve the RSS-discovery-is-all-English/BBC-CNN
+    problem. First collection: 'Berlin — Nachrichten' with 12 verified
+    German + English Berlin feeds. See docs/collections.md.
+
+    `curator_id` NULL = system-curated (moderated by whoever `is_admin()`
+    returns true for). Non-null = curated by that user; they moderate.
+    `is_official` = shown on /discover's Browse collections section.
+    `is_public` = anyone can visit (drafts stay hidden)."""
+
+    id: int | None = Field(default=None, primary_key=True)
+    slug: str = Field(index=True, unique=True)
+    name: str
+    description: str = Field(default="")
+    language: str = Field(default="")  # ISO 639-1: 'de', 'en', 'fa'
+    locale: str = Field(default="")    # freeform 'Berlin, DE'
+    curator_id: int | None = Field(default=None, foreign_key="user.id", index=True)
+    is_official: bool = Field(default=False)
+    is_public: bool = Field(default=True)
+    created_at: datetime = Field(default_factory=_now)
+
+
+class CollectionFeed(SQLModel, table=True):
+    """A Feed inside a Collection. `note` is the curator's one-line
+    aside ('Öffentlich-rechtlich, seriös' etc). Reuses the global Feed
+    row so subscribers who add this feed and users on the collection
+    page share the same Feed identity."""
+
+    __table_args__ = (
+        UniqueConstraint("collection_id", "feed_id", name="uq_collectionfeed_pair"),
+    )
+
+    id: int | None = Field(default=None, primary_key=True)
+    collection_id: int = Field(foreign_key="collection.id", index=True)
+    feed_id: int = Field(foreign_key="feed.id", index=True)
+    note: str = Field(default="")
+    sort_order: int = Field(default=0)
+
+
+class CollectionSuggestion(SQLModel, table=True):
+    """A pending suggestion from a user to add a feed to a collection.
+    Never auto-published — the curator (or admin for system-curated
+    collections) reviews and accepts or rejects. `suggested_by` is
+    NULL for anonymous suggestions (rate-limited by IP at the route)."""
+
+    id: int | None = Field(default=None, primary_key=True)
+    collection_id: int = Field(foreign_key="collection.id", index=True)
+    feed_url: str
+    note: str = Field(default="")
+    suggested_by: int | None = Field(default=None, foreign_key="user.id")
+    status: str = Field(default="pending")  # pending | accepted | rejected
+    reviewed_at: datetime | None = Field(default=None)
+    created_at: datetime = Field(default_factory=_now)
 
 
 class WallabagAccount(SQLModel, table=True):
@@ -513,6 +570,140 @@ def init_db() -> None:
     if DATABASE_URL.startswith("sqlite"):
         with engine.begin() as conn:
             _run_sqlite_migrations(conn)
+    _seed_official_collections()
+
+
+# ─── 0.10.0: seed the first official community-curated collection ──────
+# Runs on every startup but is idempotent — creates rows only when the
+# slug is missing. See docs/collections.md for the philosophy.
+
+SEED_BERLIN_NACHRICHTEN = {
+    "slug": "berlin-nachrichten",
+    "name": "Berlin — Nachrichten",
+    "description": (
+        "Deutsch- und englischsprachige RSS-Feeds über Berlin. "
+        "Öffentlich-rechtlich, klassische Presse, alternative und "
+        "hyperlokale Quellen — hand-curated, verified, spam-frei."
+    ),
+    "language": "de",
+    "locale": "Berlin, DE",
+    "is_official": True,
+    "curator_handle": "ahmadian-farid-1988",  # falls back to NULL if missing
+    "feeds": [
+        # (url, title, site_url, favicon_url, note)
+        ("https://www.rbb24.de/index.xml/feed=rss.xml",
+         "rbb24 — Berlin & Brandenburg", "https://www.rbb24.de/",
+         "https://www.rbb24.de/favicon.ico",
+         "Öffentlich-rechtlich. Regionalnachrichten aus Berlin & Brandenburg."),
+        ("https://www.tagesspiegel.de/contentexport/feed/berlin",
+         "Tagesspiegel — Berlin", "https://www.tagesspiegel.de/berlin/",
+         "https://www.tagesspiegel.de/favicon.ico",
+         "Berlin-Ressort der überregionalen Tageszeitung."),
+        ("https://www.berliner-zeitung.de/feed.xml",
+         "Berliner Zeitung", "https://www.berliner-zeitung.de/",
+         "https://www.berliner-zeitung.de/favicon.ico",
+         "Traditionsreiche Berliner Tageszeitung."),
+        ("https://www.morgenpost.de/berlin/rss",
+         "Berliner Morgenpost — Berlin", "https://www.morgenpost.de/berlin/",
+         "https://www.morgenpost.de/favicon.ico",
+         "Berlin-Fokus, konservativ-bürgerlich."),
+        ("https://www.berliner-kurier.de/feed.xml",
+         "Berliner Kurier", "https://www.berliner-kurier.de/",
+         "https://www.berliner-kurier.de/favicon.ico",
+         "Boulevard, aber vor Ort."),
+        ("https://taz.de/!s=berlin/rss.xml",
+         "taz — Berlin", "https://taz.de/Berlin/",
+         "https://taz.de/favicon.ico",
+         "Berlin-Ressort der taz. Linksliberal, kritisch."),
+        ("https://www.nd-aktuell.de/rss/neues-deutschland.xml",
+         "neues deutschland", "https://www.nd-aktuell.de/",
+         "https://www.nd-aktuell.de/favicon.ico",
+         "Sozialistische Tageszeitung mit starkem Berlin-Fokus."),
+        ("https://www.jungewelt.de/feeds/newsticker.rss",
+         "Junge Welt", "https://www.jungewelt.de/",
+         "https://www.jungewelt.de/favicon.ico",
+         "Marxistisch-orientierte Tageszeitung aus Berlin."),
+        ("https://berlinspectator.com/feed/",
+         "The Berlin Spectator", "https://berlinspectator.com/",
+         "https://berlinspectator.com/favicon.ico",
+         "Independent English-language reporting on Berlin & Germany."),
+        ("https://www.tip-berlin.de/feed/",
+         "tip berlin", "https://www.tip-berlin.de/",
+         "https://www.tip-berlin.de/favicon.ico",
+         "Stadtmagazin: Kultur, Ausgehen, Politik."),
+        ("https://www.notesofberlin.com/feed/",
+         "Notes of Berlin", "https://www.notesofberlin.com/",
+         "https://www.notesofberlin.com/favicon.ico",
+         "Skurrile Beobachtungen aus dem Berliner Alltag."),
+        ("https://www.loky.news/rss/",
+         "loky (Prenzlauer Berg Nachrichten)", "https://www.loky.news/",
+         "https://www.loky.news/favicon.ico",
+         "Hyperlokaler Newsletter für Prenzlauer Berg."),
+    ],
+}
+
+
+def _seed_official_collections() -> None:
+    """Idempotently create the seed Collection(s). Runs on every startup;
+    skips any Collection whose slug already exists. Feed rows are also
+    deduped by URL via the existing UNIQUE constraint.
+
+    Gated by env var `RSSFRIENDS_SEED_COLLECTIONS` (default '1'):
+    tests set this to '0' so the 12 seeded Feed rows don't pollute
+    test setups that count/iterate Feed rows. Tests that want the seed
+    (tests/test_collections.py) call this function explicitly."""
+    import os
+    from datetime import UTC, datetime
+
+    if os.environ.get("RSSFRIENDS_SEED_COLLECTIONS", "1") == "0":
+        return
+
+    with Session(engine) as db:
+        seed = SEED_BERLIN_NACHRICHTEN
+        existing = db.exec(
+            select(Collection).where(Collection.slug == seed["slug"])
+        ).first()
+        if existing:
+            return  # already seeded — nothing to do
+
+        # Look up the intended curator by handle. Missing = None (system-curated).
+        curator_id: int | None = None
+        curator_user = db.exec(
+            select(User).where(User.handle == seed["curator_handle"])
+        ).first()
+        if curator_user:
+            curator_id = curator_user.id
+
+        col = Collection(
+            slug=seed["slug"],
+            name=seed["name"],
+            description=seed["description"],
+            language=seed["language"],
+            locale=seed["locale"],
+            curator_id=curator_id,
+            is_official=seed["is_official"],
+            is_public=True,
+            created_at=datetime.now(UTC),
+        )
+        db.add(col)
+        db.flush()  # get col.id
+
+        for order, (url, title, site_url, favicon_url, note) in enumerate(seed["feeds"], start=1):
+            feed = db.exec(select(Feed).where(Feed.url == url)).first()
+            if not feed:
+                feed = Feed(
+                    url=url, title=title, site_url=site_url,
+                    favicon_url=favicon_url,
+                )
+                db.add(feed)
+                db.flush()
+            db.add(CollectionFeed(
+                collection_id=col.id,
+                feed_id=feed.id,
+                note=note,
+                sort_order=order,
+            ))
+        db.commit()
 
 
 def get_session() -> Iterator[Session]:

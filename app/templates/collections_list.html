@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Collections · rssFriends{% endblock %}
+{% block meta_description %}Hand-curated collections of RSS feeds by topic, place, and language. Not just BBC and CNN — find the smaller, local, and native-language feeds you'd actually read.{% endblock %}
+{% block content %}
+<section class="collections-hero">
+  <h1 class="collections-hero-title">Collections</h1>
+  <p class="collections-hero-lead">
+    Hand-curated bundles of feeds by topic, place, and language.
+    Community-suggested, curator-approved. Not just BBC and CNN —
+    smaller, local, and native-language feeds you'd actually read.
+  </p>
+</section>
+
+{% if collections %}
+<section class="collections-grid">
+  {% for c in collections %}
+    <a class="collection-card" href="/collections/{{ c.slug }}">
+      <div class="collection-card-head">
+        {% if c.is_official %}<span class="collection-badge">Official</span>{% endif %}
+        {% if c.locale %}<span class="collection-locale">{{ c.locale }}</span>{% endif %}
+        {% if c.language %}<span class="collection-lang">{{ c.language }}</span>{% endif %}
+      </div>
+      <div class="collection-card-title">{{ c.name }}</div>
+      {% if c.description %}
+        <div class="collection-card-desc">{{ c.description[:180] }}{% if c.description|length > 180 %}…{% endif %}</div>
+      {% endif %}
+      <div class="collection-card-foot muted">
+        <strong>{{ counts.get(c.id, 0) }}</strong> feed{{ '' if counts.get(c.id, 0) == 1 else 's' }}
+      </div>
+    </a>
+  {% endfor %}
+</section>
+{% else %}
+<p class="muted">No collections yet.</p>
+{% endif %}
+{% endblock %}

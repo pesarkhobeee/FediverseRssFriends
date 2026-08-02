@@ -24,6 +24,39 @@
   <div id="user-search-results" class="discover-search-results"></div>
 </section>
 
+{% if featured_collections %}
+<section class="discover-collections">
+  <div class="discover-h2-row">
+    <h2 class="discover-h2">Browse collections</h2>
+    <a href="/collections" class="muted" style="font-size:13px">See all →</a>
+  </div>
+  <p class="muted" style="max-width:60ch; margin:.25rem 0 1rem">
+    Hand-curated bundles of feeds by topic, place, and language.
+    Not the same US/English top-10 every reader shows — smaller,
+    local, native-language feeds you'd actually read.
+  </p>
+  <div class="collections-grid">
+    {% for fc in featured_collections %}
+      {% set c = fc.col %}
+      <a class="collection-card" href="/collections/{{ c.slug }}">
+        <div class="collection-card-head">
+          {% if c.is_official %}<span class="collection-badge">Official</span>{% endif %}
+          {% if c.locale %}<span class="collection-locale">{{ c.locale }}</span>{% endif %}
+          {% if c.language %}<span class="collection-lang">{{ c.language }}</span>{% endif %}
+        </div>
+        <div class="collection-card-title">{{ c.name }}</div>
+        {% if c.description %}
+          <div class="collection-card-desc">{{ c.description[:140] }}{% if c.description|length > 140 %}…{% endif %}</div>
+        {% endif %}
+        <div class="collection-card-foot muted">
+          <strong>{{ fc.feed_count }}</strong> feed{{ '' if fc.feed_count == 1 else 's' }}
+        </div>
+      </a>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
 <section class="discover-grid">
   {# ─── Left column: recent radars + most-forked ─────────────────── #}
   <div class="discover-col">

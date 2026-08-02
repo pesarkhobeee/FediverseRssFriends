@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% from "_avatar.html" import avatar %}
+{% block title %}Manage · {{ collection.name }}{% endblock %}
+{% block content %}
+<section class="hero stack">
+  <p><a class="btn-ghost" href="/collections/{{ collection.slug }}">← Back to collection</a></p>
+  <h1>Manage: {{ collection.name }}</h1>
+  <p class="muted">
+    Pending suggestions from other users. Accept a suggestion to add
+    its URL as a feed in the collection; reject to dismiss it.
+  </p>
+</section>
+
+{% if pending %}
+<ul class="fav-list">
+  {% for p in pending %}
+    <li class="fav-item">
+      <div class="fav-head">
+        {% if p.by %}
+          {{ avatar(p.by.handle, size=28) }}
+          <span><strong>@{{ p.by.handle }}</strong></span>
+        {% else %}
+          <span class="muted">anonymous</span>
+        {% endif %}
+        <span class="spacer"></span>
+        <span class="muted" style="font-size:.85rem">
+          {{ p.sug.created_at|relative_time }}
+        </span>
+      </div>
+      <div style="margin:.35rem 0">
+        <code>{{ p.sug.feed_url }}</code>
+      </div>
+      {% if p.sug.note %}
+        <p class="muted" style="margin:.25rem 0">{{ p.sug.note }}</p>
+      {% endif %}
+      <form method="post" action="/collections/{{ collection.slug }}/suggestions/{{ p.sug.id }}/accept" style="display:inline">
+        <input type="hidden" name="note" value="{{ p.sug.note }}" />
+        <button class="btn" type="submit">✓ Accept</button>
+      </form>
+      <form method="post" action="/collections/{{ collection.slug }}/suggestions/{{ p.sug.id }}/reject" style="display:inline">
+        <button class="btn-ghost" type="submit">✕ Reject</button>
+      </form>
+    </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="muted">No pending suggestions right now.</p>
+{% endif %}
+{% endblock %}

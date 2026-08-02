@@ -1,0 +1,39 @@
+{# One feed row inside a collection detail page.
+   Expects: e (dict with feed + note + sort_order), collection, viewer_subs, user
+   Optional: just_added (bool) — set by the POST /add response to render a green pill. #}
+<div class="collection-feed-row" id="cf-{{ e.feed.id }}">
+  <div class="collection-feed-row-head">
+    {% if e.feed.favicon_url %}
+      <img class="favicon" src="{{ e.feed.favicon_url }}" alt="" loading="lazy" />
+    {% else %}
+      <span class="favicon" aria-hidden="true">📡</span>
+    {% endif %}
+    <div class="collection-feed-row-body">
+      {% if e.feed.site_url %}
+        <a class="collection-feed-title" href="{{ e.feed.site_url }}"
+           target="_blank" rel="noopener">{{ e.feed.title }}</a>
+      {% else %}
+        <span class="collection-feed-title">{{ e.feed.title }}</span>
+      {% endif %}
+      {% if e.note %}
+        <div class="collection-feed-note muted">{{ e.note }}</div>
+      {% endif %}
+    </div>
+    <div class="collection-feed-row-cta">
+      {% if user and e.feed.id in viewer_subs %}
+        {% if just_added %}
+          <span class="feed-just-added-chip">✓ Added to your radar</span>
+        {% else %}
+          <span class="cta-badge">✓ On your radar</span>
+        {% endif %}
+      {% elif user %}
+        <button class="btn feed-add-btn"
+                hx-post="/collections/{{ collection.slug }}/add/{{ e.feed.id }}"
+                hx-target="#cf-{{ e.feed.id }}"
+                hx-swap="outerHTML">+ Add</button>
+      {% else %}
+        <a class="btn" href="/#login" title="Sign in to add">Sign in</a>
+      {% endif %}
+    </div>
+  </div>
+</div>

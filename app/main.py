@@ -13,6 +13,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from . import __version__, config, mail
 from .auth import consume_token, current_user, issue_magic_link, peek_token
 from .bookmarks import router as bookmarks_router
+from .collections import router as collections_router
 from .dashboard import router as dashboard_router
 from .db import User, get_session, init_db
 from .discover import router as discover_router
@@ -133,6 +134,7 @@ app.include_router(bookmarks_router)
 app.include_router(follow_router)
 app.include_router(timeline_router)
 app.include_router(discover_router)
+app.include_router(collections_router)
 app.include_router(feed_page_router)
 app.include_router(personal_feeds_router)
 
