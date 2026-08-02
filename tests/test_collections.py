@@ -45,17 +45,25 @@ def _login(client, email):
 # ─── Seed idempotence ──────────────────────────────────────────────────
 
 
+EXPECTED_SEEDS = {
+    # slug: (language, locale, feed_count)
+    "berlin-nachrichten":        ("de", "Berlin, DE", 12),
+    "berlin-english":            ("en", "Berlin, DE",  3),
+    "berlin-kultur":             ("de", "Berlin, DE",  5),
+    "better-software-engineer":  ("en", "",           12),
+    "better-product-manager":    ("en", "",            7),
+    "startup-craft":             ("en", "",            6),
+    "tehran-farsi":              ("fa", "Tehran, IR",  4),
+    "longform-reads":            ("en", "",           10),
+}
+
+
 def test_all_official_collections_seeded_on_init():
-    """`init_db()` runs on the fresh-schema fixture. All three seed
-    collections should exist with their feed counts."""
+    """`init_db()` runs on the fresh-schema fixture. Every seed
+    collection should exist with its declared feed count."""
     import app.db as db_mod
     with Session(db_mod.engine) as s:
-        expected = {
-            "berlin-nachrichten": ("de", "Berlin, DE", 12),
-            "berlin-english":     ("en", "Berlin, DE", 3),
-            "better-software-engineer": ("en", "", 12),
-        }
-        for slug, (lang, locale, feed_count) in expected.items():
+        for slug, (lang, locale, feed_count) in EXPECTED_SEEDS.items():
             col = s.exec(
                 select(db_mod.Collection).where(db_mod.Collection.slug == slug)
             ).one()
@@ -66,7 +74,9 @@ def test_all_official_collections_seeded_on_init():
                 select(db_mod.CollectionFeed)
                 .where(db_mod.CollectionFeed.collection_id == col.id)
             ).all()
-            assert len(rows) == feed_count, f"{slug}: expected {feed_count} feeds, got {len(rows)}"
+            assert len(rows) == feed_count, (
+                f"{slug}: expected {feed_count} feeds, got {len(rows)}"
+            )
 
 
 def test_re_running_init_db_is_idempotent():
@@ -74,7 +84,7 @@ def test_re_running_init_db_is_idempotent():
     import app.db as db_mod
     db_mod.init_db()
     with Session(db_mod.engine) as s:
-        for slug in ("berlin-nachrichten", "berlin-english", "better-software-engineer"):
+        for slug in EXPECTED_SEEDS:
             cols = s.exec(
                 select(db_mod.Collection).where(db_mod.Collection.slug == slug)
             ).all()

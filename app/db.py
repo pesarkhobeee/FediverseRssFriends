@@ -737,10 +737,236 @@ SEED_BETTER_SWE = {
 }
 
 
+SEED_TEHRAN_FARSI = {
+    "slug": "tehran-farsi",
+    "name": "Tehran — فارسی",
+    "description": (
+        "منابع خبری فارسی‌زبان درباره‌ی ایران — از بی‌بی‌سی فارسی، "
+        "دویچه وله، ایران اینترنشنال و زمانه. Farsi + English reporting "
+        "on Iran, curated to fix the abysmal Persian-language RSS "
+        "discovery in most readers."
+    ),
+    "language": "fa",
+    "locale": "Tehran, IR",
+    "is_official": True,
+    "curator_handle": "ahmadian-farid-1988",
+    "feeds": [
+        ("https://feeds.bbci.co.uk/persian/rss.xml",
+         "BBC فارسی", "https://www.bbc.com/persian",
+         "https://www.bbc.com/favicon.ico",
+         "پوشش گسترده از رویدادهای ایران و منطقه."),
+        ("https://rss.dw.com/xml/rss-per-all",
+         "دویچه وله فارسی", "https://www.dw.com/fa-ir",
+         "https://www.dw.com/favicon.ico",
+         "گزارش‌های آلمانی-بین‌المللی به فارسی."),
+        ("https://www.iranintl.com/feed",
+         "Iran International (ایران اینترنشنال)",
+         "https://www.iranintl.com/", "https://www.iranintl.com/favicon.ico",
+         "شبکه‌ی خبری فارسی‌زبان مستقر در لندن."),
+        ("https://en.radiozamaneh.com/feed/",
+         "Zamaneh Media (English)", "https://en.radiozamaneh.com/",
+         "https://en.radiozamaneh.com/favicon.ico",
+         "Dutch-hosted Persian-focused reporting — English edition."),
+    ],
+}
+
+
+SEED_BETTER_PM = {
+    "slug": "better-product-manager",
+    "name": "Better Product Manager",
+    "description": (
+        "English-language voices on product craft — strategy, prioritization, "
+        "team-building, and the messy middle. Timeless essays and newsletters, "
+        "not framework-of-the-week noise."
+    ),
+    "language": "en",
+    "locale": "",
+    "is_official": True,
+    "curator_handle": "ahmadian-farid-1988",
+    "feeds": [
+        ("https://www.lennysnewsletter.com/feed",
+         "Lenny's Newsletter", "https://www.lennysnewsletter.com/",
+         "https://www.lennysnewsletter.com/favicon.ico",
+         "The de-facto PM newsletter. Interviews, frameworks, playbooks."),
+        ("https://www.svpg.com/feed/",
+         "Silicon Valley Product Group (Marty Cagan)",
+         "https://www.svpg.com/", "https://www.svpg.com/favicon.ico",
+         "Marty Cagan's essays — INSPIRED / EMPOWERED / TRANSFORMED author."),
+        ("https://joulee.medium.com/feed",
+         "Julie Zhuo", "https://medium.com/@joulee",
+         "https://cdn-images-1.medium.com/favicon.ico",
+         "Former Facebook design lead. Management + product craft."),
+        ("https://cutlefish.substack.com/feed",
+         "The Beautiful Mess (John Cutler)",
+         "https://cutlefish.substack.com/", "https://substackcdn.com/favicon.ico",
+         "Discovery + delivery + team dynamics, with hand-drawn diagrams."),
+        ("https://www.bringthedonuts.com/feed.xml",
+         "Bring the Donuts (Ken Norton)",
+         "https://www.bringthedonuts.com/",
+         "https://www.bringthedonuts.com/favicon.ico",
+         "Former Google Ventures PM. Career + craft essays."),
+        ("https://shreyasdoshi.substack.com/feed",
+         "Shreyas Doshi", "https://shreyasdoshi.substack.com/",
+         "https://substackcdn.com/favicon.ico",
+         "Ex-Stripe/Twitter/Google PM. Sharp, opinionated frameworks."),
+        ("https://ravimehta.substack.com/feed",
+         "Ravi on Product", "https://ravimehta.substack.com/",
+         "https://substackcdn.com/favicon.ico",
+         "Career growth, org design, and product strategy."),
+    ],
+}
+
+
+SEED_BERLIN_KULTUR = {
+    "slug": "berlin-kultur",
+    "name": "Berlin — Kultur",
+    "description": (
+        "Kunst, Musik, Theater, Ausstellungen und Ausgehen in Berlin. "
+        "Öffentlich-rechtliches Kulturprogramm neben Stadtmagazinen und "
+        "unabhängigen Kunstheften."
+    ),
+    "language": "de",
+    "locale": "Berlin, DE",
+    "is_official": True,
+    "curator_handle": "ahmadian-farid-1988",
+    "feeds": [
+        ("https://www.rbb24.de/kultur/index.xml/feed=rss.xml",
+         "rbb24 — Kultur", "https://www.rbb24.de/kultur/",
+         "https://www.rbb24.de/favicon.ico",
+         "Öffentlich-rechtliches Kulturprogramm für Berlin & Brandenburg."),
+        ("https://www.tip-berlin.de/feed/",
+         "tip berlin", "https://www.tip-berlin.de/",
+         "https://www.tip-berlin.de/favicon.ico",
+         "Stadtmagazin: Kultur, Ausgehen, Konzerte, Theater."),
+        ("https://www.zitty.de/feed/",
+         "ZITTY", "https://www.zitty.de/",
+         "https://www.zitty.de/favicon.ico",
+         "Zweitältestes Berliner Stadtmagazin — Musik, Film, Nachtleben."),
+        ("https://www.monopol-magazin.de/rss.xml",
+         "Monopol — Kunstmagazin",
+         "https://www.monopol-magazin.de/",
+         "https://www.monopol-magazin.de/favicon.ico",
+         "Zeitgenössische Kunst, Ausstellungen, Interviews mit Künstler:innen."),
+        ("https://missy-magazine.de/feed/",
+         "Missy Magazine", "https://missy-magazine.de/",
+         "https://missy-magazine.de/favicon.ico",
+         "Feministisches Pop-Kultur-Magazin aus Berlin."),
+    ],
+}
+
+
+SEED_STARTUP_CRAFT = {
+    "slug": "startup-craft",
+    "name": "Startup Craft",
+    "description": (
+        "Timeless English-language voices on building companies — bootstrapped, "
+        "VC-backed, and everything in between. Craft over hype, essays over "
+        "tweetstorms, opinions worth marinating on."
+    ),
+    "language": "en",
+    "locale": "",
+    "is_official": True,
+    "curator_handle": "ahmadian-farid-1988",
+    "feeds": [
+        ("http://www.aaronsw.com/2002/feeds/pgessays.rss",
+         "Paul Graham — Essays", "https://paulgraham.com/",
+         "https://paulgraham.com/favicon.ico",
+         "The canon. YC co-founder's essays via Aaron Swartz's mirror."),
+        ("https://world.hey.com/dhh/feed.atom",
+         "David Heinemeier Hansson (DHH)",
+         "https://world.hey.com/dhh",
+         "https://world.hey.com/favicon.ico",
+         "37signals/Basecamp co-founder. Bootstrapped, opinionated, anti-hype."),
+        ("https://world.hey.com/jason/feed.atom",
+         "Jason Fried",
+         "https://world.hey.com/jason",
+         "https://world.hey.com/favicon.ico",
+         "Same shop as DHH — product philosophy from the Basecamp side."),
+        ("https://blog.samaltman.com/posts.atom",
+         "Sam Altman", "https://blog.samaltman.com/",
+         "https://blog.samaltman.com/favicon.ico",
+         "YC → OpenAI. Startup essays that shaped a generation."),
+        ("https://nathanbarry.com/feed/",
+         "Nathan Barry (ConvertKit / Kit)",
+         "https://nathanbarry.com/", "https://nathanbarry.com/favicon.ico",
+         "Founder of Kit (née ConvertKit). Bootstrapped-to-scale journey."),
+        ("https://levels.io/rss/",
+         "Pieter Levels (@levelsio)",
+         "https://levels.io/", "https://levels.io/favicon.ico",
+         "Nomad List / Photo AI. Solo-builder posts + Twitter archives."),
+    ],
+}
+
+
+SEED_LONGFORM = {
+    "slug": "longform-reads",
+    "name": "Longform Reads",
+    "description": (
+        "Deep essays and criticism for readers who want to marinate, "
+        "not scroll. Ideas magazines, literary reviews, and the "
+        "internet's most patient writers — no daily churn, no "
+        "backlog shame."
+    ),
+    "language": "en",
+    "locale": "",
+    "is_official": True,
+    "curator_handle": "ahmadian-farid-1988",
+    "feeds": [
+        ("https://longreads.com/feed/",
+         "Longreads", "https://longreads.com/",
+         "https://longreads.com/favicon.ico",
+         "The name says it. Curated longform journalism, no listicles."),
+        ("https://aeon.co/feed.rss",
+         "Aeon", "https://aeon.co/",
+         "https://aeon.co/favicon.ico",
+         "Ideas, philosophy, science — essays that pay attention."),
+        ("https://www.lrb.co.uk/feeds/rss",
+         "London Review of Books", "https://www.lrb.co.uk/",
+         "https://www.lrb.co.uk/favicon.ico",
+         "The UK's premier literary + political review. Long, opinionated, essential."),
+        ("https://www.newyorker.com/feed/everything",
+         "The New Yorker", "https://www.newyorker.com/",
+         "https://www.newyorker.com/favicon.ico",
+         "Everything the New Yorker publishes — reporting, essays, fiction, cartoons."),
+        ("https://www.theatlantic.com/feed/channel/ideas/",
+         "The Atlantic — Ideas",
+         "https://www.theatlantic.com/ideas/",
+         "https://www.theatlantic.com/favicon.ico",
+         "The Atlantic's ideas + culture desk. American-flavored, well-argued."),
+        ("https://www.nplusonemag.com/feed",
+         "n+1", "https://www.nplusonemag.com/",
+         "https://www.nplusonemag.com/favicon.ico",
+         "Literary + cultural criticism from Brooklyn. Sharp, unafraid."),
+        ("https://www.themarginalian.org/feed/",
+         "The Marginalian (Maria Popova)",
+         "https://www.themarginalian.org/",
+         "https://www.themarginalian.org/favicon.ico",
+         "Long essays on books, art, philosophy — one meditation at a time."),
+        ("https://craigmod.com/index.xml",
+         "Craig Mod", "https://craigmod.com/",
+         "https://craigmod.com/favicon.ico",
+         "Walking essays from Japan. Photography, books, wandering."),
+        ("https://kottke.org/index.xml",
+         "kottke.org", "https://kottke.org/",
+         "https://kottke.org/favicon.ico",
+         "Jason Kottke's blog — the internet's original curator, 25+ years running."),
+        ("https://www.damninteresting.com/feed/",
+         "Damn Interesting", "https://www.damninteresting.com/",
+         "https://www.damninteresting.com/favicon.ico",
+         "Meticulously researched narrative essays on the strange + true."),
+    ],
+}
+
+
 ALL_SEED_COLLECTIONS = (
     SEED_BERLIN_NACHRICHTEN,
     SEED_BERLIN_ENGLISH,
+    SEED_BERLIN_KULTUR,
     SEED_BETTER_SWE,
+    SEED_BETTER_PM,
+    SEED_STARTUP_CRAFT,
+    SEED_TEHRAN_FARSI,
+    SEED_LONGFORM,
 )
 
 

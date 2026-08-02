@@ -163,7 +163,7 @@ def discover(
         "discover.html",
         {
             "user": viewer,
-            "featured_collections": load_featured_collections(db, limit=6),
+            "featured_collections": load_featured_collections(db, limit=12),
             "recent_users": _recent_public_users(db),
             "popular_feeds": _popular_feeds(db, viewer),
             "most_forked": _most_forked_curators(db),

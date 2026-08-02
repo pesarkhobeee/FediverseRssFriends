@@ -385,7 +385,7 @@ def reject_suggestion(
 # ─── Discover helper — used from public.py's discover route ────────────
 
 
-def load_featured_collections(db: Session, limit: int = 6) -> list[dict]:
+def load_featured_collections(db: Session, limit: int = 12) -> list[dict]:
     """Return official public collections + feed counts, for the
     /discover page's 'Browse collections' band."""
     cols = db.exec(
