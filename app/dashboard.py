@@ -294,6 +294,17 @@ def rename_category(
             )
     cat.name = new_name
     db.add(cat)
+    # TODO(legacy 0.9.6+): category rename should cascade to the auto-created
+    # category-follow Feed rows. When someone follows this category from another
+    # radar, _ensure_category_subscription in follow.py creates a Feed with
+    # URL `.../u/{owner_handle}/c/{category_name}.rss` — that URL bakes in the
+    # NAME. Renaming the category here leaves those Feed rows stale (URL still
+    # points at /c/old-name.rss). The refresh cycle keeps fetching it (server
+    # still serves per-category RSS by name-ilike), but our unsubscribe fix
+    # from 0.9.5 can't URL-match the CategoryFollow because the URL says the
+    # old name and the DB has the new one. Mirror the Handle rename story
+    # (see HandleAlias + Activity/Feed URL rewrite in app/public.py::rename_handle).
+    # See also KNOWN_ISSUES.md.
     db.commit()
     return Response(status_code=204, headers={"HX-Refresh": "true"})
 
