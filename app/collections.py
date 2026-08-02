@@ -27,6 +27,7 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlmodel import Session, select
 
+from . import mail
 from .auth import current_user, login_required
 from .db import (
     Collection,
@@ -191,6 +192,7 @@ def add_one_feed(
             "e": {"cf": cf, "feed": feed, "note": cf.note, "sort_order": cf.sort_order},
             "viewer_subs": {feed.id},
             "just_added": bool(added),
+            "can_moderate": _can_moderate(db, user, col),
         },
     )
 
@@ -265,10 +267,48 @@ def suggest_feed(
         created_at=datetime.now(UTC),
     ))
     db.commit()
+    # Notify configured recipients. Silent no-op when disabled or
+    # SUGGESTION_NOTIFY_EMAILS is empty in config. Errors don't
+    # propagate — the user's action succeeds even if mail fails.
+    mail.send_suggestion_notification(
+        collection_slug=col.slug,
+        collection_name=col.name,
+        feed_url=url,
+        note=(note or "").strip()[:500],
+        suggester_handle=user.handle,
+    )
     return templates.TemplateResponse(
         request, "_collection_suggest_thanks.html",
         {"user": user, "collection": col, "url": url},
     )
+
+
+# ─── Curator: remove a feed from the collection ────────────────────────
+
+
+@router.post("/collections/{slug}/remove/{feed_id}", response_class=HTMLResponse)
+def remove_feed_from_collection(
+    slug: str,
+    feed_id: int,
+    request: Request,
+    user: User = Depends(login_required),
+    db: Session = Depends(get_session),
+):
+    """Curator-only. Drops the CollectionFeed link (the Feed row itself
+    stays — other users may still be subscribed). Idempotent."""
+    col = _load_collection(db, slug)
+    if not _can_moderate(db, user, col):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "not the curator")
+    cf = db.exec(
+        select(CollectionFeed)
+        .where(CollectionFeed.collection_id == col.id)
+        .where(CollectionFeed.feed_id == feed_id)
+    ).first()
+    if cf:
+        db.delete(cf)
+        db.commit()
+    # Empty HTMX response: the target row is swapped for nothing.
+    return HTMLResponse("", status_code=200)
 
 
 # ─── Curator moderation ───────────────────────────────────────────────

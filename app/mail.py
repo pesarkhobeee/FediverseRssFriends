@@ -140,6 +140,42 @@ def send_new_follower(followee_email: str, followee_handle: str,
     send_email(followee_email, subject, text, html)
 
 
+def send_suggestion_notification(
+    collection_slug: str,
+    collection_name: str,
+    feed_url: str,
+    note: str,
+    suggester_handle: str | None,
+) -> None:
+    """Notify curator(s) that a new suggestion is waiting in the queue.
+
+    Recipients from `config.SUGGESTION_NOTIFY_EMAILS`; the whole call
+    is a no-op when `SUGGESTION_NOTIFY_ENABLED` is False. Every mail
+    error is logged, not raised — a broken mail backend must not
+    break the user's suggest action."""
+    if not config.SUGGESTION_NOTIFY_ENABLED:
+        return
+    base = config.BASE_URL.rstrip("/")
+    manage_url = f"{base}/collections/{collection_slug}/manage"
+    subject = f"[rssFriends] New suggestion for “{collection_name}”"
+    who = f"@{suggester_handle}" if suggester_handle else "someone"
+    text = (
+        f"{who} suggested a feed for the “{collection_name}” collection.\n\n"
+        f"URL:   {feed_url}\n"
+        f"Note:  {note or '(none)'}\n\n"
+        f"Review + accept/reject:\n{manage_url}\n"
+    )
+    html = (
+        f"<p><strong>{who}</strong> suggested a feed for "
+        f"<em>{collection_name}</em>.</p>"
+        f'<p>URL: <code>{feed_url}</code></p>'
+        f"<p>Note: {note or '<em>(none)</em>'}</p>"
+        f'<p><a href="{manage_url}">Review + accept/reject in the queue →</a></p>'
+    )
+    for addr in config.SUGGESTION_NOTIFY_EMAILS:
+        send_email(addr, subject, text, html)
+
+
 def send_follow_approved(follower_email: str, follower_handle: str,
                          followee_handle: str) -> None:
     base = config.BASE_URL.rstrip("/")

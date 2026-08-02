@@ -344,3 +344,117 @@ def test_discover_page_shows_featured_collection_card():
     assert "Browse collections" in body
     assert "Berlin — Nachrichten" in body
     assert "/collections/berlin-nachrichten" in body
+
+
+def test_curator_can_remove_feed_from_collection():
+    """0.10.3: curator gets a Remove button on each row; POSTing to it
+    drops the CollectionFeed link but leaves the underlying Feed row."""
+    import app.db as db_mod
+    admin = _client()
+    _login(admin, "root@example.com")  # first user = de-facto admin
+
+    with Session(db_mod.engine) as s:
+        col = s.exec(select(db_mod.Collection)
+                     .where(db_mod.Collection.slug == "berlin-nachrichten")).one()
+        cf = s.exec(select(db_mod.CollectionFeed)
+                    .where(db_mod.CollectionFeed.collection_id == col.id)
+                    .order_by(db_mod.CollectionFeed.sort_order)
+                    .limit(1)).one()
+        feed_id = cf.feed_id
+        before_count = len(s.exec(select(db_mod.CollectionFeed)
+                                  .where(db_mod.CollectionFeed.collection_id == col.id)).all())
+
+    r = admin.post(f"/collections/berlin-nachrichten/remove/{feed_id}")
+    assert r.status_code == 200
+
+    with Session(db_mod.engine) as s:
+        after_count = len(s.exec(select(db_mod.CollectionFeed)
+                                 .where(db_mod.CollectionFeed.collection_id == col.id)).all())
+        assert after_count == before_count - 1
+        # Feed row itself must survive.
+        feed = s.get(db_mod.Feed, feed_id)
+        assert feed is not None
+
+
+def test_non_curator_cannot_remove_feed():
+    import app.db as db_mod
+    admin = _client()
+    _login(admin, "root@example.com")  # first user
+    other = _client()
+    _login(other, "u2@example.com")
+    with Session(db_mod.engine) as s:
+        col = s.exec(select(db_mod.Collection)
+                     .where(db_mod.Collection.slug == "berlin-nachrichten")).one()
+        cf = s.exec(select(db_mod.CollectionFeed)
+                    .where(db_mod.CollectionFeed.collection_id == col.id)
+                    .limit(1)).one()
+        feed_id = cf.feed_id
+
+    r = other.post(f"/collections/berlin-nachrichten/remove/{feed_id}")
+    assert r.status_code == 403
+
+
+def test_curator_sees_remove_button_on_detail_page():
+    admin = _client()
+    _login(admin, "root@example.com")
+    r = admin.get("/collections/berlin-nachrichten")
+    assert "collection-feed-remove" in r.text
+    assert "hx-post=\"/collections/berlin-nachrichten/remove/" in r.text
+
+
+def test_non_curator_does_not_see_remove_button():
+    admin = _client()
+    _login(admin, "root@example.com")  # ensures root exists
+    other = _client()
+    _login(other, "u2@example.com")
+    r = other.get("/collections/berlin-nachrichten")
+    assert "collection-feed-remove" not in r.text
+
+
+def test_suggest_triggers_notification_when_enabled(monkeypatch):
+    """0.10.3: POST /suggest fires mail.send_suggestion_notification
+    when SUGGESTION_NOTIFY_ENABLED is on. Captures the call rather
+    than sending real mail."""
+    import app.collections as collections_mod
+    import app.config as config_mod
+
+    monkeypatch.setattr(config_mod, "SUGGESTION_NOTIFY_ENABLED", True)
+    monkeypatch.setattr(config_mod, "SUGGESTION_NOTIFY_EMAILS", ["admin@example.com"])
+
+    captured: list[dict] = []
+    def fake(**kw):
+        captured.append(kw)
+    monkeypatch.setattr(collections_mod.mail, "send_suggestion_notification", fake)
+
+    c = _client()
+    _login(c, "carol@example.com")
+    r = c.post("/collections/berlin-nachrichten/suggest",
+               data={"feed_url": "https://ex.example/new.rss",
+                     "note": "Missing!"})
+    assert r.status_code == 200
+    assert len(captured) == 1
+    kw = captured[0]
+    assert kw["collection_slug"] == "berlin-nachrichten"
+    assert kw["collection_name"] == "Berlin — Nachrichten"
+    assert kw["feed_url"] == "https://ex.example/new.rss"
+    assert kw["note"] == "Missing!"
+    assert kw["suggester_handle"] == "carol"
+
+
+def test_notify_disabled_when_config_flag_off(monkeypatch):
+    """SUGGESTION_NOTIFY_ENABLED=False is a hard off-switch even if
+    emails are configured."""
+    import app.config as config_mod
+    import app.mail as mail_mod
+
+    monkeypatch.setattr(config_mod, "SUGGESTION_NOTIFY_ENABLED", False)
+    monkeypatch.setattr(config_mod, "SUGGESTION_NOTIFY_EMAILS", ["admin@example.com"])
+
+    sent: list[str] = []
+    monkeypatch.setattr(mail_mod, "send_email", lambda *a, **k: sent.append("called"))
+
+    mail_mod.send_suggestion_notification(
+        collection_slug="x", collection_name="X",
+        feed_url="https://x/", note="", suggester_handle="alice",
+    )
+    assert sent == []

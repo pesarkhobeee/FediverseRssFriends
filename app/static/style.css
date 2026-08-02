@@ -2174,3 +2174,19 @@ img.favicon {
 }
 
 .discover-collections { padding: 8px 0 32px; }
+
+/* Curator-only "remove feed" pill on a collection detail row. Subtle
+   until hovered — the primary CTA on each row is still Add / On your
+   radar; Remove is admin garnish. */
+.collection-feed-remove {
+  padding: 4px 10px !important;
+  font-size: 13px !important;
+  border-radius: 99px !important;
+  margin-left: 6px;
+  color: var(--muted) !important;
+  border: 1px solid var(--border) !important;
+}
+.collection-feed-remove:hover {
+  color: var(--danger) !important;
+  border-color: var(--danger) !important;
+}

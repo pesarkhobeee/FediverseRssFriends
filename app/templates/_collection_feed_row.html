@@ -1,6 +1,6 @@
 {# One feed row inside a collection detail page.
    Expects: e (dict with feed + note + sort_order), collection, viewer_subs, user
-   Optional: just_added (bool) — set by the POST /add response to render a green pill. #}
+   Optional: just_added (bool), can_moderate (bool) — set by callers. #}
 <div class="collection-feed-row" id="cf-{{ e.feed.id }}">
   <div class="collection-feed-row-head">
     {% if e.feed.favicon_url %}
@@ -33,6 +33,17 @@
                 hx-swap="outerHTML">+ Add</button>
       {% else %}
         <a class="btn" href="/#login" title="Sign in to add">Sign in</a>
+      {% endif %}
+      {# Curator-only: Remove this feed from the collection. Deletes the
+         CollectionFeed row (the underlying Feed stays — other users may
+         still be subscribed). #}
+      {% if can_moderate %}
+        <button class="btn-ghost collection-feed-remove"
+                hx-post="/collections/{{ collection.slug }}/remove/{{ e.feed.id }}"
+                hx-target="#cf-{{ e.feed.id }}"
+                hx-swap="outerHTML"
+                hx-confirm="Remove '{{ e.feed.title }}' from '{{ collection.name }}'? Users already subscribed to it keep the feed on their radar."
+                title="Remove feed from this collection">✕</button>
       {% endif %}
     </div>
   </div>

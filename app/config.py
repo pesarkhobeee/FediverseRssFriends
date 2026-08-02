@@ -33,3 +33,20 @@ REFRESH_INTERVAL_MINUTES = int(os.getenv("RSSFRIENDS_REFRESH_INTERVAL_MINUTES", 
 REFRESH_BATCH_SIZE = int(os.getenv("RSSFRIENDS_REFRESH_BATCH_SIZE", "300"))
 REFRESH_CONCURRENCY = int(os.getenv("RSSFRIENDS_REFRESH_CONCURRENCY", "10"))
 FEED_ITEM_KEEP = int(os.getenv("RSSFRIENDS_FEED_ITEM_KEEP", "100"))  # max items stored per feed
+
+# ─── Collection-suggestion notifications (0.10.3) ───────────────────────
+# Comma-separated list of email addresses to notify when a user submits
+# a new suggestion. Empty = notifications off. In production this lives
+# in `.env` alongside the other RSSFRIENDS_* keys; the AP-native rewrite
+# will read the same knob from config.toml under `[notifications]`.
+#
+# Example: RSSFRIENDS_SUGGESTION_NOTIFY_EMAILS=you@example.com,other@example.com
+SUGGESTION_NOTIFY_EMAILS: list[str] = [
+    e.strip() for e in os.getenv("RSSFRIENDS_SUGGESTION_NOTIFY_EMAILS", "").split(",")
+    if e.strip()
+]
+# Explicit off-switch — set to '0' to silence even when addresses are set.
+SUGGESTION_NOTIFY_ENABLED: bool = (
+    os.getenv("RSSFRIENDS_SUGGESTION_NOTIFY_ENABLED", "1") != "0"
+    and len(SUGGESTION_NOTIFY_EMAILS) > 0
+)
