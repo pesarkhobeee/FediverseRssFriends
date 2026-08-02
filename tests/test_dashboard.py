@@ -318,6 +318,37 @@ def test_note_picker_forbidden_for_other_users_subscription(monkeypatch):
     assert r.status_code == 404
 
 
+def test_note_appears_on_owners_own_public_radar_but_hidden_from_others(monkeypatch):
+    """0.11.3: on /u/{handle}, the note is rendered for the owner only.
+    Other viewers must never see it."""
+    _stub_resolve(monkeypatch, title="Owner Feed", site="https://o.example")
+    owner = _client()
+    _login(owner, "alice@example.com")
+    cat_id = _extract_id(
+        owner.post("/categories", data={"name": "Weblogs"}).text, "category-",
+    )
+    sub = owner.post("/feeds", data={"url": "https://o.example/feed",
+                                     "category_id": cat_id})
+    sub_id = _extract_id(sub.text, "sub-")
+    owner.post(f"/subscriptions/{sub_id}/note",
+               data={"note": "creator of my radar"})
+
+    # Owner's own view: note visible
+    r = owner.get("/u/alice")
+    assert "creator of my radar" in r.text
+
+    # Other logged-in viewer: note hidden
+    bob = _client()
+    _login(bob, "bob@example.com")
+    r = bob.get("/u/alice")
+    assert "creator of my radar" not in r.text
+
+    # Anonymous viewer: note hidden
+    anon = _client()
+    r = anon.get("/u/alice")
+    assert "creator of my radar" not in r.text
+
+
 def test_note_button_shows_check_when_note_is_set(monkeypatch):
     """The row's action strip flips 'Note' → 'Note ✓' after saving."""
     client = _client()

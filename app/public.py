@@ -522,6 +522,9 @@ def _load_stream(
     feed_ids = {feed.id for _s, feed, _c in subs}
     feed_by_id = {feed.id: feed for _s, feed, _c in subs}
     cat_by_feed = {feed.id: cat.name for _s, feed, cat in subs}
+    # 0.11.3: expose the owner's private note per feed so the stream
+    # rows can render "@dhh — creator of Rails" on the owner's own view.
+    note_by_feed = {feed.id: sub.note for sub, feed, _c in subs}
 
     # Peek limit+1 so we know if there's another page without a count query.
     items = db.exec(
@@ -543,6 +546,7 @@ def _load_stream(
             "item": it,
             "feed": feed_by_id[it.feed_id],
             "category_name": cat_by_feed.get(it.feed_id, ""),
+            "note": note_by_feed.get(it.feed_id, ""),
         }
         for it in items
     ]
@@ -620,6 +624,7 @@ def user_radar(
                 "stream_next_offset": offset + STREAM_PAGE_SIZE,
                 "viewer_bookmarks": viewer_bookmarks,
                 "active_cat": cat,
+                "is_owner": bool(viewer and viewer.id == owner.id),
             },
         )
 

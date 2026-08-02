@@ -22,6 +22,10 @@
            target="_blank" rel="noopener">{{ row.item.title }}</a>
         <span class="stream-row-meta">
           <span class="stream-row-source">{{ row.feed.title }}</span>
+          {# 0.11.3: private per-user note, owner-only surface #}
+          {% if is_owner and row.note %}
+            <span class="feed-note muted" title="Your private note">— {{ row.note }}</span>
+          {% endif %}
           {% if row.category_name %}
             <a class="chip small stream-row-cat"
                href="/u/{{ owner.handle }}?view=stream&amp;cat={{ row.category_name }}">{{ row.category_name }}</a>

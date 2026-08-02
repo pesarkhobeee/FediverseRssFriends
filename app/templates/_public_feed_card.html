@@ -8,6 +8,10 @@
       <span class="favicon" aria-hidden="true">📡</span>
     {% endif %}
     <span class="title">{{ it.feed.title }}</span>
+    {# 0.11.3: private per-user note shown only on the owner's own view #}
+    {% if is_owner and it.sub.note %}
+      <span class="feed-note muted" title="Your private note">— {{ it.sub.note }}</span>
+    {% endif %}
     {% if it.is_new %}<span class="badge-new">New</span>{% endif %}
     {% if show_category and it.category_name %}
       <a class="chip small" href="/u/{{ owner.handle }}?cat={{ it.category_name }}"
