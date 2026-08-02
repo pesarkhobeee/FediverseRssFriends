@@ -45,38 +45,56 @@ def _login(client, email):
 # ─── Seed idempotence ──────────────────────────────────────────────────
 
 
-def test_berlin_collection_seeded_on_init():
-    """`init_db()` runs on the fresh-schema fixture and should have
-    created the Berlin — Nachrichten collection with 12 feeds."""
+def test_all_official_collections_seeded_on_init():
+    """`init_db()` runs on the fresh-schema fixture. All three seed
+    collections should exist with their feed counts."""
     import app.db as db_mod
     with Session(db_mod.engine) as s:
-        col = s.exec(
-            select(db_mod.Collection).where(
-                db_mod.Collection.slug == "berlin-nachrichten"
-            )
-        ).one()
-        assert col.is_official is True
-        assert col.language == "de"
-        assert col.locale == "Berlin, DE"
-        rows = s.exec(
-            select(db_mod.CollectionFeed).where(
-                db_mod.CollectionFeed.collection_id == col.id
-            )
-        ).all()
-        assert len(rows) == 12
+        expected = {
+            "berlin-nachrichten": ("de", "Berlin, DE", 12),
+            "berlin-english":     ("en", "Berlin, DE", 3),
+            "better-software-engineer": ("en", "", 12),
+        }
+        for slug, (lang, locale, feed_count) in expected.items():
+            col = s.exec(
+                select(db_mod.Collection).where(db_mod.Collection.slug == slug)
+            ).one()
+            assert col.is_official is True
+            assert col.language == lang
+            assert col.locale == locale
+            rows = s.exec(
+                select(db_mod.CollectionFeed)
+                .where(db_mod.CollectionFeed.collection_id == col.id)
+            ).all()
+            assert len(rows) == feed_count, f"{slug}: expected {feed_count} feeds, got {len(rows)}"
 
 
 def test_re_running_init_db_is_idempotent():
-    """Second call to init_db() shouldn't duplicate the collection."""
+    """Second call to init_db() shouldn't duplicate anything."""
     import app.db as db_mod
     db_mod.init_db()
     with Session(db_mod.engine) as s:
-        cols = s.exec(
-            select(db_mod.Collection).where(
-                db_mod.Collection.slug == "berlin-nachrichten"
-            )
+        for slug in ("berlin-nachrichten", "berlin-english", "better-software-engineer"):
+            cols = s.exec(
+                select(db_mod.Collection).where(db_mod.Collection.slug == slug)
+            ).all()
+            assert len(cols) == 1, f"{slug}: expected 1 row, got {len(cols)}"
+
+
+def test_berlin_spectator_feed_is_dual_listed():
+    """Berlin Spectator appears in both Nachrichten and English collections
+    but shares one Feed row (dedup by URL)."""
+    import app.db as db_mod
+    with Session(db_mod.engine) as s:
+        feed = s.exec(
+            select(db_mod.Feed).where(db_mod.Feed.url == "https://berlinspectator.com/feed/")
+        ).one()
+        # Should be linked from two CollectionFeed rows.
+        links = s.exec(
+            select(db_mod.CollectionFeed)
+            .where(db_mod.CollectionFeed.feed_id == feed.id)
         ).all()
-        assert len(cols) == 1
+        assert len(links) == 2
 
 
 # ─── Read routes ───────────────────────────────────────────────────────

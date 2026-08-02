@@ -4,58 +4,12 @@
 {% block meta_description %}New radars, popular feeds, and the most-forked curators on rssFriends. Only public radars are listed.{% endblock %}
 {% block content %}
 
-<section class="discover-hero">
-  <h1 class="discover-hero-title">Discover</h1>
-  <p class="discover-hero-lead">
-    New radars, popular feeds, and the most-forked curators. Only public
-    radars are listed.
-  </p>
-  <div class="discover-search">
-    <input class="input discover-search-input"
-           type="search"
-           name="q"
-           placeholder="Find a friend — type a handle, typos welcome"
-           autocomplete="off"
-           hx-get="/discover/search"
-           hx-target="#user-search-results"
-           hx-trigger="keyup changed delay:250ms, search"
-           hx-swap="innerHTML" />
-  </div>
-  <div id="user-search-results" class="discover-search-results"></div>
-</section>
-
-{% if featured_collections %}
-<section class="discover-collections">
-  <div class="discover-h2-row">
-    <h2 class="discover-h2">Browse collections</h2>
-    <a href="/collections" class="muted" style="font-size:13px">See all →</a>
-  </div>
-  <p class="muted" style="max-width:60ch; margin:.25rem 0 1rem">
-    Hand-curated bundles of feeds by topic, place, and language.
-    Not the same US/English top-10 every reader shows — smaller,
-    local, native-language feeds you'd actually read.
-  </p>
-  <div class="collections-grid">
-    {% for fc in featured_collections %}
-      {% set c = fc.col %}
-      <a class="collection-card" href="/collections/{{ c.slug }}">
-        <div class="collection-card-head">
-          {% if c.is_official %}<span class="collection-badge">Official</span>{% endif %}
-          {% if c.locale %}<span class="collection-locale">{{ c.locale }}</span>{% endif %}
-          {% if c.language %}<span class="collection-lang">{{ c.language }}</span>{% endif %}
-        </div>
-        <div class="collection-card-title">{{ c.name }}</div>
-        {% if c.description %}
-          <div class="collection-card-desc">{{ c.description[:140] }}{% if c.description|length > 140 %}…{% endif %}</div>
-        {% endif %}
-        <div class="collection-card-foot muted">
-          <strong>{{ fc.feed_count }}</strong> feed{{ '' if fc.feed_count == 1 else 's' }}
-        </div>
-      </a>
-    {% endfor %}
-  </div>
-</section>
-{% endif %}
+{# 0.10.1: Recent radars + Popular feeds are the primary discovery
+   content, so they sit at the top of the page. The Discover-hero
+   (title + search) and the Browse-collections band moved to the
+   bottom — search is still one keystroke away via the nav on desktop,
+   and the collections work as a "explore more" invitation after
+   users scroll through the radar + feed content above. #}
 
 <section class="discover-grid">
   {# ─── Left column: recent radars + most-forked ─────────────────── #}
@@ -141,4 +95,59 @@
     {% endif %}
   </div>
 </section>
+
+{# ─── Bottom: Discover hero (with fuzzy search) ─────────────────── #}
+<section class="discover-hero">
+  <h1 class="discover-hero-title">Discover</h1>
+  <p class="discover-hero-lead">
+    Find a specific person on rssFriends. Typos welcome.
+  </p>
+  <div class="discover-search">
+    <input class="input discover-search-input"
+           type="search"
+           name="q"
+           placeholder="Search a handle — e.g. @farid, @mo, @julian"
+           autocomplete="off"
+           hx-get="/discover/search"
+           hx-target="#user-search-results"
+           hx-trigger="keyup changed delay:250ms, search"
+           hx-swap="innerHTML" />
+  </div>
+  <div id="user-search-results" class="discover-search-results"></div>
+</section>
+
+{# ─── Bottom: Browse collections ────────────────────────────────── #}
+{% if featured_collections %}
+<section class="discover-collections">
+  <div class="discover-h2-row">
+    <h2 class="discover-h2">Browse collections</h2>
+    <a href="/collections" class="muted" style="font-size:13px">See all →</a>
+  </div>
+  <p class="muted" style="max-width:60ch; margin:.25rem 0 1rem">
+    Hand-curated bundles of feeds by topic, place, and language.
+    Not the same US/English top-10 every reader shows — smaller,
+    local, native-language feeds you'd actually read.
+  </p>
+  <div class="collections-grid">
+    {% for fc in featured_collections %}
+      {% set c = fc.col %}
+      <a class="collection-card" href="/collections/{{ c.slug }}">
+        <div class="collection-card-head">
+          {% if c.is_official %}<span class="collection-badge">Official</span>{% endif %}
+          {% if c.locale %}<span class="collection-locale">{{ c.locale }}</span>{% endif %}
+          {% if c.language %}<span class="collection-lang">{{ c.language }}</span>{% endif %}
+        </div>
+        <div class="collection-card-title">{{ c.name }}</div>
+        {% if c.description %}
+          <div class="collection-card-desc">{{ c.description[:140] }}{% if c.description|length > 140 %}…{% endif %}</div>
+        {% endif %}
+        <div class="collection-card-foot muted">
+          <strong>{{ fc.feed_count }}</strong> feed{{ '' if fc.feed_count == 1 else 's' }}
+        </div>
+      </a>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
 {% endblock %}

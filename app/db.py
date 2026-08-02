@@ -643,14 +643,115 @@ SEED_BERLIN_NACHRICHTEN = {
 }
 
 
+SEED_BERLIN_ENGLISH = {
+    "slug": "berlin-english",
+    "name": "Berlin — English",
+    "description": (
+        "English-language news + expat-focused feeds about Berlin and "
+        "Germany. Curated for the many Berliners whose day-to-day "
+        "reading language isn't German."
+    ),
+    "language": "en",
+    "locale": "Berlin, DE",
+    "is_official": True,
+    "curator_handle": "ahmadian-farid-1988",
+    "feeds": [
+        ("https://www.berlin.de/en/news/rubric.rss",
+         "berlin.de — News (English)", "https://www.berlin.de/en/",
+         "https://www.berlin.de/favicon.ico",
+         "Official English-language press releases from the Berlin Senate."),
+        ("https://berlinspectator.com/feed/",
+         "The Berlin Spectator", "https://berlinspectator.com/",
+         "https://berlinspectator.com/favicon.ico",
+         "Independent English-language reporting on Berlin & Germany."),
+        ("https://rss.dw.com/rdf/rss-en-ger",
+         "Deutsche Welle — Germany (EN)", "https://www.dw.com/en/germany/",
+         "https://www.dw.com/favicon.ico",
+         "DW's Germany desk in English — national context expats read."),
+    ],
+}
+
+
+SEED_BETTER_SWE = {
+    "slug": "better-software-engineer",
+    "name": "Better Software Engineer",
+    "description": (
+        "Timeless English-language voices on shipping better software: "
+        "systems, incidents, testing, tooling, and the craft. Hand-picked "
+        "blogs and newsletters, no framework-flavour-of-the-week noise."
+    ),
+    "language": "en",
+    "locale": "",  # global, no locale
+    "is_official": True,
+    "curator_handle": "ahmadian-farid-1988",
+    "feeds": [
+        ("https://simonwillison.net/atom/everything/",
+         "Simon Willison's Weblog", "https://simonwillison.net/",
+         "https://simonwillison.net/favicon.ico",
+         "Notes on tools + AI + coding, from the co-creator of Django."),
+        ("https://jvns.ca/atom.xml",
+         "Julia Evans", "https://jvns.ca/",
+         "https://jvns.ca/favicon.ico",
+         "Systems knowledge in patient, illustrated bites. Wizard-zine energy."),
+        ("https://danluu.com/atom.xml",
+         "Dan Luu", "https://danluu.com/",
+         "https://danluu.com/favicon.ico",
+         "Deep, empirical writing on latency, reliability, and hiring."),
+        ("https://overreacted.io/rss.xml",
+         "overreacted (Dan Abramov)", "https://overreacted.io/",
+         "https://overreacted.io/favicon.ico",
+         "React internals + mental models — for anyone who ships UIs."),
+        ("https://martinfowler.com/feed.atom",
+         "Martin Fowler", "https://martinfowler.com/",
+         "https://martinfowler.com/favicon.ico",
+         "Refactoring, architecture, patterns. Classic."),
+        ("https://devblogs.microsoft.com/oldnewthing/feed",
+         "The Old New Thing (Raymond Chen)", "https://devblogs.microsoft.com/oldnewthing/",
+         "https://devblogs.microsoft.com/favicon.ico",
+         "Windows quirks, backward-compat war stories, and API archaeology."),
+        ("https://www.hillelwayne.com/index.xml",
+         "Hillel Wayne", "https://www.hillelwayne.com/",
+         "https://www.hillelwayne.com/favicon.ico",
+         "Formal methods, TLA+, and 'crossover projects' between disciplines."),
+        ("https://mitchellh.com/feed.xml",
+         "Mitchell Hashimoto", "https://mitchellh.com/",
+         "https://mitchellh.com/favicon.ico",
+         "Founder-turned-hacker essays: Zig, Ghostty, Terraform lessons."),
+        ("https://increment.com/feed.xml",
+         "Increment (Stripe)", "https://increment.com/",
+         "https://increment.com/favicon.ico",
+         "Themed engineering essays — testing, on-call, distributed systems."),
+        ("https://lwn.net/headlines/newrss",
+         "LWN.net", "https://lwn.net/",
+         "https://lwn.net/favicon.ico",
+         "Kernel + free-software journalism. Depth you won't get elsewhere."),
+        ("https://lobste.rs/rss",
+         "Lobsters", "https://lobste.rs/",
+         "https://lobste.rs/favicon.ico",
+         "Invite-only tech link aggregator. Signal-heavy compared to HN."),
+        ("https://charity.wtf/feed/",
+         "charity.wtf (Charity Majors)", "https://charity.wtf/",
+         "https://charity.wtf/favicon.ico",
+         "Observability, on-call, and management from Honeycomb's CTO."),
+    ],
+}
+
+
+ALL_SEED_COLLECTIONS = (
+    SEED_BERLIN_NACHRICHTEN,
+    SEED_BERLIN_ENGLISH,
+    SEED_BETTER_SWE,
+)
+
+
 def _seed_official_collections() -> None:
     """Idempotently create the seed Collection(s). Runs on every startup;
     skips any Collection whose slug already exists. Feed rows are also
     deduped by URL via the existing UNIQUE constraint.
 
     Gated by env var `RSSFRIENDS_SEED_COLLECTIONS` (default '1'):
-    tests set this to '0' so the 12 seeded Feed rows don't pollute
-    test setups that count/iterate Feed rows. Tests that want the seed
+    tests set this to '0' so the seeded Feed rows don't pollute test
+    setups that count/iterate Feed rows. Tests that want the seed
     (tests/test_collections.py) call this function explicitly."""
     import os
     from datetime import UTC, datetime
@@ -659,50 +760,53 @@ def _seed_official_collections() -> None:
         return
 
     with Session(engine) as db:
-        seed = SEED_BERLIN_NACHRICHTEN
-        existing = db.exec(
-            select(Collection).where(Collection.slug == seed["slug"])
-        ).first()
-        if existing:
-            return  # already seeded — nothing to do
+        for seed in ALL_SEED_COLLECTIONS:
+            existing = db.exec(
+                select(Collection).where(Collection.slug == seed["slug"])
+            ).first()
+            if existing:
+                continue  # already seeded
 
-        # Look up the intended curator by handle. Missing = None (system-curated).
-        curator_id: int | None = None
-        curator_user = db.exec(
-            select(User).where(User.handle == seed["curator_handle"])
-        ).first()
-        if curator_user:
-            curator_id = curator_user.id
+            # Look up the intended curator by handle. Missing = None
+            # (system-curated: moderated by the de-facto root user).
+            curator_id: int | None = None
+            curator_user = db.exec(
+                select(User).where(User.handle == seed["curator_handle"])
+            ).first()
+            if curator_user:
+                curator_id = curator_user.id
 
-        col = Collection(
-            slug=seed["slug"],
-            name=seed["name"],
-            description=seed["description"],
-            language=seed["language"],
-            locale=seed["locale"],
-            curator_id=curator_id,
-            is_official=seed["is_official"],
-            is_public=True,
-            created_at=datetime.now(UTC),
-        )
-        db.add(col)
-        db.flush()  # get col.id
+            col = Collection(
+                slug=seed["slug"],
+                name=seed["name"],
+                description=seed["description"],
+                language=seed["language"],
+                locale=seed["locale"],
+                curator_id=curator_id,
+                is_official=seed["is_official"],
+                is_public=True,
+                created_at=datetime.now(UTC),
+            )
+            db.add(col)
+            db.flush()  # get col.id
 
-        for order, (url, title, site_url, favicon_url, note) in enumerate(seed["feeds"], start=1):
-            feed = db.exec(select(Feed).where(Feed.url == url)).first()
-            if not feed:
-                feed = Feed(
-                    url=url, title=title, site_url=site_url,
-                    favicon_url=favicon_url,
-                )
-                db.add(feed)
-                db.flush()
-            db.add(CollectionFeed(
-                collection_id=col.id,
-                feed_id=feed.id,
-                note=note,
-                sort_order=order,
-            ))
+            for order, (url, title, site_url, favicon_url, note) in enumerate(
+                seed["feeds"], start=1
+            ):
+                feed = db.exec(select(Feed).where(Feed.url == url)).first()
+                if not feed:
+                    feed = Feed(
+                        url=url, title=title, site_url=site_url,
+                        favicon_url=favicon_url,
+                    )
+                    db.add(feed)
+                    db.flush()
+                db.add(CollectionFeed(
+                    collection_id=col.id,
+                    feed_id=feed.id,
+                    note=note,
+                    sort_order=order,
+                ))
         db.commit()
 
 

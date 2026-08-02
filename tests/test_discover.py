@@ -264,7 +264,10 @@ def test_search_ignores_leading_at():
 def test_discover_page_has_search_input():
     r = _client().get("/discover")
     assert 'hx-get="/discover/search"' in r.text
-    assert "Find a friend" in r.text
+    # 0.10.1: search prompt copy shifted when we moved the hero to the
+    # bottom — it's now a "find a specific person" affordance beneath
+    # the primary discovery content.
+    assert "Search a handle" in r.text
 
 
 def test_discover_layout_has_new_structure():
