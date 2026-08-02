@@ -4,6 +4,8 @@ All state-changing routes return small HTML fragments so HTMX can swap
 them into the page. Full-page renders live at GET /dashboard.
 """
 
+import re
+
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from sqlalchemy import update
@@ -522,6 +524,11 @@ def subscribe_selected(
     return HTMLResponse("\n".join(fragments))
 
 
+_CATEGORY_FOLLOW_URL_RE = re.compile(
+    r"^https?://[^/]+/u/(?P<owner>[^/]+)/c/(?P<cat>.+)\.rss$"
+)
+
+
 @router.delete("/subscriptions/{sub_id}")
 def unsubscribe(
     sub_id: int,
@@ -531,6 +538,38 @@ def unsubscribe(
     sub = db.get(Subscription, sub_id)
     if not sub or sub.user_id != user.id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "not found")
+
+    # If the feed being unsubscribed is a category-follow-linked feed
+    # (URL matches `.../u/{owner}/c/{cat_name}.rss`), also delete the
+    # matching CategoryFollow row. Otherwise the "graph edge" persists
+    # invisibly and any future re-follow / drift would silently re-add
+    # this subscription. Reported by @julian-lamas 2026-08-02: farid's
+    # "Github feeds" kept popping back after removals; root cause was
+    # (a) the migration-era backfill running on every startup and
+    # (b) removing the sub not touching the CategoryFollow row.
+    feed = db.get(Feed, sub.feed_id)
+    if feed:
+        m = _CATEGORY_FOLLOW_URL_RE.match(feed.url)
+        if m:
+            owner_handle = m.group("owner")
+            cat_name = m.group("cat")
+            # Find (owner, cat) — case-insensitive match on category name.
+            owner = db.exec(select(User).where(User.handle == owner_handle)).first()
+            if owner:
+                cat = db.exec(
+                    select(Category)
+                    .where(Category.user_id == owner.id)
+                    .where(Category.name.ilike(cat_name))
+                ).first()
+                if cat:
+                    cf = db.exec(
+                        select(CategoryFollow)
+                        .where(CategoryFollow.follower_id == user.id)
+                        .where(CategoryFollow.category_id == cat.id)
+                    ).first()
+                    if cf:
+                        db.delete(cf)
+
     db.delete(sub)
     db.commit()
     return Response(status_code=200)

@@ -446,3 +446,100 @@ def test_follow_category_button_hidden_from_owner():
     _seed_category_with_feed("farid", "News", "https://a.example/rss")
     r = owner.get("/u/farid?cat=News")
     assert "🔔 Follow category" not in r.text
+
+
+def test_removing_category_follow_subscription_from_dashboard_drops_category_follow():
+    """@julian-lamas bug 2026-08-02: after following farid's 'Github feeds'
+    category, then removing the auto-added subscription from /dashboard,
+    the CategoryFollow row must also be dropped — otherwise every deploy's
+    startup re-scan (before this fix) or any future re-follow would
+    silently re-add the subscription."""
+    from sqlmodel import Session, select
+
+    import app.db as db_mod
+
+    # Setup: farid publishes a Github-feeds category with a feed.
+    farid = _client()
+    _login(farid, "farid@e.com")
+    _seed_category_with_feed("farid", "Github feeds", "https://gh.example/rss")
+
+    # bob follows it → CategoryFollow row + auto-added Subscription created.
+    bob = _client()
+    _login(bob, "bob@e.com")
+    with Session(db_mod.engine) as s:
+        cat = s.exec(select(db_mod.Category)
+                     .where(db_mod.Category.name == "Github feeds")).one()
+    r = bob.post(f"/u/farid/c/{cat.id}/follow")
+    assert r.status_code == 200
+
+    # Find the Subscription for the category-follow feed on bob's radar.
+    with Session(db_mod.engine) as s:
+        bob_row = s.exec(select(db_mod.User).where(db_mod.User.handle == "bob")).one()
+        sub = s.exec(
+            select(db_mod.Subscription)
+            .where(db_mod.Subscription.user_id == bob_row.id)
+        ).one()
+        sub_id = sub.id
+
+    # bob deletes the subscription via the dashboard.
+    r = bob.delete(f"/subscriptions/{sub_id}")
+    assert r.status_code == 200
+
+    # BOTH rows should be gone (bob's — farid's own sub is untouched).
+    with Session(db_mod.engine) as s:
+        bob_row = s.exec(select(db_mod.User).where(db_mod.User.handle == "bob")).one()
+        bob_subs = s.exec(
+            select(db_mod.Subscription).where(db_mod.Subscription.user_id == bob_row.id)
+        ).all()
+        cfs = s.exec(
+            select(db_mod.CategoryFollow).where(db_mod.CategoryFollow.follower_id == bob_row.id)
+        ).all()
+        assert len(bob_subs) == 0, "bob's Subscription should be deleted"
+        assert len(cfs) == 0, "bob's CategoryFollow should be dropped too"
+
+
+def test_removing_non_category_follow_sub_leaves_category_follow_alone():
+    """Regression guard: unsubscribing from a normal (non-category-follow)
+    feed doesn't touch any CategoryFollow rows. The URL-pattern gate is
+    tight enough to only match /u/{h}/c/{cat}.rss."""
+    from sqlmodel import Session, select
+
+    import app.db as db_mod
+
+    # bob has a normal subscription to a normal feed AND follows farid's
+    # category (which creates a second sub + a CategoryFollow row).
+    farid = _client()
+    _login(farid, "farid@e.com")
+    _seed_category_with_feed("farid", "Tech", "https://tech.example/rss")
+
+    bob = _client()
+    _login(bob, "bob@e.com")
+
+    with Session(db_mod.engine) as s:
+        cat = s.exec(select(db_mod.Category).where(db_mod.Category.name == "Tech")).one()
+    bob.post(f"/u/farid/c/{cat.id}/follow")
+
+    # bob adds a normal subscription in some category on his own radar.
+    r = bob.post("/categories", data={"name": "Personal"})
+    idx = r.text.find('id="category-') + len('id="category-')
+    end = r.text.find('"', idx)
+    personal_cat_id = int(r.text[idx:end])
+    with Session(db_mod.engine) as s:
+        bob_row = s.exec(select(db_mod.User).where(db_mod.User.handle == "bob")).one()
+        feed = db_mod.Feed(url="https://normal.example/rss", title="Normal")
+        s.add(feed)
+        s.commit()
+        s.refresh(feed)
+        normal_sub = db_mod.Subscription(
+            user_id=bob_row.id, feed_id=feed.id,
+            category_id=personal_cat_id, sort_order=1,
+        )
+        s.add(normal_sub)
+        s.commit()
+        s.refresh(normal_sub)
+        normal_sub_id = normal_sub.id
+
+    # Remove the NORMAL sub → CategoryFollow untouched.
+    bob.delete(f"/subscriptions/{normal_sub_id}")
+    with Session(db_mod.engine) as s:
+        assert len(s.exec(select(db_mod.CategoryFollow)).all()) == 1

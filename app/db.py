@@ -318,11 +318,17 @@ def _run_sqlite_migrations(conn) -> None:
                     f"ALTER TABLE wallabagaccount ADD COLUMN {col} TEXT NOT NULL DEFAULT ''"
                 )
 
-    # 0.2.43: category follows now auto-add a Subscription to the
-    # category's RSS URL so followers can read it, not just get its
-    # timeline signals. Backfill existing CategoryFollow rows.
-    if "categoryfollow" in tables and "subscription" in tables:
-        _backfill_category_follow_subscriptions(conn)
+    # 0.2.43: category follows started auto-adding a Subscription for
+    # the category's RSS URL. We used to backfill this on every startup
+    # — but that means if a user removes the auto-added sub from their
+    # dashboard, the next deploy silently puts it back (bug reported
+    # by @julian-lamas 2026-08-02). Since new CategoryFollow rows are
+    # created with a matching Subscription atomically by follow.py's
+    # _ensure_category_subscription(), no backfill is needed anymore.
+    #
+    # The function is kept in this file for reference + tests, but it
+    # no longer runs on startup. If you ever need to re-heal a specific
+    # historical drift, call it manually from a one-shot admin script.
 
 
 def _backfill_category_follow_subscriptions(conn) -> None:
