@@ -35,6 +35,21 @@
       </a>
     {% endif %}
   </div>
+
+  {# 0.11.0: subscribable-as-RSS. Anyone with any RSS reader can add
+     this URL and get every collection feed's newest items merged into
+     a single stream — no rssFriends account needed. #}
+  <div class="collection-rss-strip">
+    <img class="rss-glyph" src="{{ url_for('static', path='favicon.svg') }}?v={{ app_version }}" alt="" aria-hidden="true" />
+    <span class="muted">Subscribe as RSS:</span>
+    <a class="collection-rss-url" href="/collections/{{ collection.slug }}.rss"
+       target="_blank" rel="noopener">
+      {{ request.base_url|string|replace('http://','')|replace('https://','')|trim('/') }}/collections/{{ collection.slug }}.rss
+    </a>
+    <button type="button" class="radar-rss-copy-btn"
+            data-copy-url="/collections/{{ collection.slug }}.rss"
+            title="Copy the collection's RSS URL to your clipboard">Copy</button>
+  </div>
   {% if collection.description %}
     <p class="collection-detail-desc prose">{{ collection.description }}</p>
   {% endif %}

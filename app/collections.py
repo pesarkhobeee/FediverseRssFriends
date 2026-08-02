@@ -22,9 +22,10 @@ federation via ActivityPub (see docs/federation-activitypub.md).
 """
 
 from datetime import UTC, datetime
+from xml.sax.saxutils import escape as xml_escape
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request, status
+from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
 from sqlmodel import Session, select
 
 from . import mail
@@ -34,6 +35,7 @@ from .db import (
     CollectionFeed,
     CollectionSuggestion,
     Feed,
+    FeedItem,
     Subscription,
     User,
     get_session,
@@ -99,15 +101,31 @@ def _viewer_subs(db: Session, viewer: User | None, feed_ids: list[int]) -> set[i
 @router.get("/collections", response_class=HTMLResponse)
 def collections_list(
     request: Request,
+    lang: str = Query(default=""),
     viewer: User | None = Depends(current_user),
     db: Session = Depends(get_session),
 ):
-    """Browse all public collections. Official ones first, then the rest."""
-    cols = db.exec(
+    """Browse all public collections. Official first, then the rest.
+
+    `?lang=xx` filters to collections declaring that language (ISO 639-1).
+    """
+    # Compute language chips from ALL public collections so the pill row
+    # is stable regardless of the current filter.
+    all_langs = sorted(set(db.exec(
+        select(Collection.language)
+        .where(Collection.is_public == True)   # noqa: E712
+        .where(Collection.language != "")
+    ).all()))
+
+    query = (
         select(Collection)
         .where(Collection.is_public == True)  # noqa: E712
         .order_by(Collection.is_official.desc(), Collection.created_at.desc())
-    ).all()
+    )
+    if lang:
+        query = query.where(Collection.language == lang)
+    cols = db.exec(query).all()
+
     # Feed counts per collection.
     counts: dict[int, int] = {}
     for c in cols:
@@ -116,7 +134,98 @@ def collections_list(
         ).all())
     return templates.TemplateResponse(
         request, "collections_list.html",
-        {"user": viewer, "collections": cols, "counts": counts},
+        {
+            "user": viewer,
+            "collections": cols,
+            "counts": counts,
+            "active_lang": lang,
+            "all_langs": all_langs,
+        },
+    )
+
+
+# NOTE on route ordering: `/collections/{slug}.rss` must be registered
+# BEFORE the plain `{slug}` route below — otherwise FastAPI would match
+# "berlin-nachrichten.rss" as `slug="berlin-nachrichten.rss"` on the HTML
+# endpoint and return 404.
+
+@router.get("/collections/{slug}.rss", response_class=PlainTextResponse)
+def collection_rss(
+    slug: str,
+    request: Request,
+    db: Session = Depends(get_session),
+):
+    """Every collection is subscribable as a single RSS feed. Aggregates
+    the newest 100 items across all feeds in the collection, sorted by
+    `published_at DESC` (then `fetched_at DESC`).
+
+    Rationale: the whole "not-just-BBC/CNN" mission only reaches users
+    of other RSS readers if they can subscribe to a collection without
+    having a rssFriends account. This is that URL."""
+    col = _load_collection(db, slug)
+
+    # Which feeds belong to this collection?
+    feed_ids = list(db.exec(
+        select(CollectionFeed.feed_id)
+        .where(CollectionFeed.collection_id == col.id)
+    ).all())
+    if not feed_ids:
+        items_rows: list = []
+    else:
+        items_rows = db.exec(
+            select(FeedItem, Feed)
+            .join(Feed, Feed.id == FeedItem.feed_id)
+            .where(FeedItem.feed_id.in_(feed_ids))
+            .order_by(
+                FeedItem.published_at.desc().nulls_last(),
+                FeedItem.fetched_at.desc(),
+            )
+            .limit(100)
+        ).all()
+
+    base = str(request.base_url).rstrip("/")
+
+    def _rfc822(dt: datetime | None) -> str:
+        if dt is None:
+            return ""
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=UTC)
+        return dt.strftime("%a, %d %b %Y %H:%M:%S +0000")
+
+    entries = []
+    for item, feed in items_rows:
+        pubdate = _rfc822(item.published_at or item.fetched_at)
+        title_prefix = f"[{feed.title}] " if feed.title else ""
+        parts = [
+            "    <item>",
+            f"      <title>{xml_escape(title_prefix + (item.title or '(untitled)'))}</title>",
+            f"      <link>{xml_escape(item.link or feed.url)}</link>",
+            f'      <guid isPermaLink="false">item-{item.id}</guid>',
+            f'      <source url="{xml_escape(feed.url)}">{xml_escape(feed.title)}</source>',
+        ]
+        if pubdate:
+            parts.append(f"      <pubDate>{pubdate}</pubDate>")
+        if item.summary:
+            parts.append(f"      <description>{xml_escape(item.summary)}</description>")
+        parts.append("    </item>")
+        entries.append("\n".join(parts))
+
+    lang_attr = f' xml:lang="{xml_escape(col.language)}"' if col.language else ""
+    body = (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        f'<rss version="2.0"{lang_attr}>\n'
+        "  <channel>\n"
+        f"    <title>{xml_escape(col.name)}</title>\n"
+        f"    <link>{base}/collections/{xml_escape(col.slug)}</link>\n"
+        f"    <description>{xml_escape(col.description or col.name)}</description>\n"
+        + ("\n".join(entries) + "\n" if entries else "")
+        + "  </channel>\n"
+        "</rss>\n"
+    )
+    return PlainTextResponse(
+        body,
+        media_type="application/rss+xml; charset=utf-8",
+        headers={"Cache-Control": "public, max-age=900"},  # 15-min CDN-friendly cache
     )
 
 

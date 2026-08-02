@@ -2190,3 +2190,45 @@ img.favicon {
   color: var(--danger) !important;
   border-color: var(--danger) !important;
 }
+
+/* 0.11.0: language filter pills on /collections */
+.collections-lang-filter {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  margin-top: 4px;
+}
+.collections-lang-chip {
+  font-size: 13px; font-weight: 500;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 99px;
+  padding: 5px 12px;
+  text-decoration: none;
+  transition: background 120ms ease-out, color 120ms ease-out;
+}
+.collections-lang-chip:hover { color: var(--fg); border-color: var(--muted); text-decoration: none; }
+.collections-lang-chip-active {
+  background: var(--fg); color: var(--bg);
+  border-color: var(--fg); font-weight: 600;
+}
+.collections-lang-chip-active:hover { color: var(--bg); }
+
+/* 0.11.0: collection-as-RSS strip on detail page */
+.collection-rss-strip {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  font-size: 13px;
+  flex-wrap: wrap;
+}
+.collection-rss-url {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 12.5px;
+  color: var(--fg);
+  text-decoration: none;
+  flex: 1; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.collection-rss-url:hover { text-decoration: underline; }

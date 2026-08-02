@@ -496,3 +496,96 @@ def test_notify_disabled_when_config_flag_off(monkeypatch):
         feed_url="https://x/", note="", suggester_handle="alice",
     )
     assert sent == []
+
+
+# ─── 0.11.0: collection RSS + language filter ─────────────────────────
+
+
+def test_collection_rss_returns_valid_rss():
+    """/collections/{slug}.rss aggregates newest items across all
+    feeds in the collection. Even with zero FeedItems on hand it
+    should return a well-formed empty channel, not 500."""
+    import xml.etree.ElementTree as ET
+
+    r = _client().get("/collections/berlin-nachrichten.rss")
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith("application/rss+xml")
+    assert r.headers.get("cache-control", "").startswith("public")
+    # Must parse as valid XML.
+    root = ET.fromstring(r.text)
+    assert root.tag == "rss"
+    channel = root.find("channel")
+    assert channel is not None
+    assert channel.find("title").text == "Berlin — Nachrichten"
+    # Empty is fine here (test-mode has no FeedItems yet).
+
+
+def test_collection_rss_aggregates_items_from_all_feeds():
+    """Populate two Feeds in the collection with items; RSS must
+    interleave them newest-first."""
+    from datetime import UTC, datetime, timedelta
+
+    import app.db as db_mod
+
+    now = datetime.now(UTC)
+    with Session(db_mod.engine) as s:
+        col = s.exec(select(db_mod.Collection)
+                     .where(db_mod.Collection.slug == "berlin-nachrichten")).one()
+        cfs = s.exec(select(db_mod.CollectionFeed)
+                     .where(db_mod.CollectionFeed.collection_id == col.id)
+                     .limit(2)).all()
+        feed_a = s.get(db_mod.Feed, cfs[0].feed_id)
+        feed_b = s.get(db_mod.Feed, cfs[1].feed_id)
+        # Add items with distinct timestamps.
+        s.add(db_mod.FeedItem(
+            feed_id=feed_a.id, guid="a1", title="From feed A",
+            link="https://a.example/1", published_at=now - timedelta(hours=2)))
+        s.add(db_mod.FeedItem(
+            feed_id=feed_b.id, guid="b1", title="From feed B",
+            link="https://b.example/1", published_at=now - timedelta(hours=1)))
+        s.commit()
+
+    r = _client().get("/collections/berlin-nachrichten.rss")
+    body = r.text
+    assert "From feed A" in body
+    assert "From feed B" in body
+    # B (newer) should appear before A (older).
+    assert body.find("From feed B") < body.find("From feed A")
+
+
+def test_collection_rss_unknown_slug_404():
+    r = _client().get("/collections/does-not-exist.rss")
+    assert r.status_code == 404
+
+
+def test_collection_rss_url_appears_on_detail_page():
+    r = _client().get("/collections/berlin-nachrichten")
+    assert 'href="/collections/berlin-nachrichten.rss"' in r.text
+    assert 'data-copy-url="/collections/berlin-nachrichten.rss"' in r.text
+
+
+def test_language_filter_pill_row_renders_all_langs():
+    """The pill row lists every distinct language among public
+    collections — regardless of any current filter — so users can
+    switch languages without going through 'All'."""
+    r = _client().get("/collections")
+    body = r.text
+    assert "collections-lang-filter" in body
+    # Berlin collections declare 'de'; Farsi collection declares 'fa'.
+    assert "Deutsch" in body
+    assert "فارسی" in body
+    assert "English" in body
+
+
+def test_language_filter_narrows_the_list():
+    r = _client().get("/collections?lang=fa")
+    body = r.text
+    # Only the Farsi collection should appear.
+    assert "Tehran" in body
+    assert "Berlin — Nachrichten" not in body
+
+
+def test_language_filter_unknown_lang_shows_helpful_empty_state():
+    r = _client().get("/collections?lang=zz")
+    body = r.text
+    assert "No collections in that language yet" in body

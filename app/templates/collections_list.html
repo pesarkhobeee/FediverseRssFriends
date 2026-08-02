@@ -9,6 +9,20 @@
     Community-suggested, curator-approved. Not just BBC and CNN —
     smaller, local, and native-language feeds you'd actually read.
   </p>
+  {% if all_langs %}
+    <div class="collections-lang-filter" role="tablist" aria-label="Language">
+      {% set lang_label = {'en': 'English', 'de': 'Deutsch', 'fa': 'فارسی',
+                            'fr': 'Français', 'es': 'Español', 'it': 'Italiano',
+                            'nl': 'Nederlands', 'tr': 'Türkçe', 'pt': 'Português',
+                            'ar': 'العربية'} %}
+      <a class="collections-lang-chip {% if not active_lang %}collections-lang-chip-active{% endif %}"
+         href="/collections">All</a>
+      {% for lang in all_langs %}
+        <a class="collections-lang-chip {% if active_lang == lang %}collections-lang-chip-active{% endif %}"
+           href="/collections?lang={{ lang }}">{{ lang_label.get(lang, lang) }}</a>
+      {% endfor %}
+    </div>
+  {% endif %}
 </section>
 
 {% if collections %}
@@ -31,6 +45,12 @@
   {% endfor %}
 </section>
 {% else %}
-<p class="muted">No collections yet.</p>
+<p class="muted">
+  {% if active_lang %}
+    No collections in that language yet. <a href="/collections">Show all →</a>
+  {% else %}
+    No collections yet.
+  {% endif %}
+</p>
 {% endif %}
 {% endblock %}
