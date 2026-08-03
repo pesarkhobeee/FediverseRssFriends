@@ -176,6 +176,34 @@ def send_suggestion_notification(
         send_email(addr, subject, text, html)
 
 
+def send_collection_request_notification(
+    name: str,
+    description: str,
+    language: str,
+    locale: str,
+    example_feeds: str,
+    requester_handle: str,
+) -> None:
+    """0.11.4: notify admins that a user requested a new Collection
+    (not a feed inside an existing one — a whole new collection)."""
+    if not config.SUGGESTION_NOTIFY_ENABLED:
+        return
+    base = config.BASE_URL.rstrip("/")
+    admin_url = f"{base}/collections/new"
+    subject = f"[rssFriends] New collection request: “{name}”"
+    text = (
+        f"@{requester_handle} requested a new collection.\n\n"
+        f"Name:        {name}\n"
+        f"Language:    {language or '(unspecified)'}\n"
+        f"Locale:      {locale or '(unspecified)'}\n"
+        f"Description: {description or '(none)'}\n\n"
+        f"Example feeds:\n{example_feeds or '(none)'}\n\n"
+        f"Create it here (or reject by ignoring):\n{admin_url}\n"
+    )
+    for addr in config.SUGGESTION_NOTIFY_EMAILS:
+        send_email(addr, subject, text, "")
+
+
 def send_follow_approved(follower_email: str, follower_handle: str,
                          followee_handle: str) -> None:
     base = config.BASE_URL.rstrip("/")

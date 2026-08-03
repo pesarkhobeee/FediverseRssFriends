@@ -34,6 +34,8 @@ from .auth import current_user, login_required
 from .db import (
     Collection,
     CollectionFeed,
+    CollectionFeedTombstone,
+    CollectionRequest,
     CollectionSuggestion,
     Feed,
     FeedItem,
@@ -158,6 +160,80 @@ def collections_list(
             "is_admin": _is_admin(db, viewer),
         },
     )
+
+
+# ─── Anyone (signed-in): request a whole new collection ───────────────
+
+
+@router.get("/collections/request", response_class=HTMLResponse)
+def request_collection_form(
+    request: Request,
+    user: User = Depends(login_required),
+    db: Session = Depends(get_session),
+):
+    """0.11.4: a signed-in user asks for a new collection to exist.
+    Not the same as suggesting a feed for an existing collection —
+    this is 'please make a collection for Amsterdam news'.
+    Admins act on requests by creating the collection via /collections/new."""
+    my_recent = db.exec(
+        select(CollectionRequest)
+        .where(CollectionRequest.requested_by == user.id)
+        .order_by(CollectionRequest.created_at.desc())
+        .limit(10)
+    ).all()
+    return templates.TemplateResponse(
+        request, "collection_request.html",
+        {"user": user, "my_recent": my_recent},
+    )
+
+
+@router.post("/collections/request")
+def request_collection(
+    name: str = Form(...),
+    description: str = Form(""),
+    language: str = Form(""),
+    locale: str = Form(""),
+    example_feeds: str = Form(""),
+    user: User = Depends(login_required),
+    db: Session = Depends(get_session),
+):
+    name = (name or "").strip()
+    if not name:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "name is required")
+    # Cheap dedup: same user can't file two identical open requests.
+    dupe = db.exec(
+        select(CollectionRequest)
+        .where(CollectionRequest.requested_by == user.id)
+        .where(CollectionRequest.name == name)
+        .where(CollectionRequest.status == "pending")
+    ).first()
+    if dupe:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "you've already got a pending request with that name",
+        )
+    req = CollectionRequest(
+        requested_by=user.id,
+        name=name[:120],
+        description=(description or "").strip()[:600],
+        language=(language or "").strip().lower()[:5],
+        locale=(locale or "").strip()[:64],
+        example_feeds=(example_feeds or "").strip()[:2000],
+    )
+    db.add(req)
+    db.commit()
+    import contextlib
+    with contextlib.suppress(Exception):
+        # Never let a broken SMTP break the user's request.
+        mail.send_collection_request_notification(
+            name=req.name,
+            description=req.description,
+            language=req.language,
+            locale=req.locale,
+            example_feeds=req.example_feeds,
+            requester_handle=user.handle,
+        )
+    return RedirectResponse("/collections/request?ok=1", status_code=303)
 
 
 # ─── Admin: create / edit collections + manually add feeds ─────────────
@@ -343,6 +419,16 @@ def curator_add_feed(
         note=(note or "").strip()[:500],
         sort_order=max_order + 1,
     ))
+    # 0.11.4: if this URL had been tombstoned by a prior removal, clear
+    # the tombstone — curator has changed their mind and wants seed-sync
+    # to keep hands off this URL going forward.
+    tomb = db.exec(
+        select(CollectionFeedTombstone)
+        .where(CollectionFeedTombstone.collection_id == col.id)
+        .where(CollectionFeedTombstone.feed_url == url)
+    ).first()
+    if tomb:
+        db.delete(tomb)
     db.commit()
     return RedirectResponse(f"/collections/{slug}/manage", status_code=303)
 
@@ -617,6 +703,23 @@ def remove_feed_from_collection(
         .where(CollectionFeed.feed_id == feed_id)
     ).first()
     if cf:
+        # 0.11.4: tombstone the URL so the seed loop won't resurrect
+        # this feed on the next deploy. Look up the Feed's URL by id
+        # BEFORE deleting the CollectionFeed row (we still need the
+        # Feed row itself, but this is the intent-of-removal record).
+        feed = db.get(Feed, feed_id)
+        if feed:
+            already = db.exec(
+                select(CollectionFeedTombstone)
+                .where(CollectionFeedTombstone.collection_id == col.id)
+                .where(CollectionFeedTombstone.feed_url == feed.url)
+            ).first()
+            if not already:
+                db.add(CollectionFeedTombstone(
+                    collection_id=col.id,
+                    feed_url=feed.url,
+                    removed_by=user.id,
+                ))
         db.delete(cf)
         db.commit()
     # Empty HTMX response: the target row is swapped for nothing.
@@ -712,6 +815,15 @@ def accept_suggestion(
             note=(note or sug.note or "").strip()[:500],
             sort_order=max_order + 1,
         ))
+    # 0.11.4: clear any tombstone for this URL — accepting a suggestion
+    # for a previously-removed feed is a positive re-add signal.
+    tomb = db.exec(
+        select(CollectionFeedTombstone)
+        .where(CollectionFeedTombstone.collection_id == col.id)
+        .where(CollectionFeedTombstone.feed_url == url)
+    ).first()
+    if tomb:
+        db.delete(tomb)
     sug.status = "accepted"
     sug.reviewed_at = datetime.now(UTC)
     db.add(sug)

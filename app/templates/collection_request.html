@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}Request a new collection · rssFriends{% endblock %}
+{% block content %}
+<section class="hero stack">
+  <p><a class="btn-ghost" href="/collections">← All collections</a></p>
+  <h1>Request a new collection</h1>
+  <p class="muted" style="max-width:60ch">
+    Missing a place, language, or topic on
+    <a href="/collections">/collections</a>? Tell us what you'd like
+    to see. Admins review requests and — if the idea holds up — create
+    the collection. You can then suggest feeds into it like any other.
+  </p>
+</section>
+
+{% if request.query_params.get("ok") %}
+  <p class="cta-badge" style="margin:1rem 0">
+    ✓ Thanks — your request is in the queue.
+  </p>
+{% endif %}
+
+<form method="post" action="/collections/request" class="collection-admin-form">
+  <label>
+    <div class="collection-admin-label">Name</div>
+    <input class="input" type="text" name="name" required maxlength="120"
+           placeholder="e.g. Amsterdam — Nieuws" />
+    <div class="muted collection-admin-hint">
+      Use the em-dash pattern for locale/topic collections
+      (<code>Place — Topic</code>).
+    </div>
+  </label>
+
+  <label>
+    <div class="collection-admin-label">Why should this exist?</div>
+    <textarea class="input" name="description" rows="3" maxlength="600"
+              placeholder="What kind of reader benefits from this? What sources are missing from RSS discovery today?"></textarea>
+  </label>
+
+  <div style="display:flex; gap:16px">
+    <label style="flex:1">
+      <div class="collection-admin-label">Language (ISO 639-1)</div>
+      <input class="input" type="text" name="language" maxlength="5"
+             placeholder="en / de / fa / nl / …" />
+    </label>
+    <label style="flex:1">
+      <div class="collection-admin-label">Locale</div>
+      <input class="input" type="text" name="locale" maxlength="64"
+             placeholder="Amsterdam, NL — leave empty for global topics" />
+    </label>
+  </div>
+
+  <label>
+    <div class="collection-admin-label">Example feeds (one per line)</div>
+    <textarea class="input" name="example_feeds" rows="5" maxlength="2000"
+              placeholder="https://example.com/feed.xml&#10;https://another.example/rss"></textarea>
+    <div class="muted collection-admin-hint">
+      Not required, but 3–5 seed URLs make it much likelier we
+      actually create the collection.
+    </div>
+  </label>
+
+  <div style="display:flex; gap:10px; margin-top:16px">
+    <button class="btn" type="submit">Send request</button>
+    <a class="btn-ghost" href="/collections">Cancel</a>
+  </div>
+</form>
+
+{% if my_recent %}
+  <h2 class="section-title">Your recent requests</h2>
+  <ul class="fav-list">
+    {% for r in my_recent %}
+      <li class="fav-item">
+        <div class="fav-head">
+          <strong>{{ r.name }}</strong>
+          <span class="spacer"></span>
+          <span class="muted" style="font-size:.85rem">
+            {{ r.status }} · {{ r.created_at|relative_time }}
+          </span>
+        </div>
+        {% if r.description %}
+          <p class="muted" style="margin:.25rem 0">{{ r.description }}</p>
+        {% endif %}
+      </li>
+    {% endfor %}
+  </ul>
+{% endif %}
+{% endblock %}

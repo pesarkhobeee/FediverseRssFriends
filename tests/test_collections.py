@@ -768,3 +768,147 @@ def test_non_curator_cannot_add_feed():
     r = b.post("/collections/berlin-nachrichten/add-feed",
                data={"feed_url": "https://ex.example/x.rss"})
     assert r.status_code == 403
+
+
+# ─── 0.11.4: tombstones prevent seed from resurrecting removed feeds ──
+
+
+def test_removing_feed_via_curator_writes_tombstone():
+    """When curator hits Remove, a CollectionFeedTombstone row is
+    created for that URL so the seed loop can't resurrect it later."""
+    import app.db as db_mod
+
+    admin = _client()
+    _login(admin, "root@example.com")
+
+    with Session(db_mod.engine) as s:
+        col = s.exec(select(db_mod.Collection)
+                     .where(db_mod.Collection.slug == "berlin-nachrichten")).one()
+        cf = s.exec(select(db_mod.CollectionFeed)
+                    .where(db_mod.CollectionFeed.collection_id == col.id)
+                    .order_by(db_mod.CollectionFeed.sort_order)
+                    .limit(1)).one()
+        feed = s.get(db_mod.Feed, cf.feed_id)
+        col_id, feed_id, feed_url = col.id, cf.feed_id, feed.url
+
+    r = admin.post(f"/collections/berlin-nachrichten/remove/{feed_id}")
+    assert r.status_code == 200
+
+    with Session(db_mod.engine) as s:
+        tomb = s.exec(select(db_mod.CollectionFeedTombstone)
+                      .where(db_mod.CollectionFeedTombstone.collection_id == col_id)
+                      .where(db_mod.CollectionFeedTombstone.feed_url == feed_url)).first()
+        assert tomb is not None
+
+
+def test_seed_reseed_does_not_resurrect_removed_feed():
+    """Simulate the exact bug reported by @ahmadian-farid-1988: curator
+    removes a seed feed, then the seed loop runs again (as it does on
+    every startup). The removed feed must stay removed."""
+    import app.db as db_mod
+
+    admin = _client()
+    _login(admin, "root@example.com")
+
+    with Session(db_mod.engine) as s:
+        col = s.exec(select(db_mod.Collection)
+                     .where(db_mod.Collection.slug == "berlin-nachrichten")).one()
+        cf = s.exec(select(db_mod.CollectionFeed)
+                    .where(db_mod.CollectionFeed.collection_id == col.id)
+                    .order_by(db_mod.CollectionFeed.sort_order)
+                    .limit(1)).one()
+        removed_feed_id = cf.feed_id
+        removed_feed_url = s.get(db_mod.Feed, removed_feed_id).url
+
+    admin.post(f"/collections/berlin-nachrichten/remove/{removed_feed_id}")
+
+    # Rerun the seed. This is what happens on every deploy.
+    db_mod._seed_official_collections()
+
+    with Session(db_mod.engine) as s:
+        col = s.exec(select(db_mod.Collection)
+                     .where(db_mod.Collection.slug == "berlin-nachrichten")).one()
+        urls_now = {r for r in s.exec(
+            select(db_mod.Feed.url)
+            .join(db_mod.CollectionFeed, db_mod.CollectionFeed.feed_id == db_mod.Feed.id)
+            .where(db_mod.CollectionFeed.collection_id == col.id)
+        ).all()}
+        assert removed_feed_url not in urls_now
+
+
+def test_re_adding_feed_clears_tombstone(monkeypatch):
+    """Curator changes mind: removes, then re-adds via the add-feed
+    route. The tombstone must be cleared so future seed passes are
+    free to keep the URL in sync again."""
+    import app.collections as collections_mod
+    import app.db as db_mod
+    import app.feeds
+
+    admin = _client()
+    _login(admin, "root@example.com")
+
+    with Session(db_mod.engine) as s:
+        col = s.exec(select(db_mod.Collection)
+                     .where(db_mod.Collection.slug == "berlin-nachrichten")).one()
+        cf = s.exec(select(db_mod.CollectionFeed)
+                    .where(db_mod.CollectionFeed.collection_id == col.id)
+                    .order_by(db_mod.CollectionFeed.sort_order)
+                    .limit(1)).one()
+        feed = s.get(db_mod.Feed, cf.feed_id)
+        col_id, feed_url = col.id, feed.url
+
+    admin.post(f"/collections/berlin-nachrichten/remove/{feed.id}")
+
+    def fake_resolve(url):
+        return {"title": "Re-added", "site_url": "", "favicon_url": "", "is_feed": True}
+    monkeypatch.setattr(collections_mod, "resolve_feed", fake_resolve, raising=False)
+    monkeypatch.setattr(app.feeds, "resolve_feed", fake_resolve)
+
+    r = admin.post("/collections/berlin-nachrichten/add-feed",
+                   data={"feed_url": feed_url}, follow_redirects=False)
+    assert r.status_code == 303
+
+    with Session(db_mod.engine) as s:
+        tomb = s.exec(select(db_mod.CollectionFeedTombstone)
+                      .where(db_mod.CollectionFeedTombstone.collection_id == col_id)
+                      .where(db_mod.CollectionFeedTombstone.feed_url == feed_url)).first()
+        assert tomb is None
+
+
+# ─── 0.11.4: users can request whole new collections ──────────────────
+
+
+def test_user_can_request_a_new_collection():
+    import app.db as db_mod
+
+    c = _client()
+    _login(c, "requester@example.com")
+    r = c.post(
+        "/collections/request",
+        data={"name": "Amsterdam — Nieuws", "description": "Dutch news",
+              "language": "nl", "locale": "Amsterdam, NL",
+              "example_feeds": "https://example.com/feed.xml"},
+        follow_redirects=False,
+    )
+    assert r.status_code == 303
+    with Session(db_mod.engine) as s:
+        req = s.exec(select(db_mod.CollectionRequest)).one()
+        assert req.name == "Amsterdam — Nieuws"
+        assert req.language == "nl"
+        assert req.status == "pending"
+
+
+def test_anonymous_user_cannot_request_collection():
+    r = _client().get("/collections/request")
+    # login_required kicks anon back to /login
+    assert r.status_code in (302, 303, 401)
+
+
+def test_duplicate_request_from_same_user_returns_409():
+    c = _client()
+    _login(c, "requester@example.com")
+    c.post("/collections/request", data={"name": "Dup Name"},
+           follow_redirects=False)
+    r = c.post("/collections/request", data={"name": "Dup Name"},
+               follow_redirects=False)
+    assert r.status_code == 409

@@ -209,6 +209,50 @@ class CollectionFeed(SQLModel, table=True):
     sort_order: int = Field(default=0)
 
 
+class CollectionFeedTombstone(SQLModel, table=True):
+    """0.11.4: records a curator's explicit removal of a feed URL from a
+    Collection. The seed loop (which is idempotent-per-feed and would
+    otherwise happily re-add anything in the seed dict) consults this
+    table and skips any URL that has been tombstoned. If a curator
+    later re-adds the same URL via the UI, the tombstone is cleared so
+    future seed passes are once again free to keep it in sync.
+
+    Why URL and not feed_id: the Feed row can be deleted (or the same
+    URL can point at a different Feed after re-resolution), but the
+    intent 'I don't want this URL in this collection' is stable across
+    those churn events."""
+
+    __table_args__ = (
+        UniqueConstraint("collection_id", "feed_url",
+                         name="uq_collectionfeedtombstone_pair"),
+    )
+
+    id: int | None = Field(default=None, primary_key=True)
+    collection_id: int = Field(foreign_key="collection.id", index=True)
+    feed_url: str
+    removed_by: int | None = Field(default=None, foreign_key="user.id")
+    removed_at: datetime = Field(default_factory=_now)
+
+
+class CollectionRequest(SQLModel, table=True):
+    """0.11.4: a request from a signed-in user for a whole new
+    Collection to exist (as distinct from CollectionSuggestion, which
+    adds one feed to an *existing* collection). No auto-creation —
+    admins review, create the Collection via the admin UI, and mark
+    the request accepted."""
+
+    id: int | None = Field(default=None, primary_key=True)
+    requested_by: int = Field(foreign_key="user.id", index=True)
+    name: str  # e.g. "Amsterdam — Nieuws"
+    description: str = Field(default="")
+    language: str = Field(default="")   # ISO 639-1
+    locale: str = Field(default="")     # freeform
+    example_feeds: str = Field(default="")  # newline-separated hints
+    status: str = Field(default="pending")  # pending | accepted | rejected
+    reviewed_at: datetime | None = Field(default=None)
+    created_at: datetime = Field(default_factory=_now)
+
+
 class CollectionSuggestion(SQLModel, table=True):
     """A pending suggestion from a user to add a feed to a collection.
     Never auto-published — the curator (or admin for system-curated
@@ -380,6 +424,54 @@ def _run_sqlite_migrations(conn) -> None:
             if not _sqlite_column_exists(conn, "wallabagaccount", col):
                 conn.exec_driver_sql(
                     f"ALTER TABLE wallabagaccount ADD COLUMN {col} TEXT NOT NULL DEFAULT ''"
+                )
+
+    # 0.11.4: one-shot backfill of tombstones. For each seed collection
+    # on this instance, if the CollectionFeed table is missing any URL
+    # that the seed dict declares, tombstone that URL — the only way
+    # such a gap can exist on an existing instance is that a curator
+    # removed the feed via the UI before the tombstone feature landed.
+    # Idempotent: after the first pass we tombstone nothing new because
+    # curator-removal now creates the tombstone directly.
+    tables_now = {
+        row[0] for row in conn.exec_driver_sql(
+            "SELECT name FROM sqlite_master WHERE type='table'"
+        ).fetchall()
+    }
+    if {"collection", "collectionfeed", "collectionfeedtombstone"} <= tables_now:
+        for seed in ALL_SEED_COLLECTIONS:
+            row = conn.exec_driver_sql(
+                "SELECT id FROM collection WHERE slug = ?", (seed["slug"],),
+            ).fetchone()
+            if not row:
+                continue
+            col_id = row[0]
+            present = {
+                r[0] for r in conn.exec_driver_sql(
+                    "SELECT f.url FROM collectionfeed cf "
+                    "JOIN feed f ON f.id = cf.feed_id "
+                    "WHERE cf.collection_id = ?",
+                    (col_id,),
+                ).fetchall()
+            }
+            already_tombstoned = {
+                r[0] for r in conn.exec_driver_sql(
+                    "SELECT feed_url FROM collectionfeedtombstone "
+                    "WHERE collection_id = ?",
+                    (col_id,),
+                ).fetchall()
+            }
+            for entry in seed["feeds"]:
+                url = entry[0]
+                if url in present or url in already_tombstoned:
+                    continue
+                # Missing without a tombstone — means it was removed
+                # before the tombstone feature. Record intent now.
+                conn.exec_driver_sql(
+                    "INSERT INTO collectionfeedtombstone "
+                    "(collection_id, feed_url, removed_by, removed_at) "
+                    "VALUES (?, ?, NULL, ?)",
+                    (col_id, url, datetime.now(UTC).isoformat()),
                 )
 
     # 0.11.2: Subscription.note added for private per-user reminder notes
@@ -1285,6 +1377,15 @@ def _seed_official_collections() -> None:
                 .join(CollectionFeed, CollectionFeed.feed_id == Feed.id)
                 .where(CollectionFeed.collection_id == col.id)
             ).all())
+            # 0.11.4: also honor tombstones — a URL a curator explicitly
+            # removed via the UI must stay removed across deploys, even
+            # though it's still in the seed dict below. This is the
+            # fix for the resurrection bug reported by
+            # @ahmadian-farid-1988 on 2026-08-03 for tehran-farsi.
+            tombstoned_urls = set(db.exec(
+                select(CollectionFeedTombstone.feed_url)
+                .where(CollectionFeedTombstone.collection_id == col.id)
+            ).all())
 
             # Sort_order continues from where the previous batch left off,
             # so newly-appended seed feeds land at the bottom.
@@ -1296,6 +1397,8 @@ def _seed_official_collections() -> None:
 
             for i, (url, title, site_url, favicon_url, note) in enumerate(seed["feeds"]):
                 if url in existing_urls:
+                    continue
+                if url in tombstoned_urls:
                     continue
                 feed = db.exec(select(Feed).where(Feed.url == url)).first()
                 if not feed:

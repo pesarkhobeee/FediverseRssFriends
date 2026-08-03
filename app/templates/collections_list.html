@@ -5,9 +5,17 @@
 <section class="collections-hero">
   <div class="collections-hero-head">
     <h1 class="collections-hero-title">Collections</h1>
-    {% if is_admin %}
-      <a class="btn" href="/collections/new">+ New collection</a>
-    {% endif %}
+    <div style="display:flex; gap:8px">
+      {% if user %}
+        <a class="btn-ghost" href="/collections/request"
+           title="Ask for a new topic/place/language collection to be created">
+          💡 Request a new one
+        </a>
+      {% endif %}
+      {% if is_admin %}
+        <a class="btn" href="/collections/new">+ New collection</a>
+      {% endif %}
+    </div>
   </div>
   <p class="collections-hero-lead">
     Hand-curated bundles of feeds by topic, place, and language.
