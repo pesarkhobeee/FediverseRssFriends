@@ -290,7 +290,7 @@ def rename_category(
         if dup:
             raise HTTPException(
                 status.HTTP_409_CONFLICT,
-                "you already have a category with that name",
+                "You already have a category with that name.",
             )
     cat.name = new_name
     db.add(cat)
@@ -352,7 +352,10 @@ def _subscribe_to_url(
         .where(Subscription.feed_id == feed.id)
     ).first()
     if existing:
-        raise HTTPException(status.HTTP_409_CONFLICT, "already subscribed")
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "This feed is already on your radar — you can't add it twice.",
+        )
 
     max_order = db.exec(
         select(Subscription.sort_order)
@@ -726,7 +729,7 @@ def edit_subscription_url(
         if dup and dup.id != sub.id:
             raise HTTPException(
                 status.HTTP_409_CONFLICT,
-                "you already subscribe to that feed",
+                "You already subscribe to that feed at its new URL.",
             )
         sub.feed_id = existing_at_new_url.id
         db.add(sub)

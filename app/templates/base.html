@@ -150,13 +150,27 @@
         show("Can't reach the server. Check your connection.");
       });
       document.body.addEventListener("htmx:responseError", function (evt) {
-        var s = evt.detail && evt.detail.xhr ? evt.detail.xhr.status : 0;
+        var xhr = evt.detail && evt.detail.xhr;
+        var s = xhr ? xhr.status : 0;
+        // Extract the server's own message when available. FastAPI
+        // HTTPException produces {"detail": "..."} — parse that so
+        // the toast says "already subscribed" instead of a generic
+        // "Something went wrong (409)".
+        var serverMsg = "";
+        if (xhr && xhr.responseText) {
+          try {
+            var body = JSON.parse(xhr.responseText);
+            if (body && typeof body.detail === "string") serverMsg = body.detail;
+          } catch (_) { /* not JSON, ignore */ }
+        }
         if (s === 401) { window.location.href = "/"; return; }
-        if (s === 403) { show("You don't have access to this."); return; }
-        if (s === 404) { show("Not found."); return; }
+        if (s === 403) { show(serverMsg || "You don't have access to this."); return; }
+        if (s === 404) { show(serverMsg || "Not found."); return; }
+        if (s === 409) { show(serverMsg || "That's already there."); return; }
+        if (s === 400) { show(serverMsg || "That doesn't look right — check your input."); return; }
         if (s === 429) { show("Slow down — too many requests."); return; }
         if (s >= 500) { show("Server error (" + s + "). Try again in a moment."); return; }
-        show("Something went wrong (" + s + ").");
+        show(serverMsg || ("Something went wrong (" + s + ")."));
       });
       document.body.addEventListener("htmx:afterRequest", function (evt) {
         if (evt.detail && evt.detail.successful) toast.hidden = true;

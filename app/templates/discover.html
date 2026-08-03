@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% from "_avatar.html" import avatar %}
 {% block title %}Discover · rssFriends{% endblock %}
-{% block meta_description %}New radars, popular feeds, and the most-forked curators on rssFriends. Only public radars are listed.{% endblock %}
+{% block meta_description %}New radars, popular feeds, and the most-copied curators on rssFriends. Only public radars are listed.{% endblock %}
 {% block content %}
 
 {# 0.10.1: Recent radars + Popular feeds are the primary discovery
@@ -12,7 +12,7 @@
    users scroll through the radar + feed content above. #}
 
 <section class="discover-grid">
-  {# ─── Left column: recent radars + most-forked ─────────────────── #}
+  {# ─── Left column: recent radars + most-copied ─────────────────── #}
   <div class="discover-col">
     <h2 class="discover-h2">Recent radars</h2>
     {% if recent_users %}
@@ -37,7 +37,7 @@
       <p class="muted">No public radars yet.</p>
     {% endif %}
 
-    <h2 class="discover-h2 discover-h2-spaced">Most-forked curators</h2>
+    <h2 class="discover-h2 discover-h2-spaced">Most-copied curators</h2>
     {% if most_forked %}
       <div class="discover-forked-list">
         {% for f in most_forked %}
@@ -50,13 +50,13 @@
               </div>
             </div>
             <span class="discover-forked-badge">
-              forked ×{{ f.forks }}
+              copied ×{{ f.forks }}
             </span>
           </a>
         {% endfor %}
       </div>
     {% else %}
-      <p class="muted">Nobody has been forked yet.</p>
+      <p class="muted">No radars have been copied yet.</p>
     {% endif %}
   </div>
 

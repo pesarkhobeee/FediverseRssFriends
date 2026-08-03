@@ -1124,7 +1124,7 @@ def user_activity_rss(
         "  <channel>\n"
         f"    <title>@{xml_escape(owner.handle)}'s rssFriends activity</title>\n"
         f"    <link>{base}/u/{xml_escape(owner.handle)}</link>\n"
-        f"    <description>Follows, stars, subscriptions and forks by "
+        f"    <description>Follows, bookmarks, subscriptions and radar-copies by "
         f"@{xml_escape(owner.handle)}</description>\n"
         + "\n".join(items) + "\n"
         "  </channel>\n"

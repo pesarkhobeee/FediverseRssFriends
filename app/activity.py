@@ -59,7 +59,10 @@ KIND_ICON = {
     "subscribed": "➕",
     "bookmarked": "⭐",
     "followed": "👤",
-    "forked": "🍴",
+    # 0.11.5: user-facing wording moved from "fork" → "copy". Kept the
+    # DB kind value "forked" for backward compat with existing rows,
+    # RSS descriptions in the wild, and future AP semantics.
+    "forked": "📋",
     "created_category": "📁",
     "posted": "🔊",
 }
@@ -69,7 +72,7 @@ KIND_VERB = {
     "subscribed": "subscribed to",
     "bookmarked": "bookmarked",
     "followed": "followed",
-    "forked": "forked",
+    "forked": "copied the radar of",
     "created_category": "created category",
     "posted": "posted",
 }

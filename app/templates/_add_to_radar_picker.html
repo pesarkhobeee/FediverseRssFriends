@@ -5,7 +5,7 @@
       hx-post="/f/{{ feed.id }}/add"
       hx-target="#feed-cta-{{ feed.id }}"
       hx-swap="outerHTML">
-  <label class="muted picker-label" for="picker-cat-{{ feed.id }}">Add to:</label>
+  <label class="muted picker-label" for="picker-cat-{{ feed.id }}">Add to category:</label>
   <select id="picker-cat-{{ feed.id }}" name="category_id" class="input picker-select">
     {% if categories %}
       {% for c in categories %}
@@ -15,7 +15,7 @@
       <option value="" disabled selected>— no categories yet —</option>
     {% endif %}
   </select>
-  <label class="muted picker-label" for="picker-new-{{ feed.id }}">or new:</label>
+  <label class="muted picker-label" for="picker-new-{{ feed.id }}">or create a new one:</label>
   <input id="picker-new-{{ feed.id }}"
          name="new_category"
          class="input picker-new"

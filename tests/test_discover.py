@@ -30,7 +30,7 @@ def test_discover_empty_state():
     assert r.status_code == 200
     assert "No public radars yet" in r.text
     assert "No feeds have been subscribed" in r.text
-    assert "Nobody has been forked yet" in r.text
+    assert "No radars have been copied yet" in r.text
 
 
 def test_recent_users_shows_only_public():
@@ -336,10 +336,9 @@ def test_most_forked_curators_ranking():
     b.post("/u/d/fork")
 
     r = _client().get("/discover")
-    # Both appear at least once (recent + forks lists). Count is rendered
-    # inline in the pill badge as "forked ×N" (compact form since 0.7.1).
-    assert "forked ×2" in r.text  # @a was forked twice
-    assert "forked ×1" in r.text  # @d was forked once
-    # And @a's fork line appears before @d's in the "Most-forked" section.
-    section = r.text[r.text.find("Most-forked"):]
+    # 0.11.5: "fork" wording replaced with "copy" everywhere user-facing.
+    assert "copied ×2" in r.text  # @a had its radar copied twice
+    assert "copied ×1" in r.text  # @d had its radar copied once
+    # And @a's line appears before @d's in the "Most-copied" section.
+    section = r.text[r.text.find("Most-copied"):]
     assert section.find("@a") < section.find("@d")

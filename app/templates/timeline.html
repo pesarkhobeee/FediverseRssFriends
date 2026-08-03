@@ -1,13 +1,13 @@
 {% extends "base.html" %}
 {% from "_avatar.html" import avatar %}
 {% block title %}Friends on rssFriends{% endblock %}
-{% block meta_description %}What the people you follow on rssFriends have been bookmarking, adding, and forking lately.{% endblock %}
+{% block meta_description %}What the people you follow on rssFriends have been bookmarking, adding, and copying lately.{% endblock %}
 {% block content %}
 <section class="hero stack">
   <h1>👥 Friends</h1>
   <p class="muted">
     What the {{ n_followees }} {{ 'person' if n_followees == 1 else 'people' }} you follow have been
-    bookmarking, adding, and forking lately{% if n_category_follows %}, plus {{ n_category_follows }} categor{{ 'y' if n_category_follows == 1 else 'ies' }} you follow{% endif %}.
+    bookmarking, adding, and copying lately{% if n_category_follows %}, plus {{ n_category_follows }} categor{{ 'y' if n_category_follows == 1 else 'ies' }} you follow{% endif %}.
   </p>
   <p class="muted" style="font-size:.9rem">
     Looking for new items from your own feeds?
@@ -74,7 +74,7 @@
   <h2 style="margin-top:0">Your Friends page is quiet</h2>
   <p class="muted" style="margin:.25rem 0 1rem">
     This page shows what people you follow are doing — the items
-    they bookmark, the feeds they add, the radars they fork. It fills
+    they bookmark, the feeds they add, the radars they copy. It fills
     up once you follow a few curators whose taste you trust.
   </p>
   <p style="margin:.5rem 0">

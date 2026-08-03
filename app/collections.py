@@ -57,7 +57,7 @@ router = APIRouter()
 def _load_collection(db: Session, slug: str) -> Collection:
     col = db.exec(select(Collection).where(Collection.slug == slug)).first()
     if not col or not col.is_public:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "collection not found")
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "That collection doesn't exist.")
     return col
 
 
@@ -199,7 +199,7 @@ def request_collection(
 ):
     name = (name or "").strip()
     if not name:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "name is required")
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Name is required.")
     # Cheap dedup: same user can't file two identical open requests.
     dupe = db.exec(
         select(CollectionRequest)
@@ -210,7 +210,7 @@ def request_collection(
     if dupe:
         raise HTTPException(
             status.HTTP_409_CONFLICT,
-            "you've already got a pending request with that name",
+            "You already have a pending request with that name — hang tight until it's reviewed.",
         )
     req = CollectionRequest(
         requested_by=user.id,
@@ -253,7 +253,7 @@ def new_collection_form(
 ):
     """Admin-only. Renders the 'create a new collection' form."""
     if not _is_admin(db, user):
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "admin only")
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "This is admin-only.")
     return templates.TemplateResponse(
         request, "collection_new.html", {"user": user},
     )
@@ -274,20 +274,22 @@ def create_collection(
     detail page. The curator is the creating admin (nullable = system
     only when created by the seed loop)."""
     if not _is_admin(db, user):
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "admin only")
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "This is admin-only.")
 
     slug = (slug or "").strip().lower()
     name = (name or "").strip()
     if not _SLUG_RE.match(slug):
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST,
-            "slug must be 2-64 chars: lowercase letters, digits, hyphens; starting with a letter.",
+            "Slug must be 2–64 characters: lowercase letters, digits, "
+            "and hyphens, starting with a letter.",
         )
     if not name:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "name is required")
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Name is required.")
     if db.exec(select(Collection).where(Collection.slug == slug)).first():
         raise HTTPException(
-            status.HTTP_409_CONFLICT, f"a collection with slug '{slug}' already exists",
+            status.HTTP_409_CONFLICT,
+            f"A collection with the slug '{slug}' already exists — pick another.",
         )
 
     col = Collection(
@@ -315,7 +317,10 @@ def edit_collection_form(
 ):
     col = _load_collection(db, slug)
     if not _can_moderate(db, user, col):
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "not the curator")
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "You can't moderate this collection — only its curator can.",
+        )
     return templates.TemplateResponse(
         request, "collection_edit.html",
         {"user": user, "collection": col, "is_admin": _is_admin(db, user)},
@@ -339,11 +344,14 @@ def edit_collection(
     are checkbox-style: present = True, absent = False."""
     col = _load_collection(db, slug)
     if not _can_moderate(db, user, col):
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "not the curator")
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "You can't moderate this collection — only its curator can.",
+        )
 
     name = (name or "").strip()
     if not name:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "name is required")
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Name is required.")
 
     col.name = name
     col.description = (description or "").strip()
@@ -374,7 +382,10 @@ def curator_add_feed(
 
     col = _load_collection(db, slug)
     if not _can_moderate(db, user, col):
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "not the curator")
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "You can't moderate this collection — only its curator can.",
+        )
 
     url = normalize_feed_url((feed_url or "").strip())
     if not url.startswith(("http://", "https://")):
@@ -388,7 +399,7 @@ def curator_add_feed(
         if not meta.get("is_feed", False):
             raise HTTPException(
                 status.HTTP_400_BAD_REQUEST,
-                f"URL didn't resolve to a feed: {url}",
+                f"That URL didn't look like a valid feed: {url}",
             )
         feed = Feed(
             url=url, title=meta["title"],
@@ -405,7 +416,8 @@ def curator_add_feed(
         .where(CollectionFeed.feed_id == feed.id)
     ).first():
         raise HTTPException(
-            status.HTTP_409_CONFLICT, "that feed is already in this collection",
+            status.HTTP_409_CONFLICT,
+            "That feed is already in this collection.",
         )
 
     max_order = db.exec(
@@ -654,7 +666,10 @@ def suggest_feed(
         .where(CollectionSuggestion.status == "pending")
     ).first()
     if dup:
-        raise HTTPException(status.HTTP_409_CONFLICT, "you've already suggested this URL")
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "You've already suggested this URL — hang tight while the curator reviews it.",
+        )
 
     db.add(CollectionSuggestion(
         collection_id=col.id,
@@ -696,7 +711,10 @@ def remove_feed_from_collection(
     stays — other users may still be subscribed). Idempotent."""
     col = _load_collection(db, slug)
     if not _can_moderate(db, user, col):
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "not the curator")
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "You can't moderate this collection — only its curator can.",
+        )
     cf = db.exec(
         select(CollectionFeed)
         .where(CollectionFeed.collection_id == col.id)
@@ -738,7 +756,10 @@ def manage_collection(
 ):
     col = _load_collection(db, slug)
     if not _can_moderate(db, user, col):
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "not the curator")
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "You can't moderate this collection — only its curator can.",
+        )
     pending = db.exec(
         select(CollectionSuggestion, User)
         .join(User, User.id == CollectionSuggestion.suggested_by, isouter=True)
@@ -776,10 +797,16 @@ def accept_suggestion(
 
     col = _load_collection(db, slug)
     if not _can_moderate(db, user, col):
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "not the curator")
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "You can't moderate this collection — only its curator can.",
+        )
     sug = db.get(CollectionSuggestion, sug_id)
     if not sug or sug.collection_id != col.id or sug.status != "pending":
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "suggestion not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            "That suggestion doesn't exist — it may have already been reviewed.",
+        )
 
     url = normalize_feed_url(sug.feed_url)
     feed = db.exec(select(Feed).where(Feed.url == url)).first()
@@ -788,7 +815,7 @@ def accept_suggestion(
         if not meta.get("is_feed", False):
             raise HTTPException(
                 status.HTTP_400_BAD_REQUEST,
-                f"URL didn't resolve to a feed: {url}",
+                f"That URL didn't look like a valid feed: {url}",
             )
         feed = Feed(
             url=url, title=meta["title"],
@@ -840,10 +867,16 @@ def reject_suggestion(
 ):
     col = _load_collection(db, slug)
     if not _can_moderate(db, user, col):
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "not the curator")
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "You can't moderate this collection — only its curator can.",
+        )
     sug = db.get(CollectionSuggestion, sug_id)
     if not sug or sug.collection_id != col.id or sug.status != "pending":
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "suggestion not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            "That suggestion doesn't exist — it may have already been reviewed.",
+        )
     sug.status = "rejected"
     sug.reviewed_at = datetime.now(UTC)
     db.add(sug)
