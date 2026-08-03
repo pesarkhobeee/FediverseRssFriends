@@ -92,8 +92,18 @@ make deploy DEPLOY_HOST=user@example.com \
 9. Activity log + `/u/{handle}/activity` + `activity.rss` (signed token for private) ✅
 10. Home timeline `/feed` ✅
 11. OPML import/export ✅ *(shipped in step 6)*
-12. Discover ✅ *(you are here)*
-13. Polish (favicon cache, health badges, rate limits, backup)
+12. Discover ✅
+13. Community-curated **Collections** — seeded bundles + user-suggestion queue + curator moderation ✅ (0.10.x)
+14. Collections subscribable as RSS + language filter on browse ✅ (0.11.0)
+15. Admin/curator UI: create + edit collections, add feeds inline ✅ (0.11.1)
+16. Private per-user **notes** on subscriptions — "DHH → creator of Rails" — visible only to the note author on `/dashboard`, `/u/{me}`, and the friends timeline ✅ (0.11.2 / 0.11.3)
+17. Polish (favicon cache, health badges, rate limits, backup)
+
+The AP-native rewrite lives on the `poc` branch and is tracked in
+GitHub issues on this repo (milestones M0–M10). The features shipped
+above on `main` are the current production surface at
+[rssfriends.com](https://rssfriends.com) and will be carried forward
+into the AP-native codebase as their respective milestones land.
 
 ## Config
 
