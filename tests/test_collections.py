@@ -55,7 +55,8 @@ EXPECTED_SEEDS = {
     "startup-craft":             ("en", "",            6),
     "tehran-farsi":              ("fa", "Tehran, IR",  4),
     "longform-reads":            ("en", "",           10),
-    "engineer-weblogs":          ("en", "",           21),  # new in 0.10.4
+    "engineer-weblogs":          ("en", "",           30),  # +9 top-guns in 0.11.9
+    "tool-creators":             ("en", "",            7),  # new in 0.11.9
     "curious-minds":             ("en", "",            9),  # new in 0.10.4
     "tech-on-youtube":           ("en", "",           12),  # new in 0.10.4
 }

@@ -1078,9 +1078,9 @@ SEED_ENGINEER_WEBLOGS = {
     "slug": "engineer-weblogs",
     "name": "Engineer Weblogs",
     "description": (
-        "The long tail of thoughtful engineers writing about their craft — "
-        "not household names, not framework hype. Personal blogs from working "
-        "engineers whose posts stick with you. Seeded from the feeds real "
+        "Thoughtful engineers writing about their craft — from household "
+        "names like Julia Evans, Simon Willison and Dan Luu to lesser-known "
+        "personal blogs whose posts stick with you. Seeded from the feeds real "
         "rssFriends users have already been reading."
     ),
     "language": "en",
@@ -1179,6 +1179,95 @@ SEED_ENGINEER_WEBLOGS = {
          "Kent C. Dodds", "https://kentcdodds.com/",
          "https://kentcdodds.com/favicon.ico",
          "React, testing, teaching. Prolific + practical."),
+        # 0.11.9: top-gun round — nine household-name engineer blogs,
+        # each verified active as of 2026-08-04. See docs/collections.
+        ("https://jvns.ca/atom.xml",
+         "Julia Evans", "https://jvns.ca/",
+         "https://jvns.ca/favicon.ico",
+         "Debugging, systems, comics + zines. Universally beloved teacher."),
+        ("https://simonwillison.net/atom/everything/",
+         "Simon Willison", "https://simonwillison.net/",
+         "https://simonwillison.net/favicon.ico",
+         "Django co-creator. Now a leading voice on LLMs + Datasette."),
+        ("https://danluu.com/atom.xml",
+         "Dan Luu", "https://danluu.com/",
+         "https://danluu.com/favicon.ico",
+         "Long essays on engineering rigor, hiring, hardware bugs. HN-favorite."),
+        ("https://martinfowler.com/feed.atom",
+         "Martin Fowler", "https://martinfowler.com/",
+         "https://martinfowler.com/favicon.ico",
+         "Architecture, refactoring, DDD — from a foundational voice in the field."),
+        ("https://rachelbythebay.com/w/atom.xml",
+         "Rachel by the Bay", "https://rachelbythebay.com/",
+         "https://rachelbythebay.com/favicon.ico",
+         "SRE war stories from an ex-Facebook ops veteran. Cult reading."),
+        ("https://fabiensanglard.net/rss.xml",
+         "Fabien Sanglard", "https://fabiensanglard.net/",
+         "https://fabiensanglard.net/favicon.ico",
+         "Author of the Doom Black Book. Reverse-engineers legendary game engines."),
+        ("https://www.schneier.com/feed/atom/",
+         "Bruce Schneier", "https://www.schneier.com/",
+         "https://www.schneier.com/favicon.ico",
+         "The security industry's most public voice for 20+ years."),
+        ("https://charity.wtf/feed/",
+         "Charity Majors", "https://charity.wtf/",
+         "https://charity.wtf/favicon.ico",
+         "Observability, Honeycomb founder, punchy engineering-management essays."),
+        ("https://brooker.co.za/blog/atom.xml",
+         "Marc Brooker", "https://brooker.co.za/",
+         "https://brooker.co.za/favicon.ico",
+         "AWS distributed-systems fellow. Cited when you argue about consistency."),
+    ],
+}
+
+
+SEED_TOOL_CREATORS = {
+    "slug": "tool-creators",
+    "name": "Tool Creators",
+    "description": (
+        "Reading the people who built the tools you use every day. Personal "
+        "blogs from the creators of Ruby on Rails, Terraform, Redis, ripgrep, "
+        "Extreme Programming / TDD, Git, and parts of Go. Not corporate blogs "
+        "— firsthand accounts from the humans behind the software."
+    ),
+    "language": "en",
+    "locale": "",
+    "is_official": True,
+    "curator_handle": "ahmadian-farid-1988",
+    "feeds": [
+        ("https://world.hey.com/dhh/feed.atom",
+         "DHH (David Heinemeier Hansson)",
+         "https://world.hey.com/dhh",
+         "https://world.hey.com/favicon.ico",
+         "Creator of Ruby on Rails. Co-founder of 37signals + HEY."),
+        ("https://mitchellh.com/feed.xml",
+         "Mitchell Hashimoto", "https://mitchellh.com/",
+         "https://mitchellh.com/favicon.ico",
+         "Creator of Terraform, Vagrant, Vault, Nomad. Co-founder of HashiCorp."),
+        ("http://antirez.com/rss",
+         "antirez (Salvatore Sanfilippo)", "http://antirez.com/",
+         "http://antirez.com/favicon.ico",
+         "Creator of Redis. Systems programming and engineering-life essays."),
+        ("https://tidyfirst.substack.com/feed",
+         "Kent Beck (Tidy First?)", "https://tidyfirst.substack.com/",
+         "https://substackcdn.com/icons/substack/favicon.ico",
+         "Creator of JUnit, TDD, and Extreme Programming. Software design essays."),
+        ("https://blog.burntsushi.net/index.xml",
+         "Andrew Gallant (burntsushi)",
+         "https://blog.burntsushi.net/",
+         "https://blog.burntsushi.net/favicon.ico",
+         "Creator of ripgrep and Rust's regex crate. Deep Rust engineering essays."),
+        ("https://research.swtch.com/feed.atom",
+         "Russ Cox (research!rsc)",
+         "https://research.swtch.com/",
+         "https://research.swtch.com/favicon.ico",
+         "Go tech lead; author of RE2 and govulncheck. Landmark essays on language design."),
+        # Dual-listed with engineer-weblogs — Scott is the git co-founder
+        # so he anchors the "creator of" theme too.
+        ("https://scottchacon.com/atom.xml",
+         "Scott Chacon", "https://scottchacon.com/",
+         "https://scottchacon.com/favicon.ico",
+         "Git co-founder, ex-GitHub. Notes from someone who has shipped a lot."),
     ],
 }
 
@@ -1315,6 +1404,7 @@ ALL_SEED_COLLECTIONS = (
     SEED_TEHRAN_FARSI,
     SEED_LONGFORM,
     SEED_ENGINEER_WEBLOGS,
+    SEED_TOOL_CREATORS,
     SEED_CURIOUS_MINDS,
     SEED_TECH_YOUTUBE,
 )
