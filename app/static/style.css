@@ -18,6 +18,11 @@
 :root {
   --fg: #221B12;
   --muted: #6F6455;
+  /* 0.11.7: visited-item ink. In light theme --muted is too dark
+     against --fg to read as "dimmed"; use a much paler warm tone so
+     unread items visibly pop. Dark theme already reads well since
+     the contrast between #F0E8D8 and #A69B87 is bigger. */
+  --visited: #B8AEA0;
   --bg: #FBF8F3;            /* warm cream page bg */
   --surface: #ffffff;
   --card: #ffffff;          /* white cards on cream */
@@ -46,6 +51,7 @@
 [data-theme="dark"] {
   --fg: #F0E8D8;
   --muted: #A69B87;
+  --visited: #7F7566;       /* dim further past --muted for dark theme */
   --bg: #1A1512;            /* deep warm charcoal */
   --surface: #221D18;
   --card: #26221C;
@@ -73,6 +79,7 @@
   :root:not([data-theme="light"]) {
     --fg: #F0E8D8;
     --muted: #A69B87;
+    --visited: #7F7566;
     --bg: #1A1512;
     --surface: #221D18;
     --card: #26221C;
@@ -559,8 +566,8 @@ img.favicon {
    Browser :visited CSS is privacy-locked to color-only rules; that's
    plenty for this signal. Applies everywhere item titles render:
    radar cards, /bookmarks, /feed timeline, collections stream. */
-.item-title:visited { color: var(--muted); font-weight: 400; }
-.stream-row-title:visited { color: var(--muted); font-weight: 400; }
+.item-title:visited { color: var(--visited); font-weight: 400; }
+.stream-row-title:visited { color: var(--visited); font-weight: 400; }
 .item-date { font-size: .8rem; margin-top: .15rem; }
 
 /* Net / server error toast */
