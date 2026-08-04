@@ -426,53 +426,17 @@ def _run_sqlite_migrations(conn) -> None:
                     f"ALTER TABLE wallabagaccount ADD COLUMN {col} TEXT NOT NULL DEFAULT ''"
                 )
 
-    # 0.11.4: one-shot backfill of tombstones. For each seed collection
-    # on this instance, if the CollectionFeed table is missing any URL
-    # that the seed dict declares, tombstone that URL — the only way
-    # such a gap can exist on an existing instance is that a curator
-    # removed the feed via the UI before the tombstone feature landed.
-    # Idempotent: after the first pass we tombstone nothing new because
-    # curator-removal now creates the tombstone directly.
-    tables_now = {
-        row[0] for row in conn.exec_driver_sql(
-            "SELECT name FROM sqlite_master WHERE type='table'"
-        ).fetchall()
-    }
-    if {"collection", "collectionfeed", "collectionfeedtombstone"} <= tables_now:
-        for seed in ALL_SEED_COLLECTIONS:
-            row = conn.exec_driver_sql(
-                "SELECT id FROM collection WHERE slug = ?", (seed["slug"],),
-            ).fetchone()
-            if not row:
-                continue
-            col_id = row[0]
-            present = {
-                r[0] for r in conn.exec_driver_sql(
-                    "SELECT f.url FROM collectionfeed cf "
-                    "JOIN feed f ON f.id = cf.feed_id "
-                    "WHERE cf.collection_id = ?",
-                    (col_id,),
-                ).fetchall()
-            }
-            already_tombstoned = {
-                r[0] for r in conn.exec_driver_sql(
-                    "SELECT feed_url FROM collectionfeedtombstone "
-                    "WHERE collection_id = ?",
-                    (col_id,),
-                ).fetchall()
-            }
-            for entry in seed["feeds"]:
-                url = entry[0]
-                if url in present or url in already_tombstoned:
-                    continue
-                # Missing without a tombstone — means it was removed
-                # before the tombstone feature. Record intent now.
-                conn.exec_driver_sql(
-                    "INSERT INTO collectionfeedtombstone "
-                    "(collection_id, feed_url, removed_by, removed_at) "
-                    "VALUES (?, ?, NULL, ?)",
-                    (col_id, url, datetime.now(UTC).isoformat()),
-                )
+    # 0.11.4 -> 0.11.9: the tombstone backfill migration that USED to
+    # live here was buggy. It ran on every startup (not once), and its
+    # heuristic — "URL in seed dict but not in DB → tombstone it" —
+    # can't tell "curator removed this before the feature landed" from
+    # "developer just added a new seed URL." On the 0.11.9 deploy it
+    # silently tombstoned the 9 new top-gun URLs I'd just added to
+    # engineer-weblogs, so they never seeded. Removed entirely — the
+    # tehran-farsi case it was written for has been fixed by the
+    # tombstones already recorded during its first successful run.
+    # Future curator removals go through the normal UI path which
+    # writes tombstones directly.
 
     # 0.11.2: Subscription.note added for private per-user reminder notes
     # ("DHH → Rails creator"). Backfilled to empty string.
