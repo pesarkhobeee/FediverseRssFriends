@@ -70,13 +70,34 @@
   {% else %}
     <p><a class="btn" href="/#login">Sign in to add these to your radar</a></p>
   {% endif %}
+
+  {# 0.11.6: view toggle — feeds (default) shows the curated card list;
+     stream shows a merged newest-first item timeline so visitors can
+     preview what the collection actually delivers before subscribing. #}
+  <div class="collection-view-toggle" role="tablist" aria-label="View">
+    <a class="collection-view-chip {% if view != 'stream' %}collection-view-chip-active{% endif %}"
+       href="/collections/{{ collection.slug }}">📚 Feeds</a>
+    <a class="collection-view-chip {% if view == 'stream' %}collection-view-chip-active{% endif %}"
+       href="/collections/{{ collection.slug }}?view=stream">🕒 Latest items</a>
+  </div>
 </section>
 
-<section class="collection-feed-list">
-  {% for e in entries %}
-    {% include "_collection_feed_row.html" %}
-  {% endfor %}
-</section>
+{% if view == "stream" %}
+  <section class="collection-feed-list">
+    <ul class="fav-list">
+      {% include "_collection_stream_page.html" %}
+    </ul>
+    {% if not stream_rows %}
+      <p class="muted">No items yet — the background fetcher hasn't caught these feeds.</p>
+    {% endif %}
+  </section>
+{% else %}
+  <section class="collection-feed-list">
+    {% for e in entries %}
+      {% include "_collection_feed_row.html" %}
+    {% endfor %}
+  </section>
+{% endif %}
 
 {% if user %}
 <section class="collection-suggest">

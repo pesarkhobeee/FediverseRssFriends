@@ -530,14 +530,85 @@ def collection_rss(
     )
 
 
+# 0.11.6: stream view on collections — 30 items per page, HTMX Load-more.
+# Deliberately smaller than user-radar STREAM_PAGE_SIZE (100) because
+# collections aggregate MANY feeds and a bigger page burns more query
+# time for less scannable content.
+COLLECTION_STREAM_PAGE_SIZE = 30
+
+
+def _load_collection_stream(
+    db: Session,
+    col: Collection,
+    limit: int = COLLECTION_STREAM_PAGE_SIZE,
+    offset: int = 0,
+) -> tuple[list[dict], bool]:
+    """Merged newest-first item stream across every feed in this
+    collection. Returns (rows, has_more). Peeks limit+1 so 'has more'
+    is known without a second COUNT query."""
+    feeds = db.exec(
+        select(CollectionFeed, Feed)
+        .join(Feed, Feed.id == CollectionFeed.feed_id)
+        .where(CollectionFeed.collection_id == col.id)
+    ).all()
+    if not feeds:
+        return [], False
+    feed_ids = [f.id for _cf, f in feeds]
+    feed_by_id = {f.id: f for _cf, f in feeds}
+
+    items = db.exec(
+        select(FeedItem)
+        .where(FeedItem.feed_id.in_(feed_ids))
+        .order_by(
+            FeedItem.published_at.desc().nulls_last(),
+            FeedItem.fetched_at.desc(),
+        )
+        .offset(offset)
+        .limit(limit + 1)
+    ).all()
+    has_more = len(items) > limit
+    items = items[:limit]
+
+    rows = [
+        {
+            "item": it,
+            "feed": feed_by_id[it.feed_id],
+            "category_name": "",   # collections don't have per-item categories
+            "note": "",             # note field only meaningful on personal radars
+        }
+        for it in items
+    ]
+    return rows, has_more
+
+
 @router.get("/collections/{slug}", response_class=HTMLResponse)
 def collection_detail(
     slug: str,
     request: Request,
+    view: str = "feeds",
+    offset: int = 0,
     viewer: User | None = Depends(current_user),
     db: Session = Depends(get_session),
 ):
     col = _load_collection(db, slug)
+    view = view if view in ("feeds", "stream") else "feeds"
+
+    # HTMX Load-more branch: return only the next page of stream rows.
+    if view == "stream" and request.headers.get("HX-Request") == "true":
+        stream_rows, has_more = _load_collection_stream(
+            db, col, offset=max(0, offset),
+        )
+        return templates.TemplateResponse(
+            request, "_collection_stream_page.html",
+            {
+                "user": viewer,
+                "collection": col,
+                "stream_rows": stream_rows,
+                "stream_has_more": has_more,
+                "stream_next_offset": offset + COLLECTION_STREAM_PAGE_SIZE,
+            },
+        )
+
     entries = _load_collection_feeds(db, col.id)
     viewer_subs = _viewer_subs(db, viewer, [e["feed"].id for e in entries])
     curator = db.get(User, col.curator_id) if col.curator_id else None
@@ -549,18 +620,24 @@ def collection_detail(
             .where(CollectionSuggestion.collection_id == col.id)
             .where(CollectionSuggestion.status == "pending")
         ).all())
-    return templates.TemplateResponse(
-        request, "collection_detail.html",
-        {
-            "user": viewer,
-            "collection": col,
-            "entries": entries,
-            "viewer_subs": viewer_subs,
-            "curator": curator,
-            "can_moderate": can_moderate,
-            "pending_suggestions_count": pending_n,
-        },
-    )
+    ctx = {
+        "user": viewer,
+        "collection": col,
+        "entries": entries,
+        "viewer_subs": viewer_subs,
+        "curator": curator,
+        "can_moderate": can_moderate,
+        "pending_suggestions_count": pending_n,
+        "view": view,
+    }
+    if view == "stream":
+        stream_rows, has_more = _load_collection_stream(
+            db, col, offset=max(0, offset),
+        )
+        ctx["stream_rows"] = stream_rows
+        ctx["stream_has_more"] = has_more
+        ctx["stream_next_offset"] = offset + COLLECTION_STREAM_PAGE_SIZE
+    return templates.TemplateResponse(request, "collection_detail.html", ctx)
 
 
 # ─── Write routes ──────────────────────────────────────────────────────

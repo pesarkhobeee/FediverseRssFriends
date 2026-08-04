@@ -2251,6 +2251,27 @@ img.favicon {
 }
 .collections-lang-chip-active:hover { color: var(--bg); }
 
+/* 0.11.6: feeds/stream view toggle on the collection detail page */
+.collection-view-toggle {
+  display: inline-flex; gap: 6px; margin-top: 16px;
+}
+.collection-view-chip {
+  font-size: 13px; font-weight: 500;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 99px;
+  padding: 5px 14px;
+  text-decoration: none;
+  transition: background 120ms ease-out, color 120ms ease-out;
+}
+.collection-view-chip:hover { color: var(--fg); border-color: var(--muted); text-decoration: none; }
+.collection-view-chip-active {
+  background: var(--fg); color: var(--bg);
+  border-color: var(--fg); font-weight: 600;
+}
+.collection-view-chip-active:hover { color: var(--bg); }
+
 /* 0.11.0: collection-as-RSS strip on detail page */
 .collection-rss-strip {
   display: flex; align-items: center; gap: 10px;

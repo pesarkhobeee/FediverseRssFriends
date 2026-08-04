@@ -1,0 +1,34 @@
+{# 0.11.6: merged newest-first item stream for a collection. Rendered
+   both as the initial view inside collection_detail.html AND as the
+   HTMX partial returned to "Load more" clicks. Keep the swap target
+   simple: rows + optional load-more button. #}
+{% for row in stream_rows %}
+  <li class="fav-item item-clickable stream-row">
+    <div class="fav-head">
+      {% if row.feed.favicon_url %}
+        <img class="favicon stream-row-favicon" src="{{ row.feed.favicon_url }}" alt="" loading="lazy" />
+      {% else %}
+        <span class="favicon stream-row-favicon" aria-hidden="true">📡</span>
+      {% endif %}
+      <span class="stream-row-body">
+        <a class="item-title stream-row-title" href="{{ row.item.link }}"
+           target="_blank" rel="noopener">{{ row.item.title }}</a>
+        <span class="stream-row-meta">
+          <span class="stream-row-source">{{ row.feed.title }}</span>
+          <span class="stream-row-time muted">
+            {{ row.item.published_at|relative_time or "recently" }}
+          </span>
+        </span>
+      </span>
+    </div>
+  </li>
+{% endfor %}
+
+{% if stream_has_more %}
+  <li class="stream-load-more" id="stream-load-more">
+    <button class="btn-ghost"
+            hx-get="/collections/{{ collection.slug }}?view=stream&offset={{ stream_next_offset }}"
+            hx-target="#stream-load-more"
+            hx-swap="outerHTML">Load more items…</button>
+  </li>
+{% endif %}

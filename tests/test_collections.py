@@ -904,6 +904,108 @@ def test_anonymous_user_cannot_request_collection():
     assert r.status_code in (302, 303, 401)
 
 
+def test_collection_stream_view_renders_items_newest_first():
+    """0.11.6: /collections/{slug}?view=stream shows a merged
+    newest-first stream of items across every feed in the collection.
+    We seed 3 items with different publish timestamps and assert the
+    newest one comes first in the rendered HTML."""
+    from datetime import UTC, datetime, timedelta
+
+    import app.db as db_mod
+
+    with Session(db_mod.engine) as s:
+        col = s.exec(select(db_mod.Collection)
+                     .where(db_mod.Collection.slug == "berlin-nachrichten")).one()
+        cfs = s.exec(select(db_mod.CollectionFeed)
+                     .where(db_mod.CollectionFeed.collection_id == col.id)
+                     .limit(2)).all()
+        base = datetime.now(UTC)
+        s.add(db_mod.FeedItem(
+            feed_id=cfs[0].feed_id, guid="i-old",
+            title="OLD item", link="https://ex.example/old",
+            published_at=base - timedelta(days=2),
+        ))
+        s.add(db_mod.FeedItem(
+            feed_id=cfs[1].feed_id, guid="i-mid",
+            title="MID item", link="https://ex.example/mid",
+            published_at=base - timedelta(hours=6),
+        ))
+        s.add(db_mod.FeedItem(
+            feed_id=cfs[0].feed_id, guid="i-new",
+            title="NEW item", link="https://ex.example/new",
+            published_at=base,
+        ))
+        s.commit()
+
+    r = _client().get("/collections/berlin-nachrichten?view=stream")
+    assert r.status_code == 200
+    body = r.text
+    assert "NEW item" in body
+    assert "MID item" in body
+    assert "OLD item" in body
+    # Newest first: NEW comes before MID comes before OLD.
+    assert body.find("NEW item") < body.find("MID item") < body.find("OLD item")
+    # View toggle rendered.
+    assert "collection-view-chip-active" in body
+
+
+def test_collection_stream_view_paginates_at_30():
+    """0.11.6: page size is 30. Seed 35 items and assert:
+    - first page has 30 rows and a Load-more sentinel
+    - offset=30 returns the remaining 5, no more Load-more"""
+    from datetime import UTC, datetime, timedelta
+
+    import app.db as db_mod
+
+    with Session(db_mod.engine) as s:
+        col = s.exec(select(db_mod.Collection)
+                     .where(db_mod.Collection.slug == "berlin-nachrichten")).one()
+        cf = s.exec(select(db_mod.CollectionFeed)
+                    .where(db_mod.CollectionFeed.collection_id == col.id)
+                    .limit(1)).one()
+        base = datetime.now(UTC)
+        for i in range(35):
+            s.add(db_mod.FeedItem(
+                feed_id=cf.feed_id, guid=f"page-{i}",
+                title=f"page-item-{i}", link=f"https://ex.example/{i}",
+                published_at=base - timedelta(minutes=i),
+            ))
+        s.commit()
+
+    r = _client().get("/collections/berlin-nachrichten?view=stream")
+    assert r.status_code == 200
+    body = r.text
+    # 30 rows rendered → item-29 is present, item-30 is not (paged out).
+    assert "page-item-0" in body
+    assert "page-item-29" in body
+    assert "page-item-30" not in body
+    # Load-more sentinel rendered with correct offset.
+    assert 'id="stream-load-more"' in body
+    assert "offset=30" in body
+
+    # Fetch page 2 as an HTMX partial.
+    r2 = _client().get(
+        "/collections/berlin-nachrichten?view=stream&offset=30",
+        headers={"HX-Request": "true"},
+    )
+    assert r2.status_code == 200
+    body2 = r2.text
+    assert "page-item-30" in body2
+    assert "page-item-34" in body2
+    # 35 items total, offset 30 returns 5 → no more Load-more sentinel.
+    assert 'id="stream-load-more"' not in body2
+
+
+def test_collection_default_view_is_feeds_not_stream():
+    r = _client().get("/collections/berlin-nachrichten")
+    assert r.status_code == 200
+    # Feeds view has the card list (details/summary); stream view has
+    # the .stream-row class only.
+    assert "stream-row" not in r.text
+    # But the toggle is still present so users can switch.
+    assert "🕒 Latest items" in r.text
+
+
 def test_duplicate_request_from_same_user_returns_409():
     c = _client()
     _login(c, "requester@example.com")
