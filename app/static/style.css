@@ -554,6 +554,13 @@ img.favicon {
 .item-list .item + .item { border-top: 1px solid var(--border); margin-top: .55rem; padding-top: .55rem; }
 .item-title { color: var(--fg); text-decoration: none; font-weight: 500; }
 .item-title:hover { color: var(--accent); }
+/* 0.11.7: visited-item styling — once you've clicked through, the
+   title fades to a muted grey so unread items pop against read ones.
+   Browser :visited CSS is privacy-locked to color-only rules; that's
+   plenty for this signal. Applies everywhere item titles render:
+   radar cards, /bookmarks, /feed timeline, collections stream. */
+.item-title:visited { color: var(--muted); font-weight: 400; }
+.stream-row-title:visited { color: var(--muted); font-weight: 400; }
 .item-date { font-size: .8rem; margin-top: .15rem; }
 
 /* Net / server error toast */
