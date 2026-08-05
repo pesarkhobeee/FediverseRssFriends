@@ -44,7 +44,10 @@ def test_login_verify_creates_user_and_signs_in(monkeypatch, capsys):
 
     r3 = client.get("/dashboard")
     assert r3.status_code == 200
-    assert "@alice" in r3.text  # handle derived from email
+    # 0.11.12: dashboard heading is "Settings" now; handle appears as
+    # /u/alice in nav + hero action links, and email shows in the
+    # "Signed in as …" line.
+    assert "/u/alice" in r3.text
     assert "alice@example.com" in r3.text.lower()
 
 

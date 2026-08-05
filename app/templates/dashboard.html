@@ -1,10 +1,11 @@
 {% extends "base.html" %}
+{% block title %}Settings · rssFriends{% endblock %}
 {% block content %}
 <section class="hero stack">
-  <h1>@{{ user.handle }}'s radar</h1>
+  <h1>⚙️ Settings</h1>
   <p class="muted">Signed in as {{ user.email }}</p>
   <p>
-    <a class="btn-ghost" href="/u/{{ user.handle }}">🌐 View public page</a>
+    <a class="btn-ghost" href="/u/{{ user.handle }}">🌐 View my radar</a>
     <a class="btn-ghost" href="/u/{{ user.handle }}/bookmarks">⭐ My bookmarks</a>
     <a class="btn-ghost" href="/follow-requests">
       📮 Follow requests{% if pending_requests %} ({{ pending_requests }}){% endif %}
@@ -12,7 +13,7 @@
   </p>
 </section>
 
-<nav class="tab-strip" role="tablist" aria-label="Dashboard panels">
+<nav class="tab-strip" role="tablist" aria-label="Settings panels">
   {% for key, meta in panels.items() %}
     <a role="tab"
        aria-selected="{{ 'true' if key == active_panel else 'false' }}"

@@ -61,6 +61,30 @@ app.add_middleware(SessionMiddleware, secret_key=config.SESSION_SECRET, same_sit
 app.mount("/static", StaticFiles(directory=APP_DIR / "static"), name="static")
 
 
+@app.middleware("http")
+async def _attach_nav_badges(request: Request, call_next):
+    """0.11.12: compute the pending follow-request count once per
+    request so the top nav can show a badge on 'Settings' without
+    every view function threading the value through its context.
+    Set to 0 for anonymous or when the count query would fail."""
+    try:
+        uid = request.session.get("user_id") if hasattr(request, "session") else None
+    except Exception:
+        uid = None
+    request.state.pending_requests = 0
+    if uid:
+        try:
+            from sqlmodel import Session as _S
+
+            from .db import engine
+            from .follow import pending_requests_count
+            with _S(engine) as s:
+                request.state.pending_requests = pending_requests_count(s, uid)
+        except Exception:
+            pass  # nav badge is decorative — never fail a request over it
+    return await call_next(request)
+
+
 def render(request: Request, template: str, **ctx) -> HTMLResponse:
     ctx.setdefault("user", ctx.get("user"))
     return templates.TemplateResponse(request, template, ctx)

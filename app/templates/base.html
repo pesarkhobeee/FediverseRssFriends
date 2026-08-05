@@ -74,20 +74,21 @@
     <a href="/" class="brand">rssFriends<span class="brand-beta" title="rssFriends is under active development — v{{ app_version }}">beta <span class="brand-beta-version">v{{ app_version }}</span></span></a>
     <nav>
       {% if user %}
-        <a href="/u/{{ user.handle }}" class="nav-user" title="Your public radar">@{{ user.handle }}</a>
-      {% endif %}
-      <a href="/discover">Discover</a>
-      <a href="/collections">Collections</a>
-      {% if user %}
+        {# 0.11.12: trimmed from 10 items → 6.
+           Bookmarks + Activity live as chips on the /u/{me} page.
+           Follow requests folded into Settings with a badge below.
+           Help moved to the footer link. #}
+        <a href="/u/{{ user.handle }}" class="nav-user" title="Your reading radar">My radar</a>
         <a href="/feed">Friends</a>
-        <a href="/u/{{ user.handle }}/bookmarks">Bookmarks</a>
-        <a href="/u/{{ user.handle }}/activity">My activity</a>
-        <a href="/follow-requests">Requests</a>
-        <a href="/dashboard">Dashboard</a>
-        <a href="/help">Help</a>
+        <a href="/discover">Discover</a>
+        <a href="/collections">Collections</a>
+        <a href="/dashboard">Settings{% if request.state.pending_requests %}
+          <span class="nav-badge" title="{{ request.state.pending_requests }} pending follow request{{ '' if request.state.pending_requests == 1 else 's' }}">{{ request.state.pending_requests }}</span>
+        {% endif %}</a>
         <a href="/logout">Logout</a>
       {% else %}
-        <a href="/help">Help</a>
+        <a href="/discover">Discover</a>
+        <a href="/collections">Collections</a>
         <a href="/#login">Login</a>
       {% endif %}
       <button type="button" class="nav-theme-toggle" onclick="toggleTheme()"
@@ -98,6 +99,22 @@
     </nav>
   </header>
   <main class="{% block main_class %}{% endblock %}">{% block content %}{% endblock %}</main>
+
+  <footer class="site-footer">
+    <a href="/help">Help</a>
+    <span class="muted">·</span>
+    <a href="/discover">Discover</a>
+    <span class="muted">·</span>
+    <a href="/collections">Collections</a>
+    {% if user %}
+      <span class="muted">·</span>
+      <a href="/u/{{ user.handle }}/bookmarks">My bookmarks</a>
+      <span class="muted">·</span>
+      <a href="/u/{{ user.handle }}/activity">My activity</a>
+    {% endif %}
+    <span class="muted">·</span>
+    <span class="muted">rssFriends v{{ app_version }}</span>
+  </footer>
 
   <div id="net-toast" class="net-toast" role="alert" aria-live="polite" hidden>
     <span class="net-toast-icon" aria-hidden="true">🚧</span>
