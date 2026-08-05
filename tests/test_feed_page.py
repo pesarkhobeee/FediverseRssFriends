@@ -225,3 +225,48 @@ def test_no_bookmark_button_on_feed_page_for_anonymous():
     assert "☆" not in r.text
     # Anonymous visitors see the items but can't bookmark them.
     assert "First post" in r.text
+
+
+# ─── 0.11.11: pagination on /f/{feed_id} ───────────────────────────────
+
+
+def test_feed_page_paginates_at_30():
+    """Seed 35 items on a feed; first page renders 30 with Load-more,
+    HTMX GET at offset=30 returns the remaining 5 without the sentinel."""
+    import app.db as db_mod
+
+    feed_id = _seed_feed()  # already has 1 item "First post"
+    with Session(db_mod.engine) as s:
+        # Add 34 more so we have 35 total → 30 + 5 across two pages.
+        for i in range(34):
+            s.add(db_mod.FeedItem(
+                feed_id=feed_id, guid=f"paged-{i}",
+                title=f"paged-item-{i}", link=f"https://blog.example.com/p{i}",
+            ))
+        s.commit()
+
+    r = _client().get(f"/f/{feed_id}")
+    assert r.status_code == 200
+    body = r.text
+    # 35 total items (1 First post + 34 paged-item-*), 30 on page 1.
+    # Items sort newest-first by fetched_at, so paged-item-33 is newest
+    # and paged-item-4 is the 30th shown.
+    assert "paged-item-33" in body
+    assert "paged-item-4" in body
+    # Bottom 5 are paged out: paged-item-3..0 and the original "First post".
+    assert "paged-item-3<" not in body
+    assert "First post" not in body
+    assert 'id="feed-page-load-more"' in body
+    assert "offset=30" in body
+
+    # Page 2 as HTMX partial.
+    r2 = _client().get(
+        f"/f/{feed_id}?offset=30", headers={"HX-Request": "true"},
+    )
+    assert r2.status_code == 200
+    body2 = r2.text
+    assert "paged-item-3" in body2
+    assert "First post" in body2   # oldest → last on page 2
+    assert 'id="feed-page-load-more"' not in body2
+    # And it's just the partial, not the full page chrome.
+    assert "<html" not in body2

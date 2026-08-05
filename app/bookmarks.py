@@ -88,10 +88,14 @@ def remove_bookmark(
     return _bookmark_partial(request, item_id, is_bookmarked=False)
 
 
+BOOKMARKS_PAGE_SIZE = 30  # 0.11.11: page size for /u/{handle}/bookmarks
+
+
 @router.get("/u/{handle}/bookmarks", response_class=HTMLResponse)
 def user_bookmarks(
     handle: str,
     request: Request,
+    offset: int = 0,
     viewer: User | None = Depends(current_user),
     db: Session = Depends(get_session),
 ):
@@ -104,14 +108,18 @@ def user_bookmarks(
     if not can_view(viewer, owner, db=db):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "this radar is private")
 
+    offset = max(0, offset)
     rows = db.exec(
         select(Bookmark, FeedItem, Feed)
         .join(FeedItem, FeedItem.id == Bookmark.feed_item_id)
         .join(Feed, Feed.id == FeedItem.feed_id)
         .where(Bookmark.user_id == owner.id)
         .order_by(Bookmark.created_at.desc())
-        .limit(200)
+        .offset(offset)
+        .limit(BOOKMARKS_PAGE_SIZE + 1)
     ).all()
+    bookmarks_has_more = len(rows) > BOOKMARKS_PAGE_SIZE
+    rows = rows[:BOOKMARKS_PAGE_SIZE]
 
     entries = [
         {"bookmark": bm, "item": item, "feed": feed} for bm, item, feed in rows
@@ -130,17 +138,19 @@ def user_bookmarks(
             ).all()
         )
 
-    return templates.TemplateResponse(
-        request,
-        "bookmarks.html",
-        {
-            "owner": owner,
-            "user": viewer,
-            "entries": entries,
-            "viewer_bookmarks": viewer_bookmarks,
-            "is_owner": bool(viewer and viewer.id == owner.id),
-        },
-    )
+    ctx = {
+        "owner": owner,
+        "user": viewer,
+        "entries": entries,
+        "viewer_bookmarks": viewer_bookmarks,
+        "is_owner": bool(viewer and viewer.id == owner.id),
+        "bookmarks_has_more": bookmarks_has_more,
+        "bookmarks_next_offset": offset + BOOKMARKS_PAGE_SIZE,
+    }
+    # HTMX Load-more: return only the partial.
+    if request.headers.get("HX-Request") == "true":
+        return templates.TemplateResponse(request, "_bookmarks_page.html", ctx)
+    return templates.TemplateResponse(request, "bookmarks.html", ctx)
 
 
 # ---- Backwards-compat redirects for the old /favorites URLs ----------

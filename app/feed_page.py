@@ -22,7 +22,7 @@ templates = make_templates()
 
 router = APIRouter()
 
-RECENT_ITEMS = 20
+RECENT_ITEMS = 30  # 0.11.11: page size for /f/{feed_id} + Load-more
 DEFAULT_CATEGORY_NAME = "Discovered"
 
 
@@ -48,6 +48,7 @@ def _cta_partial(request: Request, feed: Feed, state: str) -> HTMLResponse:
 def feed_page(
     feed_id: int,
     request: Request,
+    offset: int = 0,
     viewer: User | None = Depends(current_user),
     db: Session = Depends(get_session),
 ):
@@ -55,19 +56,17 @@ def feed_page(
     if not feed:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "feed not found")
 
-    items = db.exec(
+    offset = max(0, offset)
+    # 0.11.11: peek limit+1 so has_more is known without a COUNT query.
+    rows = db.exec(
         select(FeedItem)
         .where(FeedItem.feed_id == feed_id)
         .order_by(FeedItem.published_at.desc().nulls_last(), FeedItem.fetched_at.desc())
-        .limit(RECENT_ITEMS)
+        .offset(offset)
+        .limit(RECENT_ITEMS + 1)
     ).all()
-
-    # Total subscribers across the whole instance. Aggregate only —
-    # doesn't identify anyone, so it's safe to include private users.
-    subscriber_count = db.exec(
-        select(func.count(Subscription.id))
-        .where(Subscription.feed_id == feed_id)
-    ).one()
+    items_has_more = len(rows) > RECENT_ITEMS
+    items = rows[:RECENT_ITEMS]
 
     # For signed-in viewers, pre-load which of these items they've already
     # bookmarked so the bookmark icon renders in the 'on' state.
@@ -82,6 +81,25 @@ def feed_page(
             ).all()
         )
 
+    # HTMX Load-more: return only the items partial, no page chrome.
+    if request.headers.get("HX-Request") == "true":
+        return templates.TemplateResponse(
+            request, "_feed_page_items_page.html",
+            {
+                "user": viewer, "feed": feed, "items": items,
+                "viewer_bookmarks": viewer_bookmarks,
+                "items_has_more": items_has_more,
+                "items_next_offset": offset + RECENT_ITEMS,
+            },
+        )
+
+    # Total subscribers across the whole instance. Aggregate only —
+    # doesn't identify anyone, so it's safe to include private users.
+    subscriber_count = db.exec(
+        select(func.count(Subscription.id))
+        .where(Subscription.feed_id == feed_id)
+    ).one()
+
     return templates.TemplateResponse(
         request,
         "feed_page.html",
@@ -92,6 +110,8 @@ def feed_page(
             "subscriber_count": subscriber_count,
             "state": _subscription_state(db, viewer, feed_id),
             "viewer_bookmarks": viewer_bookmarks,
+            "items_has_more": items_has_more,
+            "items_next_offset": offset + RECENT_ITEMS,
         },
     )
 

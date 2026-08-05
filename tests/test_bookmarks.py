@@ -175,3 +175,53 @@ def test_legacy_item_favorite_endpoint_redirects():
     r = client.post(f"/items/{item_id}/favorite", follow_redirects=False)
     assert r.status_code == 308
     assert r.headers["location"] == f"/items/{item_id}/bookmark"
+
+
+# ─── 0.11.11: pagination on /u/{handle}/bookmarks ──────────────────────
+
+
+def test_bookmarks_paginates_at_30():
+    """Seed 32 bookmarks; first page has 30 + Load-more, page 2 has 2."""
+    from sqlmodel import select
+
+    import app.db as db_mod
+
+    feed_id, _first_item_id = _seed_feed_and_item()
+    client = _client()
+    _login(client, "alice@example.com")
+    with Session(db_mod.engine) as s:
+        alice = s.exec(select(db_mod.User)
+                       .where(db_mod.User.email == "alice@example.com")).one()
+        # 32 fresh items → 32 bookmarks.
+        for i in range(32):
+            it = db_mod.FeedItem(
+                feed_id=feed_id, guid=f"bm-{i}", title=f"bm-item-{i}",
+                link=f"https://x.example/b{i}",
+            )
+            s.add(it)
+            s.commit()
+            s.refresh(it)
+            s.add(db_mod.Bookmark(user_id=alice.id, feed_item_id=it.id))
+        s.commit()
+
+    r = client.get("/u/alice/bookmarks")
+    assert r.status_code == 200
+    body = r.text
+    # First 30 present (newest first: bm-item-31 down to bm-item-2)
+    assert "bm-item-31" in body
+    assert "bm-item-2" in body
+    # Oldest 2 (bm-item-1 and bm-item-0) paged out.
+    assert "bm-item-1<" not in body and "bm-item-0<" not in body
+    assert 'id="bookmarks-load-more"' in body
+    assert "offset=30" in body
+
+    # Page 2 as HTMX partial.
+    r2 = client.get("/u/alice/bookmarks?offset=30",
+                    headers={"HX-Request": "true"})
+    assert r2.status_code == 200
+    body2 = r2.text
+    assert "bm-item-1" in body2
+    assert "bm-item-0" in body2
+    assert 'id="bookmarks-load-more"' not in body2
+    # Partial, not full page.
+    assert "<html" not in body2

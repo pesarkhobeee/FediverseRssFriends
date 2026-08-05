@@ -66,41 +66,7 @@
 <h2 class="section-title">Latest items</h2>
 {% if items %}
 <ul class="item-list feed-page-items">
-  {% for item in items %}
-    <li class="item">
-      <div class="item-head">
-        {% if user %}
-          {% with item_id=item.id, is_bookmarked=(item.id in viewer_bookmarks) %}
-            {% include "_bookmark.html" %}
-          {% endwith %}
-        {% endif %}
-        <a class="item-title" href="{{ item.link }}" target="_blank" rel="noopener">
-          {{ item.title }}
-        </a>
-        <div class="muted item-date">
-          {{ item.published_at|relative_time or "recently" }}
-        </div>
-      </div>
-      {% if item.summary %}
-        {% set excerpt = item.summary|summary_excerpt %}
-        {% if excerpt %}
-          {% if item.summary|summary_was_truncated %}
-            <details class="item-summary">
-              <summary>
-                <span class="excerpt">{{ excerpt }}</span>
-                <span class="more-link">Read more</span>
-              </summary>
-              <div class="full">{{ item.summary|clean_summary|safe }}</div>
-            </details>
-          {% else %}
-            <div class="item-summary item-summary-short">
-              <div class="full">{{ item.summary|clean_summary|safe }}</div>
-            </div>
-          {% endif %}
-        {% endif %}
-      {% endif %}
-    </li>
-  {% endfor %}
+  {% include "_feed_page_items_page.html" %}
 </ul>
 {% else %}
 <p class="muted">No items fetched yet — this feed may have just been added, or it's not responding.</p>

@@ -14,32 +14,7 @@
 
 {% if entries %}
 <ul class="fav-list">
-  {% for e in entries %}
-    <li class="fav-item{% if e.item.link %} item-clickable{% endif %}">
-      <div class="fav-head">
-        {% if e.feed.favicon_url %}
-          <img class="favicon" src="{{ e.feed.favicon_url }}" alt="" loading="lazy"
- />
-        {% endif %}
-        <span class="fav-source muted">{{ e.feed.title }}</span>
-        <span class="spacer"></span>
-        <span class="muted" style="font-size:.85rem">
-          bookmarked {{ e.bookmark.created_at|relative_time }}
-        </span>
-      </div>
-      <a class="item-title" href="{{ e.item.link }}" target="_blank" rel="noopener">
-        {{ e.item.title }}
-      </a>
-      <div class="muted item-date">
-        {{ e.item.published_at|relative_time or "recently" }}
-        {% if user %}
-          {% with item_id=e.item.id, is_bookmarked=(e.item.id in viewer_bookmarks) %}
-            · {% include "_bookmark.html" %}
-          {% endwith %}
-        {% endif %}
-      </div>
-    </li>
-  {% endfor %}
+  {% include "_bookmarks_page.html" %}
 </ul>
 {% else %}
 <p class="muted">

@@ -1,0 +1,48 @@
+{# 0.11.11: one page of feed_page items. Rendered inside the .item-list
+   on initial page load, and returned as an HTMX partial for Load-more.
+   Expects: items, viewer_bookmarks, user, feed, items_has_more,
+   items_next_offset. #}
+{% for item in items %}
+  <li class="item">
+    <div class="item-head">
+      {% if user %}
+        {% with item_id=item.id, is_bookmarked=(item.id in viewer_bookmarks) %}
+          {% include "_bookmark.html" %}
+        {% endwith %}
+      {% endif %}
+      <a class="item-title" href="{{ item.link }}" target="_blank" rel="noopener">
+        {{ item.title }}
+      </a>
+      <div class="muted item-date">
+        {{ item.published_at|relative_time or "recently" }}
+      </div>
+    </div>
+    {% if item.summary %}
+      {% set excerpt = item.summary|summary_excerpt %}
+      {% if excerpt %}
+        {% if item.summary|summary_was_truncated %}
+          <details class="item-summary">
+            <summary>
+              <span class="excerpt">{{ excerpt }}</span>
+              <span class="more-link">Read more</span>
+            </summary>
+            <div class="full">{{ item.summary|clean_summary|safe }}</div>
+          </details>
+        {% else %}
+          <div class="item-summary item-summary-short">
+            <div class="full">{{ item.summary|clean_summary|safe }}</div>
+          </div>
+        {% endif %}
+      {% endif %}
+    {% endif %}
+  </li>
+{% endfor %}
+
+{% if items_has_more %}
+  <li class="stream-load-more" id="feed-page-load-more">
+    <button class="btn-ghost"
+            hx-get="/f/{{ feed.id }}?offset={{ items_next_offset }}"
+            hx-target="#feed-page-load-more"
+            hx-swap="outerHTML">Load more items…</button>
+  </li>
+{% endif %}
