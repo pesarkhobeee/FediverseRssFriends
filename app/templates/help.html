@@ -44,7 +44,7 @@
     You subscribe to a feed inside a category.
   </p>
   <p>
-    Go to your <a href="/dashboard">Dashboard</a> to create categories
+    Go to your <a href="/dashboard">Settings</a> page to create categories
     and paste feed URLs into them. If you already have a reading list
     somewhere else, use the <strong>Import from OPML</strong> button —
     every RSS reader can export OPML.
@@ -113,7 +113,7 @@
       subscribing to feeds, copying radars, <em>and cross-posting</em>
       from their own external feeds (see below). It's a social signal,
       not a reader. Fresh items from your own subscribed feeds live on
-      <a href="/dashboard">your dashboard</a> and public radar.
+      <a href="/u/{{ user.handle if user else 'you' }}">your radar</a> page.
     </li>
     <li>
       <strong>My activity</strong> — your <em>own</em> log. Every
@@ -129,7 +129,7 @@
 <section class="help-block">
   <h2 id="my-feeds">🎙️ My feeds (cross-posts)</h2>
   <p>
-    <strong>My feeds</strong> is a panel on <a href="/dashboard?panel=personal">/dashboard</a>
+    <strong>My feeds</strong> is a panel on <a href="/dashboard?panel=personal">Settings</a>
     where you can register your own external RSS/Atom feeds — your
     Mastodon, your YouTube channel, your personal blog. When those
     feeds publish a new item, we post it to your <a href="/u/{{ user.handle if user else 'you' }}/activity">activity</a>
@@ -187,7 +187,7 @@
 
 <section class="help-block">
   <h2 id="privacy">🔒 Public, unlisted, private</h2>
-  <p>Set from your Dashboard (Visibility dropdown):</p>
+  <p>Set from your Settings page (the Account panel):</p>
   <ul>
     <li>
       <strong>Public</strong> — anyone can view your radar. Listed on
@@ -265,7 +265,7 @@
       <strong>Client secret</strong>.
     </li>
     <li>
-      In rssFriends, open <a href="/dashboard?panel=settings">Dashboard →
+      In rssFriends, open <a href="/dashboard?panel=account">Settings →
       Settings</a>, scroll to <strong>Wallabag</strong>, and paste:
       your instance URL, the client ID + secret you just minted, and
       your Wallabag username + password. Click <em>Connect to Wallabag</em>.
@@ -396,6 +396,6 @@
 </section>
 
 <p class="muted" style="margin-top:2rem">
-  Ready to try? Head to your <a href="/dashboard">Dashboard</a>.
+  Ready to try? Head to your <a href="/dashboard">Settings</a>.
 </p>
 {% endblock %}

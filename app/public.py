@@ -711,7 +711,7 @@ def rename_handle(
     new_handle = (new_handle or "").strip().lower()
 
     if new_handle == user.handle:
-        return RedirectResponse("/dashboard?panel=settings", status_code=303)
+        return RedirectResponse("/dashboard?panel=account", status_code=303)
 
     if not _HANDLE_RE.match(new_handle):
         raise HTTPException(
@@ -876,7 +876,7 @@ def save_wallabag(
 
     ok = wb.password_grant(db, account)
     return RedirectResponse(
-        f"/dashboard?panel=settings&wallabag={'ok' if ok else 'err'}",
+        f"/dashboard?panel=account&wallabag={'ok' if ok else 'err'}",
         status_code=303,
     )
 
@@ -893,7 +893,7 @@ def wallabag_disconnect(
     if account is not None:
         db.delete(account)
         db.commit()
-    return RedirectResponse("/dashboard?panel=settings", status_code=303)
+    return RedirectResponse("/dashboard?panel=account", status_code=303)
 
 
 @router.post("/settings/wallabag/toggle")
@@ -911,7 +911,7 @@ def wallabag_toggle(
         account.updated_at = datetime.now(UTC)
         db.add(account)
         db.commit()
-    return RedirectResponse("/dashboard?panel=settings", status_code=303)
+    return RedirectResponse("/dashboard?panel=account", status_code=303)
 
 
 # ---------- Cherry-pick + fork ----------

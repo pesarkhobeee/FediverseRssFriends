@@ -134,8 +134,11 @@ PANELS: dict[str, dict] = {
         "template": "_panel_personal.html",
         "loader": _load_personal_context,
     },
-    "settings": {
-        "label": "⚙️ Settings",
+    "account": {
+        # 0.11.13: renamed from "settings" → "account" so the parent
+        # page name ("Settings") doesn't nest with a same-named panel.
+        # Old ?panel=settings URLs still resolve here (see PANEL_ALIASES).
+        "label": "👤 Account",
         "template": "_panel_settings.html",
         "loader": _load_settings_context,
     },
@@ -146,6 +149,9 @@ PANELS: dict[str, dict] = {
     },
 }
 DEFAULT_PANEL = "feeds"
+# Soft alias so links / bookmarks / help docs pointing at the old key
+# don't silently fall back to the default panel.
+PANEL_ALIASES = {"settings": "account"}
 
 
 @router.get("/dashboard", response_class=HTMLResponse)
@@ -156,6 +162,8 @@ def dashboard(
     db: Session = Depends(get_session),
 ):
     from .follow import pending_requests_count
+    # 0.11.13: honor legacy ?panel=settings by mapping to the new "account".
+    panel = PANEL_ALIASES.get(panel, panel)
     panel_key = panel if panel in PANELS else DEFAULT_PANEL
     panel_ctx = PANELS[panel_key]["loader"](db, user)
     ctx = {

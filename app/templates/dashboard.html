@@ -5,7 +5,7 @@
   <h1>⚙️ Settings</h1>
   <p class="muted">Signed in as {{ user.email }}</p>
   <p>
-    <a class="btn-ghost" href="/u/{{ user.handle }}">🌐 View my radar</a>
+    <a class="btn-ghost" href="/u/{{ user.handle }}/activity">📜 My activity</a>
     <a class="btn-ghost" href="/u/{{ user.handle }}/bookmarks">⭐ My bookmarks</a>
     <a class="btn-ghost" href="/follow-requests">
       📮 Follow requests{% if pending_requests %} ({{ pending_requests }}){% endif %}
