@@ -264,14 +264,202 @@ def test_outbox_404_for_private_user():
 # ─── Inbox placeholder ─────────────────────────────────────────────────
 
 
-def test_inbox_returns_501_not_implemented():
-    """Discovery-only: inbound Follow / Create posts get 501 so remote
-    servers stop retrying instead of thinking we've temporarily failed."""
+def test_inbox_rejects_unsigned_request():
+    """0.11.18: inbox now really parses Follow — but only if the
+    request is HTTP-signed by an actor whose key matches the message
+    actor. Unsigned or missing-signature = 401."""
     c = _client()
     _login(c, "alice@example.com")
     r = _client().post(
         "/u/alice/inbox",
-        content=json.dumps({"type": "Follow", "actor": "https://x.example/actor"}),
+        content=json.dumps({
+            "type": "Follow",
+            "actor": "https://mastodon.example/users/foo",
+            "object": "https://rssfriends.com/u/alice",
+            "id": "https://mastodon.example/users/foo/follows/1",
+        }),
         headers={"Content-Type": "application/activity+json"},
     )
-    assert r.status_code == 501
+    # No Signature header at all → keyId mismatch check trips first.
+    assert r.status_code == 401
+
+
+def test_inbox_rejects_bad_json():
+    c = _client()
+    _login(c, "alice@example.com")
+    r = _client().post(
+        "/u/alice/inbox",
+        content=b"not json",
+        headers={"Content-Type": "application/activity+json"},
+    )
+    assert r.status_code == 400
+
+
+def test_inbox_key_id_owner_must_match_actor():
+    """Prevents actor A signing a Follow that claims to be from actor B."""
+    c = _client()
+    _login(c, "alice@example.com")
+    r = _client().post(
+        "/u/alice/inbox",
+        content=json.dumps({
+            "type": "Follow",
+            "actor": "https://mastodon.example/users/foo",   # A
+            "id": "https://mastodon.example/users/foo/follows/1",
+        }),
+        # keyId points at a different actor (B) → 401
+        headers={
+            "Content-Type": "application/activity+json",
+            "Signature": 'keyId="https://mastodon.example/users/EVIL#main-key",algorithm="rsa-sha256",headers="date",signature="AAAA"',
+        },
+    )
+    assert r.status_code == 401
+
+
+def test_inbox_accepts_follow_with_valid_signature(monkeypatch):
+    """End-to-end: mint a fake remote actor + keypair, sign a Follow,
+    POST it, assert we recorded the RemoteFollow row and attempted an
+    Accept delivery."""
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric import rsa
+
+    import app.activitypub as ap
+    import app.db as db_mod
+
+    c = _client()
+    _login(c, "alice@example.com")
+
+    # Fake remote actor + keypair.
+    remote_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    remote_pub_pem = remote_key.public_key().public_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo,
+    ).decode()
+    remote_priv_pem = remote_key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.PKCS8,
+        encryption_algorithm=serialization.NoEncryption(),
+    ).decode()
+    remote_actor_url = "https://mastodon.example/users/foo"
+
+    # Stub actor fetch so we don't hit the network.
+    def fake_fetch(url):
+        assert url == remote_actor_url
+        return {
+            "id": remote_actor_url,
+            "inbox": "https://mastodon.example/users/foo/inbox",
+            "publicKey": {
+                "id": f"{remote_actor_url}#main-key",
+                "owner": remote_actor_url,
+                "publicKeyPem": remote_pub_pem,
+            },
+            "preferredUsername": "foo",
+            "name": "Foo",
+        }
+    monkeypatch.setattr(ap, "_fetch_remote_actor_doc", fake_fetch)
+
+    # Stub outbound Accept delivery so we don't hit the network + can
+    # observe that we tried to send.
+    sent = []
+    class _StubResp:
+        status_code = 202
+        text = ""
+
+    def fake_post(private_pem, key_id, target_url, body):
+        sent.append({"key_id": key_id, "url": target_url, "body": body})
+        return _StubResp()
+    monkeypatch.setattr(ap, "_sign_and_post", fake_post)
+
+    # Sign the Follow with the remote key.
+    follow = {
+        "@context": "https://www.w3.org/ns/activitystreams",
+        "id": f"{remote_actor_url}/follows/1",
+        "type": "Follow",
+        "actor": remote_actor_url,
+        "object": "https://rssfriends.com/u/alice",
+    }
+    body = json.dumps(follow).encode("utf-8")
+    date = ap._rfc7231_date()
+    digest = "SHA-256=" + ap._b64_of_sha256(body)
+    signing_string = (
+        f"(request-target): post /u/alice/inbox\n"
+        f"host: testserver\n"
+        f"date: {date}\n"
+        f"digest: {digest}"
+    )
+    from cryptography.hazmat.primitives import hashes as _h
+    from cryptography.hazmat.primitives.asymmetric import padding as _p
+    priv = serialization.load_pem_private_key(remote_priv_pem.encode(), password=None)
+    sig_bytes = priv.sign(signing_string.encode(), _p.PKCS1v15(), _h.SHA256())
+    import base64 as _b64
+    sig_b64 = _b64.b64encode(sig_bytes).decode()
+
+    r = _client().post(
+        "/u/alice/inbox",
+        content=body,
+        headers={
+            "Content-Type": "application/activity+json",
+            "Date": date,
+            "Digest": digest,
+            "Host": "testserver",
+            "Signature": (
+                f'keyId="{remote_actor_url}#main-key",'
+                f'algorithm="rsa-sha256",'
+                f'headers="(request-target) host date digest",'
+                f'signature="{sig_b64}"'
+            ),
+        },
+    )
+    assert r.status_code == 202
+
+    # RemoteFollow row landed.
+    with Session(db_mod.engine) as s:
+        rf = s.exec(select(db_mod.RemoteFollow)).one()
+        assert rf.follow_activity_id == follow["id"]
+
+    # We attempted an Accept delivery to their inbox.
+    assert len(sent) == 1
+    assert sent[0]["url"] == "https://mastodon.example/users/foo/inbox"
+    accept = json.loads(sent[0]["body"])
+    assert accept["type"] == "Accept"
+    assert accept["object"]["type"] == "Follow"
+
+
+def test_followers_collection_lists_accepted_follows():
+    """The /followers endpoint returns an OrderedCollection of
+    remote actor URLs so Mastodon can show the follower count."""
+    import app.db as db_mod
+
+    c = _client()
+    _login(c, "alice@example.com")
+
+    # Insert a fake remote follower directly (bypassing the inbox
+    # crypto dance — we cover that above).
+    with Session(db_mod.engine) as s:
+        alice = s.exec(select(db_mod.User).where(db_mod.User.handle == "alice")).one()
+        ra = db_mod.RemoteActor(
+            actor_url="https://mastodon.example/users/bar",
+            inbox_url="https://mastodon.example/users/bar/inbox",
+            public_key_pem="-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----",
+        )
+        s.add(ra)
+        s.commit()
+        s.refresh(ra)
+        s.add(db_mod.RemoteFollow(
+            remote_actor_id=ra.id,
+            user_id=alice.id,
+            follow_activity_id="https://mastodon.example/users/bar/follows/1",
+        ))
+        s.commit()
+
+    # /u/alice/followers is shared between the HTML followers page
+    # (default) and the AP OrderedCollection (Accept: activity+json).
+    # Mastodon uses the latter.
+    r = _client().get(
+        "/u/alice/followers",
+        headers={"Accept": "application/activity+json"},
+    )
+    assert r.status_code == 200
+    assert "activity+json" in r.headers["content-type"]
+    body = r.json()
+    assert body["totalItems"] == 1
+    assert "https://mastodon.example/users/bar" in body["orderedItems"]

@@ -24,18 +24,34 @@ follow you into their timeline. That's the "M6 · Discoverable" scope.
 
 from __future__ import annotations
 
+import base64
+import hashlib
+import json
 import logging
-from datetime import UTC
+import re
+import threading
+from datetime import UTC, datetime
 from urllib.parse import unquote, urlparse
 
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric import rsa
+import httpx
+from cryptography.exceptions import InvalidSignature
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import padding, rsa
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from sqlmodel import Session, select
 
 from . import config
-from .db import Activity, Feed, FeedItem, User, get_session
+from .db import (
+    Activity,
+    Feed,
+    FeedItem,
+    RemoteActor,
+    RemoteFollow,
+    User,
+    engine,
+    get_session,
+)
 
 log = logging.getLogger(__name__)
 
@@ -121,8 +137,8 @@ def _actor_document(user: User) -> dict:
         "name": user.handle,
         "summary": (
             "rssFriends radar — RSS reading history + bookmarks. "
-            "Follow at "
-            f"{_base()}/u/{user.handle}"
+            "Follow me here and my bookmarks + cross-posts land on your "
+            f"timeline. Web view: {_base()}/u/{user.handle}"
         ),
         "url": actor_id,
         "manuallyApprovesFollowers": user.visibility == "private",
@@ -321,13 +337,438 @@ def outbox(
     return JSONResponse(body, media_type=AP_CONTENT_TYPE)
 
 
-@router.post("/u/{handle}/inbox")
-def inbox_placeholder(handle: str):
-    """Placeholder inbox — required to be advertised on the Actor doc
-    (Mastodon crashes without it), but this instance is
-    discovery-only. Anything POSTed here gets 501 Not Implemented so
-    remote servers know to stop retrying."""
-    raise HTTPException(
-        status.HTTP_501_NOT_IMPLEMENTED,
-        "This instance is discovery-only — inbound federation is not accepted.",
+# ─── HTTP Signature (draft-cavage-http-signatures-12, what Mastodon uses) ─
+
+
+def _b64_of_sha256(body: bytes) -> str:
+    return base64.b64encode(hashlib.sha256(body).digest()).decode("ascii")
+
+
+def _rfc7231_date() -> str:
+    """HTTP-date per RFC 7231, required by draft-cavage."""
+    return datetime.now(UTC).strftime("%a, %d %b %Y %H:%M:%S GMT")
+
+
+def _parse_signature_header(sig_header: str) -> dict:
+    """Parse a draft-cavage Signature: keyId="…",algorithm="…",… string."""
+    out: dict[str, str] = {}
+    # naive but sufficient: split on commas outside of quotes
+    for part in re.findall(r'([a-zA-Z]+)="((?:\\.|[^"])*)"', sig_header):
+        out[part[0]] = part[1]
+    return out
+
+
+def _canonical_signing_string(method: str, path: str,
+                              headers: dict[str, str],
+                              signed_headers: list[str]) -> str:
+    """Rebuild the string that was signed. Header names are lowercase;
+    (request-target) is the pseudo-header method + path."""
+    lines = []
+    for h in signed_headers:
+        if h == "(request-target)":
+            lines.append(f"(request-target): {method.lower()} {path}")
+        else:
+            v = headers.get(h.lower(), "")
+            lines.append(f"{h.lower()}: {v}")
+    return "\n".join(lines)
+
+
+def _verify_http_signature(request: Request, body: bytes,
+                           public_pem: str) -> bool:
+    """Verify the request's HTTP Signature against the provided public
+    key. Enforces: Signature header present, Digest header matches
+    body (if present in signed set), Date within 24h window."""
+    sig_hdr = request.headers.get("signature")
+    if not sig_hdr:
+        return False
+    parts = _parse_signature_header(sig_hdr)
+    signed = (parts.get("headers") or "date").split(" ")
+    signature_b64 = parts.get("signature", "")
+    if not signature_b64:
+        return False
+
+    # Reject the request outright if Digest doesn't match body.
+    if "digest" in signed and body:
+        expected = "SHA-256=" + _b64_of_sha256(body)
+        if request.headers.get("digest") != expected:
+            return False
+
+    # Reject if Date is more than 24h off — kills long-replay windows.
+    if "date" in signed:
+        date_hdr = request.headers.get("date")
+        if date_hdr:
+            try:
+                sent = datetime.strptime(date_hdr, "%a, %d %b %Y %H:%M:%S GMT")
+                sent = sent.replace(tzinfo=UTC)
+                delta = abs((datetime.now(UTC) - sent).total_seconds())
+                if delta > 86400:
+                    return False
+            except ValueError:
+                return False
+
+    # Rebuild + verify.
+    method = request.method
+    path = request.url.path
+    if request.url.query:
+        path = f"{path}?{request.url.query}"
+    headers = {k.lower(): v for k, v in request.headers.items()}
+    signing_string = _canonical_signing_string(method, path, headers, signed)
+
+    try:
+        pub = serialization.load_pem_public_key(public_pem.encode("utf-8"))
+        pub.verify(
+            base64.b64decode(signature_b64),
+            signing_string.encode("utf-8"),
+            padding.PKCS1v15(),
+            hashes.SHA256(),
+        )
+        return True
+    except (InvalidSignature, ValueError):
+        return False
+
+
+def _sign_and_post(private_pem: str, key_id: str,
+                   target_url: str, body: bytes) -> httpx.Response:
+    """Send `body` as an HTTP-signed POST to `target_url` (a remote
+    inbox). Signature covers (request-target) host date digest."""
+    parsed = urlparse(target_url)
+    path = parsed.path or "/"
+    if parsed.query:
+        path = f"{path}?{parsed.query}"
+    date = _rfc7231_date()
+    digest = "SHA-256=" + _b64_of_sha256(body)
+    headers_to_sign = ["(request-target)", "host", "date", "digest"]
+    header_values = {
+        "(request-target)": f"post {path}",
+        "host": parsed.netloc,
+        "date": date,
+        "digest": digest,
+    }
+    signing_string = "\n".join(f"{h}: {header_values[h]}" for h in headers_to_sign)
+    priv = serialization.load_pem_private_key(private_pem.encode("utf-8"), password=None)
+    signature = priv.sign(
+        signing_string.encode("utf-8"),
+        padding.PKCS1v15(),
+        hashes.SHA256(),
     )
+    signature_b64 = base64.b64encode(signature).decode("ascii")
+    sig_header = (
+        f'keyId="{key_id}",algorithm="rsa-sha256",'
+        f'headers="(request-target) host date digest",'
+        f'signature="{signature_b64}"'
+    )
+    return httpx.post(
+        target_url,
+        content=body,
+        headers={
+            "Content-Type": AP_CONTENT_TYPE,
+            "Accept": "application/activity+json",
+            "Host": parsed.netloc,
+            "Date": date,
+            "Digest": digest,
+            "Signature": sig_header,
+            "User-Agent": f"rssFriends/0.11 (+{_base()})",
+        },
+        timeout=15,
+        follow_redirects=True,
+    )
+
+
+# ─── Remote-actor lookup + cache ───────────────────────────────────────
+
+
+def _fetch_remote_actor_doc(actor_url: str) -> dict:
+    """Fetch an actor's JSON. Called on first inbound Follow so we can
+    cache the public key and inbox URL for future signature checks."""
+    r = httpx.get(
+        actor_url,
+        headers={"Accept": "application/activity+json"},
+        timeout=10,
+        follow_redirects=True,
+    )
+    r.raise_for_status()
+    return r.json()
+
+
+def get_or_cache_remote_actor(db: Session, actor_url: str) -> RemoteActor:
+    """Find-or-create for a RemoteActor row. Refetches once every 7
+    days so key rotations propagate without a manual purge."""
+    existing = db.exec(
+        select(RemoteActor).where(RemoteActor.actor_url == actor_url)
+    ).first()
+    fresh_window = 7 * 86400  # 7 days
+    if existing:
+        fetched = existing.fetched_at
+        if fetched.tzinfo is None:
+            fetched = fetched.replace(tzinfo=UTC)
+        age = (datetime.now(UTC) - fetched).total_seconds()
+        if age < fresh_window:
+            return existing
+
+    try:
+        doc = _fetch_remote_actor_doc(actor_url)
+    except (httpx.HTTPError, ValueError) as e:
+        if existing:
+            return existing  # stale is better than raising
+        raise HTTPException(
+            status.HTTP_502_BAD_GATEWAY, f"can't fetch remote actor: {e}",
+        ) from e
+
+    pk = doc.get("publicKey") or {}
+    pem = pk.get("publicKeyPem") or ""
+    if not pem:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "remote actor has no publicKey — can't federate.",
+        )
+    endpoints = doc.get("endpoints") or {}
+    inbox = endpoints.get("sharedInbox") or doc.get("inbox") or ""
+    if not inbox:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST, "remote actor advertises no inbox.",
+        )
+
+    if existing:
+        existing.public_key_pem = pem
+        existing.inbox_url = inbox
+        existing.key_id = pk.get("id") or existing.key_id
+        existing.preferred_username = doc.get("preferredUsername", "") or ""
+        existing.display_name = doc.get("name", "") or ""
+        existing.fetched_at = datetime.now(UTC)
+        db.add(existing)
+        db.commit()
+        db.refresh(existing)
+        return existing
+
+    ra = RemoteActor(
+        actor_url=actor_url,
+        inbox_url=inbox,
+        public_key_pem=pem,
+        key_id=pk.get("id") or "",
+        preferred_username=doc.get("preferredUsername", "") or "",
+        display_name=doc.get("name", "") or "",
+    )
+    db.add(ra)
+    db.commit()
+    db.refresh(ra)
+    return ra
+
+
+# ─── Inbox: parse Follow / Undo(Follow) ────────────────────────────────
+
+
+def _key_id_owner(key_id: str) -> str:
+    """A keyId is usually "https://actor#main-key"; the actor URL is
+    everything before the '#'."""
+    return key_id.split("#", 1)[0]
+
+
+def _handle_follow(db: Session, activity: dict, our_user: User,
+                   remote_actor: RemoteActor) -> None:
+    """Persist the Follow, then POST an Accept{Follow} to the remote
+    inbox so their timeline lights up as subscribed."""
+    follow_id = activity.get("id") or ""
+
+    existing = db.exec(
+        select(RemoteFollow)
+        .where(RemoteFollow.remote_actor_id == remote_actor.id)
+        .where(RemoteFollow.user_id == our_user.id)
+    ).first()
+    if not existing:
+        db.add(RemoteFollow(
+            remote_actor_id=remote_actor.id,
+            user_id=our_user.id,
+            follow_activity_id=follow_id,
+        ))
+        db.commit()
+
+    # Mint + POST Accept.
+    actor_id = _actor_id(our_user.handle)
+    accept = {
+        "@context": AP_CONTEXT,
+        "id": f"{actor_id}#accepts/{follow_id.rsplit('/', 1)[-1] or 'follow'}",
+        "type": "Accept",
+        "actor": actor_id,
+        "object": activity,
+    }
+    try:
+        _sign_and_post(
+            our_user.ap_private_key,
+            f"{actor_id}#main-key",
+            remote_actor.inbox_url,
+            json.dumps(accept).encode("utf-8"),
+        )
+    except httpx.HTTPError as e:
+        # We accepted their follow in our DB; delivery of Accept failed.
+        # They'll see us as "pending" but our next Create delivery will
+        # still land, so it self-heals. Log and move on.
+        log.warning("Accept delivery failed to %s: %s", remote_actor.inbox_url, e)
+
+
+def _handle_undo(db: Session, activity: dict, our_user: User,
+                 remote_actor: RemoteActor) -> None:
+    """Undo{Follow}: drop the RemoteFollow row so they stop receiving
+    our Create deliveries."""
+    inner = activity.get("object") or {}
+    if isinstance(inner, str):
+        return  # bare Undo of a URL — we can't tell what was undone
+    if inner.get("type") != "Follow":
+        return
+    row = db.exec(
+        select(RemoteFollow)
+        .where(RemoteFollow.remote_actor_id == remote_actor.id)
+        .where(RemoteFollow.user_id == our_user.id)
+    ).first()
+    if row:
+        db.delete(row)
+        db.commit()
+
+
+@router.post("/u/{handle}/inbox")
+async def inbox(
+    handle: str,
+    request: Request,
+    db: Session = Depends(get_session),
+):
+    """Real inbox — accepts Follow + Undo{Follow}. Every message must
+    be HTTP-signed by an actor whose public key we can fetch. Other
+    activity types (Create, Delete, Like, Announce) return 202 Accepted
+    so remote servers stop retrying, but we don't act on them yet."""
+    our_user = db.exec(select(User).where(User.handle == handle)).first()
+    if not our_user or our_user.visibility == "private":
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "No such account.")
+
+    body = await request.body()
+    try:
+        activity = json.loads(body.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Body isn't valid JSON.") from None
+
+    # Extract the actor of the message and verify the HTTP Signature
+    # against their advertised public key. Reject anything unsigned.
+    sender_url = activity.get("actor")
+    if isinstance(sender_url, dict):
+        sender_url = sender_url.get("id")
+    if not sender_url:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Missing actor.")
+
+    # keyId in the Signature must belong to the same actor — prevents
+    # Actor A signing a message that claims to come from Actor B.
+    sig_hdr = request.headers.get("signature") or ""
+    key_id = _parse_signature_header(sig_hdr).get("keyId") or ""
+    if _key_id_owner(key_id) != sender_url:
+        raise HTTPException(
+            status.HTTP_401_UNAUTHORIZED,
+            "Signature keyId doesn't match message actor.",
+        )
+
+    remote_actor = get_or_cache_remote_actor(db, sender_url)
+    if not _verify_http_signature(request, body, remote_actor.public_key_pem):
+        raise HTTPException(
+            status.HTTP_401_UNAUTHORIZED, "HTTP Signature verification failed.",
+        )
+
+    kind = activity.get("type")
+    if kind == "Follow":
+        _handle_follow(db, activity, our_user, remote_actor)
+    elif kind == "Undo":
+        _handle_undo(db, activity, our_user, remote_actor)
+    # else: 202-accept-and-drop for MVP scope.
+
+    return Response(status_code=status.HTTP_202_ACCEPTED)
+
+
+# ─── Followers collection ─────────────────────────────────────────────
+
+
+def followers(handle: str, db: Session = Depends(get_session)):
+    """OrderedCollection of remote follower actor URLs. Mastodon
+    reads this to show the follower count/list on the profile card.
+
+    Not registered as a route directly — follow.py owns the HTML
+    /u/{handle}/followers URL and delegates here via content-neg
+    when the caller asks for application/activity+json. That avoids
+    the router collision that bit us when both files claimed the
+    same path (0.11.18).
+    """
+    user = db.exec(select(User).where(User.handle == handle)).first()
+    if not user or user.visibility == "private":
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "No such account.")
+    rows = db.exec(
+        select(RemoteFollow, RemoteActor)
+        .join(RemoteActor, RemoteActor.id == RemoteFollow.remote_actor_id)
+        .where(RemoteFollow.user_id == user.id)
+    ).all()
+    urls = [ra.actor_url for _rf, ra in rows]
+    actor_id = _actor_id(user.handle)
+    return JSONResponse(
+        {
+            "@context": AP_CONTEXT,
+            "id": f"{actor_id}/followers",
+            "type": "OrderedCollection",
+            "totalItems": len(urls),
+            "orderedItems": urls,
+        },
+        media_type=AP_CONTENT_TYPE,
+    )
+
+
+# ─── Outbound delivery on new activity ────────────────────────────────
+
+
+def _deliver_one(private_pem: str, key_id: str,
+                 inbox_url: str, activity_json: bytes) -> None:
+    """Fire-and-forget POST wrapped so exceptions land in logs, not
+    the caller. Called from the delivery thread."""
+    try:
+        r = _sign_and_post(private_pem, key_id, inbox_url, activity_json)
+        if r.status_code >= 400:
+            log.warning("delivery to %s → %d: %s",
+                        inbox_url, r.status_code, r.text[:200])
+        else:
+            log.info("delivery to %s ok (%d)", inbox_url, r.status_code)
+    except httpx.HTTPError as e:
+        log.warning("delivery to %s errored: %s", inbox_url, e)
+
+
+def deliver_activity_to_followers(user_id: int, activity_id: int) -> None:
+    """Snapshot followers + activity from DB, then POST a Create{Note}
+    to each follower's inbox. Runs in a background thread so the
+    request that created the activity doesn't block. Silent no-op if
+    the user has no keypair or no remote followers."""
+    with Session(engine) as db:
+        user = db.get(User, user_id)
+        if not user or not user.ap_private_key:
+            return
+        act = db.get(Activity, activity_id)
+        if not act or act.kind not in ("bookmarked", "posted"):
+            return
+        item = db.get(FeedItem, act.ref_id) if act.ref_id else None
+        feed = db.get(Feed, item.feed_id) if item else None
+        note = _activity_to_note(act, user, feed, item)
+        if not note:
+            return
+        follows = db.exec(
+            select(RemoteFollow, RemoteActor)
+            .join(RemoteActor, RemoteActor.id == RemoteFollow.remote_actor_id)
+            .where(RemoteFollow.user_id == user.id)
+        ).all()
+        if not follows:
+            return
+        payload = json.dumps(note).encode("utf-8")
+        key_id = f"{_actor_id(user.handle)}#main-key"
+        for _rf, ra in follows:
+            _deliver_one(user.ap_private_key, key_id, ra.inbox_url, payload)
+
+
+def enqueue_activity_delivery(user_id: int, activity_id: int) -> None:
+    """Public entry point called from activity.record() when a new
+    Activity of kind bookmarked or posted lands. Spawns a daemon
+    thread so the HTTP request that triggered the activity returns
+    immediately."""
+    t = threading.Thread(
+        target=deliver_activity_to_followers,
+        args=(user_id, activity_id),
+        daemon=True,
+    )
+    t.start()

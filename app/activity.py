@@ -25,15 +25,28 @@ def record(
     ref_type: str = "",
     ref_id: int | None = None,
 ) -> None:
-    """Append one activity row. Caller commits."""
-    db.add(Activity(
+    """Append one activity row. Caller commits. If the row is a kind
+    that maps to an AS 2.0 Create{Note} (bookmarked or posted), we
+    also queue an ActivityPub delivery to remote followers — the fed
+    hook that makes rssFriends → Mastodon federation actually work
+    (0.11.18). Delivery runs in a background thread and needs the
+    activity's DB id, so we flush before dispatching."""
+    row = Activity(
         user_id=user.id,
         kind=kind,
         subject=(subject or "")[:200],
         subject_url=(subject_url or "")[:2000],
         ref_type=ref_type[:20],
         ref_id=ref_id,
-    ))
+    )
+    db.add(row)
+    if kind in ("bookmarked", "posted"):
+        db.flush()   # populates row.id without committing
+        try:
+            from .activitypub import enqueue_activity_delivery
+            enqueue_activity_delivery(user.id, row.id)
+        except Exception:  # noqa: BLE001 — delivery must never break the write
+            pass
 
 
 # --- Signed token for private users' activity.rss --------------------------

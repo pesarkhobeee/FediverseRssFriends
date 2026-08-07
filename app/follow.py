@@ -370,6 +370,13 @@ def followers_page(
     owner = resolve_handle(db, handle)
     if not owner:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "user not found")
+    # 0.11.18: content-negotiate — Mastodon fetches this URL with
+    # Accept: application/activity+json to size up our followers.
+    # Delegate to the ActivityPub module's collection renderer when
+    # asked, otherwise fall through to the HTML followers page.
+    from . import activitypub as ap
+    if ap.wants_activitypub(request) and owner.visibility != "private":
+        return ap.followers(owner.handle, db)
     redirect = maybe_redirect_to_canonical(request, handle, owner)
     if redirect is not None:
         return redirect

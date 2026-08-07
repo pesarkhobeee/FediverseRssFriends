@@ -277,6 +277,44 @@ class CollectionSuggestion(SQLModel, table=True):
     created_at: datetime = Field(default_factory=_now)
 
 
+class RemoteActor(SQLModel, table=True):
+    """0.11.18: cache of remote ActivityPub actors we've seen inbound
+    from (via Follow) or dispatched outbound to. We stash the public
+    key + inbox URL so signature verification and delivery don't need
+    a fresh HTTPS round-trip on every message."""
+
+    __table_args__ = (
+        UniqueConstraint("actor_url", name="uq_remoteactor_url"),
+    )
+
+    id: int | None = Field(default=None, primary_key=True)
+    actor_url: str = Field(index=True)      # e.g. https://mastodon.social/users/foo
+    inbox_url: str                          # POST target for delivery
+    public_key_pem: str                     # for verifying their signatures
+    key_id: str = Field(default="")         # e.g. actor_url#main-key
+    preferred_username: str = Field(default="")
+    display_name: str = Field(default="")
+    fetched_at: datetime = Field(default_factory=_now)
+
+
+class RemoteFollow(SQLModel, table=True):
+    """0.11.18: a remote AP actor has followed one of our users. We
+    accept and store; new activities from that user are delivered to
+    the remote actor's inbox."""
+
+    __table_args__ = (
+        UniqueConstraint("remote_actor_id", "user_id",
+                         name="uq_remotefollow_pair"),
+    )
+
+    id: int | None = Field(default=None, primary_key=True)
+    remote_actor_id: int = Field(foreign_key="remoteactor.id", index=True)
+    user_id: int = Field(foreign_key="user.id", index=True)
+    follow_activity_id: str                 # id of the Follow activity we accepted
+    accepted_at: datetime = Field(default_factory=_now)
+    created_at: datetime = Field(default_factory=_now)
+
+
 class WallabagAccount(SQLModel, table=True):
     """A user's Wallabag OAuth link. One row per user max.
 
