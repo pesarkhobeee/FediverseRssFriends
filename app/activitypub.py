@@ -49,7 +49,6 @@ from .db import (
     RemoteActor,
     RemoteFollow,
     User,
-    engine,
     get_session,
 )
 
@@ -776,56 +775,70 @@ def followers(handle: str, db: Session = Depends(get_session)):
 def _deliver_one(private_pem: str, key_id: str,
                  inbox_url: str, activity_json: bytes) -> None:
     """Fire-and-forget POST wrapped so exceptions land in logs, not
-    the caller. Called from the delivery thread."""
+    the caller. Called from the delivery thread. Uses log.warning
+    (not log.info) so results are visible under uvicorn's default
+    log level."""
     try:
         r = _sign_and_post(private_pem, key_id, inbox_url, activity_json)
         if r.status_code >= 400:
-            log.warning("delivery to %s → %d: %s",
+            log.warning("AP delivery to %s → %d: %s",
                         inbox_url, r.status_code, r.text[:200])
         else:
-            log.info("delivery to %s ok (%d)", inbox_url, r.status_code)
+            log.warning("AP delivery to %s ok (%d)", inbox_url, r.status_code)
     except httpx.HTTPError as e:
-        log.warning("delivery to %s errored: %s", inbox_url, e)
+        log.warning("AP delivery to %s errored: %s", inbox_url, e)
 
 
-def deliver_activity_to_followers(user_id: int, activity_id: int) -> None:
-    """Snapshot followers + activity from DB, then POST a Create{Note}
-    to each follower's inbox. Runs in a background thread so the
-    request that created the activity doesn't block. Silent no-op if
-    the user has no keypair or no remote followers."""
-    with Session(engine) as db:
-        user = db.get(User, user_id)
-        if not user or not user.ap_private_key:
-            return
-        act = db.get(Activity, activity_id)
-        if not act or act.kind not in ("bookmarked", "posted"):
-            return
-        item = db.get(FeedItem, act.ref_id) if act.ref_id else None
-        feed = db.get(Feed, item.feed_id) if item else None
-        note = _activity_to_note(act, user, feed, item)
-        if not note:
-            return
-        follows = db.exec(
-            select(RemoteFollow, RemoteActor)
-            .join(RemoteActor, RemoteActor.id == RemoteFollow.remote_actor_id)
-            .where(RemoteFollow.user_id == user.id)
-        ).all()
-        if not follows:
-            return
-        payload = json.dumps(note).encode("utf-8")
-        key_id = f"{_actor_id(user.handle)}#main-key"
-        for _rf, ra in follows:
-            _deliver_one(user.ap_private_key, key_id, ra.inbox_url, payload)
+def _deliver_payload(private_pem: str, key_id: str,
+                     payload: bytes, targets: list[str]) -> None:
+    """Thread body — every arg is a plain value (no DB session). Loops
+    through remote inbox URLs and fires a signed POST at each."""
+    for inbox_url in targets:
+        _deliver_one(private_pem, key_id, inbox_url, payload)
 
 
-def enqueue_activity_delivery(user_id: int, activity_id: int) -> None:
-    """Public entry point called from activity.record() when a new
-    Activity of kind bookmarked or posted lands. Spawns a daemon
-    thread so the HTTP request that triggered the activity returns
-    immediately."""
+def enqueue_activity_delivery(db: Session, user: User,
+                              activity_row: Activity) -> None:
+    """Called from activity.record() while the caller's session is
+    still open. Snapshots the note payload + follower inbox list from
+    the current (uncommitted) session state, then spawns a thread
+    that does the network I/O with plain-data-only inputs — no DB
+    access in the thread, so there's no race between the delivery
+    thread and the outer transaction commit.
+
+    Bug we're avoiding (0.11.19 → 0.11.20): before this refactor, the
+    thread opened a fresh Session and queried by activity_id. Since
+    the outer transaction hadn't committed yet, the thread's snapshot
+    saw the Activity row as non-existent and silently returned.
+    Bookmarks landed in the DB but never delivered. Passing the
+    payload directly bypasses that race entirely."""
+    if not user.ap_private_key:
+        return
+    if activity_row.kind not in ("bookmarked", "posted"):
+        return
+
+    item = db.get(FeedItem, activity_row.ref_id) if activity_row.ref_id else None
+    feed = db.get(Feed, item.feed_id) if item else None
+    note = _activity_to_note(activity_row, user, feed, item)
+    if not note:
+        return
+
+    follows = db.exec(
+        select(RemoteFollow, RemoteActor)
+        .join(RemoteActor, RemoteActor.id == RemoteFollow.remote_actor_id)
+        .where(RemoteFollow.user_id == user.id)
+    ).all()
+    inboxes = [ra.inbox_url for _rf, ra in follows]
+    if not inboxes:
+        return
+
+    payload = json.dumps(note).encode("utf-8")
+    key_id = f"{_actor_id(user.handle)}#main-key"
+    log.warning("AP delivery: enqueuing to %d follower(s) for user=%s",
+                len(inboxes), user.handle)
     t = threading.Thread(
-        target=deliver_activity_to_followers,
-        args=(user_id, activity_id),
+        target=_deliver_payload,
+        args=(user.ap_private_key, key_id, payload, inboxes),
         daemon=True,
     )
     t.start()

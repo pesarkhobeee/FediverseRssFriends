@@ -44,7 +44,10 @@ def record(
         db.flush()   # populates row.id without committing
         try:
             from .activitypub import enqueue_activity_delivery
-            enqueue_activity_delivery(user.id, row.id)
+            # Pass db + row directly so the delivery snapshotter reads
+            # from THIS (uncommitted) session — a second Session would
+            # race the outer commit and see nothing.
+            enqueue_activity_delivery(db, user, row)
         except Exception:  # noqa: BLE001 — delivery must never break the write
             pass
 
