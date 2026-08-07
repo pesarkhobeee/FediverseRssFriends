@@ -1303,7 +1303,29 @@ img.favicon {
 }
 
 /* Preview card on the right of the hero. Decorative, hard-coded rows. */
-.landing-hero-preview { position: relative; }
+.landing-hero-preview {
+  position: relative;
+  /* 0.11.16: the whole preview is now an <a href="/discover">; strip
+     the default anchor color + underline so the illustration reads
+     the same as before, and add a soft lift on hover so it's clear
+     the whole surface is clickable. */
+  display: block;
+  color: inherit;
+  text-decoration: none;
+  transition: transform 180ms ease-out;
+}
+.landing-hero-preview:hover { transform: translateY(-2px); text-decoration: none; }
+.landing-hero-preview:hover .preview-card {
+  box-shadow: 0 32px 60px -24px rgba(63,45,20,.24);
+}
+.preview-card-caption {
+  display: block;
+  margin-top: 12px;
+  font-size: 13px;
+  color: var(--muted);
+  text-align: center;
+}
+.preview-card-caption strong { color: var(--accent); font-weight: 600; }
 .preview-halo {
   position: absolute; inset: -24px -12px auto auto;
   width: 180px; height: 180px; border-radius: 50%;

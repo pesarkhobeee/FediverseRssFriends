@@ -85,8 +85,12 @@
     </script>
   </div>
 
-  {# ─── Preview card (decorative — hard-coded content) ─────────────── #}
-  <div class="landing-hero-preview">
+  {# ─── Preview card. Decorative + hard-coded content, but wrapped in
+       an anchor so click-through-attempts land on /discover where the
+       real radars live. (0.11.16 — feedback: users tried to interact
+       with the preview thinking it was live.) #}
+  <a class="landing-hero-preview" href="/discover"
+     aria-label="See real radars on Discover">
     <div class="preview-halo"></div>
     <div class="preview-card">
       <div class="preview-card-head">
@@ -134,7 +138,10 @@
         <span class="preview-card-foot-cta">Subscribe as RSS</span>
       </div>
     </div>
-  </div>
+    <span class="preview-card-caption">
+      Sample view — see real radars on <strong>Discover →</strong>
+    </span>
+  </a>
 </section>
 
 {# ─── Feature grid ────────────────────────────────────────────────── #}
