@@ -628,10 +628,71 @@ def _key_id_owner(key_id: str) -> str:
     return key_id.split("#", 1)[0]
 
 
+BACKFILL_LIMIT = 20  # 0.11.22: how many past Notes we push on follow
+
+
+def _backfill_history_to_follower(
+    private_pem: str, key_id: str, inbox_url: str,
+    payloads: list[bytes],
+) -> None:
+    """Deliver `payloads` (already-built Note JSON) to `inbox_url` one
+    at a time. Each Note carries its original `published` timestamp,
+    so Mastodon slots them chronologically in the follower's timeline
+    (they don't flood the "now" view). Runs in a background thread —
+    fires-and-forgets errors."""
+    for p in payloads:
+        _deliver_one(private_pem, key_id, inbox_url, p)
+
+
+def _enqueue_history_backfill(db: Session, our_user: User,
+                              remote_actor: RemoteActor) -> None:
+    """Snapshot recent Notes and hand them to a delivery thread. Same
+    "no DB access in the thread" pattern as new-activity delivery."""
+    rows = db.exec(
+        select(Activity)
+        .where(Activity.user_id == our_user.id)
+        .where(Activity.kind.in_(("bookmarked", "posted")))
+        .order_by(Activity.created_at.desc())
+        .limit(BACKFILL_LIMIT)
+    ).all()
+    if not rows:
+        return
+    item_ids = {a.ref_id for a in rows if a.ref_id is not None}
+    items = db.exec(select(FeedItem).where(FeedItem.id.in_(item_ids))).all() if item_ids else []
+    items_by_id = {i.id: i for i in items}
+    feed_ids = {i.feed_id for i in items}
+    feeds = db.exec(select(Feed).where(Feed.id.in_(feed_ids))).all() if feed_ids else []
+    feeds_by_id = {f.id: f for f in feeds}
+
+    payloads: list[bytes] = []
+    # Deliver oldest→newest so the timeline reads in the expected order
+    # if Mastodon happens to render by delivery time rather than
+    # `published` (belt+braces).
+    for act in reversed(rows):
+        item = items_by_id.get(act.ref_id) if act.ref_id else None
+        feed = feeds_by_id.get(item.feed_id) if item else None
+        note = _activity_to_note(act, our_user, feed, item)
+        if note:
+            payloads.append(json.dumps(note).encode("utf-8"))
+    if not payloads:
+        return
+
+    key_id = f"{_actor_id(our_user.handle)}#main-key"
+    log.warning("AP backfill: sending %d historical Note(s) to %s",
+                len(payloads), remote_actor.inbox_url)
+    t = threading.Thread(
+        target=_backfill_history_to_follower,
+        args=(our_user.ap_private_key, key_id, remote_actor.inbox_url, payloads),
+        daemon=True,
+    )
+    t.start()
+
+
 def _handle_follow(db: Session, activity: dict, our_user: User,
                    remote_actor: RemoteActor) -> None:
-    """Persist the Follow, then POST an Accept{Follow} to the remote
-    inbox so their timeline lights up as subscribed."""
+    """Persist the Follow, POST an Accept{Follow}, then backfill the
+    follower's timeline with our recent historical Notes so their
+    profile view of us isn't empty."""
     follow_id = activity.get("id") or ""
 
     existing = db.exec(
@@ -668,6 +729,12 @@ def _handle_follow(db: Session, activity: dict, our_user: User,
         # They'll see us as "pending" but our next Create delivery will
         # still land, so it self-heals. Log and move on.
         log.warning("Accept delivery failed to %s: %s", remote_actor.inbox_url, e)
+
+    # 0.11.22: only backfill the FIRST time this remote follows us —
+    # re-follows (unfollow → follow) skip so we don't re-deliver notes
+    # they've already seen.
+    if not existing:
+        _enqueue_history_backfill(db, our_user, remote_actor)
 
 
 def _handle_undo(db: Session, activity: dict, our_user: User,
