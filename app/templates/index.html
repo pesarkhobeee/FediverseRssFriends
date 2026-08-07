@@ -27,11 +27,62 @@
             hx-post="/login" hx-target="#landing-signup" hx-swap="outerHTML"
             class="landing-signup-form">
         <input type="email" name="email" required autocomplete="email"
-               placeholder="you@example.com" class="input landing-signup-input" />
+               placeholder="you@example.com" class="input landing-signup-input"
+               id="landing-signup-email" />
         <button type="submit" class="btn landing-signup-btn">Send magic link</button>
       </form>
+
+      {# 0.11.14: consent + email→handle transparency. Feedback said it
+         wasn't obvious that the email prefix becomes the public handle.
+         Notice is prominent + a live preview updates as they type.
+         Consent is implicit — sending the magic link = accepting these terms. #}
+      <div class="landing-signup-consent">
+        <p>
+          <strong>Before you sign up:</strong>
+          the part before <code>@</code> in your email becomes your public handle
+          (e.g. <code>alice@example.com</code> → <code>@alice</code>,
+          visible at <code>rssfriends.com/u/alice</code>).
+          Your radar (the feeds you subscribe to) and your activity are
+          <strong>public by default</strong> — you can switch to unlisted or
+          private in Settings after signing in. Your email itself is
+          never shown publicly.
+        </p>
+        <p class="landing-signup-consent-preview" id="handle-preview" hidden>
+          Your handle will be: <strong><span id="handle-preview-val"></span></strong>
+        </p>
+        <p class="muted" style="font-size:.85em">
+          By requesting a magic link you agree to the above and to our
+          <a href="/help">how-it-works</a> notes. See our
+          <a href="/contact">contact page</a> if you want to delete your data.
+        </p>
+      </div>
+
       <p class="landing-signup-note">No password. Same form for new and returning readers.</p>
     </div>
+    <script>
+      // Live preview of the handle that will be minted from the email.
+      // Matches the derivation in auth.py (lowercase, alphanum + dash,
+      // strip everything else). Purely a display hint — the server
+      // still owns the real derivation + collision handling.
+      (function () {
+        var input = document.getElementById("landing-signup-email");
+        var box = document.getElementById("handle-preview");
+        var val = document.getElementById("handle-preview-val");
+        if (!input || !box || !val) return;
+        function update() {
+          var raw = (input.value || "").split("@")[0].toLowerCase();
+          var handle = raw.replace(/[^a-z0-9-]/g, "-").replace(/^-+|-+$/g, "");
+          if (handle.length >= 2) {
+            val.textContent = "@" + handle;
+            box.hidden = false;
+          } else {
+            box.hidden = true;
+          }
+        }
+        input.addEventListener("input", update);
+        update();
+      })();
+    </script>
   </div>
 
   {# ─── Preview card (decorative — hard-coded content) ─────────────── #}

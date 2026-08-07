@@ -55,3 +55,48 @@ def test_landing_signup_non_htmx_still_serves_full_page():
     # Full page — should have the <html> shell + the classic login_sent template.
     assert "<!doctype html" in r.text.lower()
     assert "Check your inbox" in r.text
+
+
+# ─── 0.11.14: consent + email→handle transparency notice ──────────────
+
+
+def test_landing_shows_email_to_handle_consent_notice():
+    """Feedback: users didn't realize their email prefix becomes their
+    handle. The landing page now surfaces this prominently before the
+    signup button."""
+    body = _client().get("/").text
+    # Consent block is present with the key nouns.
+    assert "public handle" in body
+    assert "alice@example.com" in body   # illustrative example
+    assert "@alice" in body
+    # Consent is implicit: "By requesting a magic link you agree…"
+    assert "By requesting a magic link" in body
+    # Handle-preview element exists so the JS can fill it in.
+    assert 'id="handle-preview"' in body
+
+
+def test_contact_page_renders_for_anon_and_logged_in():
+    r = _client().get("/contact")
+    assert r.status_code == 200
+    assert "Contact" in r.text
+    # Anon sees the optional-email field.
+    assert 'name="email"' in r.text
+    assert 'name="message"' in r.text
+
+
+def test_contact_form_submit_redirects_with_ok_flag():
+    r = _client().post(
+        "/contact",
+        data={"message": "Hello there — this is a test.", "email": ""},
+        follow_redirects=False,
+    )
+    assert r.status_code == 303
+    assert r.headers["location"] == "/contact?ok=1"
+    # And the ok page shows the confirmation.
+    r2 = _client().get("/contact?ok=1")
+    assert "Thanks" in r2.text
+
+
+def test_contact_form_rejects_empty_message():
+    r = _client().post("/contact", data={"message": "   "})
+    assert r.status_code == 400

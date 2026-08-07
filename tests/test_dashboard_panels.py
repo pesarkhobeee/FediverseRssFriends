@@ -68,20 +68,26 @@ def test_dashboard_unknown_panel_falls_back_to_default():
     assert "Create a category" in r.text  # feeds panel content
 
 
-def test_htmx_tab_click_returns_body_only():
-    """When a tab is clicked, HTMX sends HX-Request + HX-Target headers
-    and expects the panel body only — not the whole shell (which would
-    nest a dashboard inside a dashboard)."""
+def test_htmx_tab_click_returns_body_with_tabstrip():
+    """0.11.14: The HTMX tab-click response must INCLUDE the tab-strip
+    inside the swap payload so .tab-active moves to the newly clicked
+    tab (previously the strip lived outside #dashboard-body and never
+    updated, so tabs looked stuck on whichever was active on first
+    page load). Response is still just the body (not the full
+    base.html shell) — HX-Target selects the swap zone."""
     c = _client()
     _login(c, "alice@e.com")
     r = c.get(
-        "/dashboard?panel=settings",
+        "/dashboard?panel=settings",   # legacy alias, resolves to account
         headers={"HX-Request": "true", "HX-Target": "dashboard-body"},
     )
     assert r.status_code == 200
-    # Panel content only — no <nav class="tab-strip"> in the body swap.
-    assert "tab-strip" not in r.text
+    # Tab-strip IS in the swap payload — that's the fix.
+    assert 'class="tab-strip"' in r.text
+    # And the account panel's content is present.
     assert "Visibility" in r.text
+    # But it's still not a full page render (no <html> shell).
+    assert "<html" not in r.text
 
 
 # ------------- Category rename -------------

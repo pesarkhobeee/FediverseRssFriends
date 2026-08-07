@@ -168,6 +168,42 @@ def help_page(request: Request, user: User | None = Depends(current_user)):
     return render(request, "help.html", user=user)
 
 
+@app.get("/contact", response_class=HTMLResponse)
+def contact_page(
+    request: Request,
+    ok: int = 0,
+    user: User | None = Depends(current_user),
+):
+    """0.11.14: feedback surface. Users complained there was no way
+    to reach the maintainer — this fixes that."""
+    return render(request, "contact.html", user=user, sent=bool(ok))
+
+
+@app.post("/contact")
+def contact_submit(
+    request: Request,
+    message: str = Form(...),
+    email: str = Form(""),
+    user: User | None = Depends(current_user),
+):
+    msg = (message or "").strip()[:4000]
+    if not msg:
+        raise HTTPException(400, "Message is required.")
+    from_email = (email or "").strip() or (user.email if user else "anonymous")
+    handle = user.handle if user else "anonymous"
+    text = (
+        f"From: @{handle} <{from_email}>\n\n"
+        f"{msg}\n"
+    )
+    # Reuse the suggestion-notify recipients as the admin inbox — same
+    # people who get "new suggestion" pings should get user feedback too.
+    import contextlib
+    with contextlib.suppress(Exception):
+        for addr in config.SUGGESTION_NOTIFY_EMAILS:
+            mail.send_email(addr, "[rssFriends] Contact form", text)
+    return RedirectResponse("/contact?ok=1", status_code=303)
+
+
 @app.get("/healthz")
 def healthz():
     return {"ok": True, "version": __version__}

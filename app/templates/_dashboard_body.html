@@ -1,4 +1,19 @@
-{# The active panel's body. Rendered inside #dashboard-body — either at
-   first page load (via dashboard.html) or as an HTMX swap when tabs
-   change. Panel templates receive whatever their loader returned. #}
+{# 0.11.14: the tab-strip lives INSIDE the swap target so
+   .tab-active moves when HTMX replaces the body on tab clicks.
+   Previously the strip was rendered in dashboard.html (outside
+   #dashboard-body) so navigating between panels swapped the panel
+   content but left the previously-active tab styled active. #}
+<nav class="tab-strip" role="tablist" aria-label="Settings panels">
+  {% for key, meta in panels.items() %}
+    <a role="tab"
+       aria-selected="{{ 'true' if key == active_panel else 'false' }}"
+       class="tab {% if key == active_panel %}tab-active{% endif %}"
+       href="/dashboard?panel={{ key }}"
+       hx-get="/dashboard?panel={{ key }}"
+       hx-target="#dashboard-body"
+       hx-swap="innerHTML"
+       hx-push-url="/dashboard?panel={{ key }}">{{ meta.label }}</a>
+  {% endfor %}
+</nav>
+
 {% include panel_template %}

@@ -405,10 +405,14 @@ img.favicon {
   font-size: 1rem;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: #fff;
+  /* 0.11.14: was hard-coded #fff — invisible on dark. Use --card
+     which is white in light theme and warm-dark in dark theme so
+     typed text (color: var(--fg)) always contrasts. */
+  background: var(--card);
   color: var(--fg);
 }
 .input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.input::placeholder { color: var(--muted); opacity: .8; }
 .btn {
   display: inline-block;
   padding: .55rem 1.1rem;
@@ -564,7 +568,8 @@ img.favicon {
   border-radius: var(--radius);
   overflow: hidden;
 }
-.feed-card + .feed-card { margin-top: .55rem; }
+/* 0.11.14: bumped from .55rem — feedback said cards ran into each other */
+.feed-card + .feed-card { margin-top: 14px; }
 .feed-card > summary {
   display: flex;
   align-items: center;
@@ -675,7 +680,7 @@ img.favicon {
   border: 1px solid var(--border);
   border-radius: var(--radius);
 }
-.fav-item + .fav-item { margin-top: .5rem; }
+.fav-item + .fav-item { margin-top: 12px; }
 .fav-head { display: flex; align-items: center; gap: .55rem; margin-bottom: .25rem; }
 .fav-source { font-size: .85rem; }
 
@@ -1260,6 +1265,31 @@ img.favicon {
 .landing-signup-note {
   margin: 10px 0 0;
   font-size: 13px; color: var(--muted);
+}
+
+/* 0.11.14: transparency notice above the "you agree by continuing" line.
+   Kept intentionally in the reading flow so users see it before hitting
+   Send magic link — not tucked into a collapsed section. */
+.landing-signup-consent {
+  margin: 14px 0 4px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--card);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.landing-signup-consent p { margin: 0 0 8px; }
+.landing-signup-consent p:last-child { margin-bottom: 0; }
+.landing-signup-consent code {
+  background: var(--card-hover);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: .95em;
+}
+.landing-signup-consent-preview {
+  font-size: 13px;
+  color: var(--fg);
 }
 
 /* Preview card on the right of the hero. Decorative, hard-coded rows. */
@@ -2102,7 +2132,8 @@ img.favicon {
 .collections-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 14px;
+  /* 0.11.14: bumped from 14px — feedback said cards ran into each other */
+  gap: 20px;
   padding: 8px 0 40px;
 }
 .collection-card {

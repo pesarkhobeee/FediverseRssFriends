@@ -13,19 +13,6 @@
   </p>
 </section>
 
-<nav class="tab-strip" role="tablist" aria-label="Settings panels">
-  {% for key, meta in panels.items() %}
-    <a role="tab"
-       aria-selected="{{ 'true' if key == active_panel else 'false' }}"
-       class="tab {% if key == active_panel %}tab-active{% endif %}"
-       href="/dashboard?panel={{ key }}"
-       hx-get="/dashboard?panel={{ key }}"
-       hx-target="#dashboard-body"
-       hx-swap="innerHTML"
-       hx-push-url="/dashboard?panel={{ key }}">{{ meta.label }}</a>
-  {% endfor %}
-</nav>
-
 <div id="dashboard-body">
   {% include "_dashboard_body.html" %}
 </div>
