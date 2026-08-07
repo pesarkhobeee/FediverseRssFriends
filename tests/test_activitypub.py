@@ -342,7 +342,7 @@ def test_inbox_accepts_follow_with_valid_signature(monkeypatch):
     remote_actor_url = "https://mastodon.example/users/foo"
 
     # Stub actor fetch so we don't hit the network.
-    def fake_fetch(url):
+    def fake_fetch(url, as_user=None):
         assert url == remote_actor_url
         return {
             "id": remote_actor_url,

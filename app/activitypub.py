@@ -477,20 +477,72 @@ def _sign_and_post(private_pem: str, key_id: str,
 # ─── Remote-actor lookup + cache ───────────────────────────────────────
 
 
-def _fetch_remote_actor_doc(actor_url: str) -> dict:
-    """Fetch an actor's JSON. Called on first inbound Follow so we can
-    cache the public key and inbox URL for future signature checks."""
-    r = httpx.get(
+def _signed_get(actor_url: str, as_user: User) -> httpx.Response:
+    """HTTP-signed GET. Needed for instances running Mastodon's
+    "authorized fetch" (secure) mode — an unsigned actor GET returns
+    401. We sign on behalf of the recipient user (the one being
+    followed) with their own keypair."""
+    parsed = urlparse(actor_url)
+    path = parsed.path or "/"
+    if parsed.query:
+        path = f"{path}?{parsed.query}"
+    date = _rfc7231_date()
+    signed = ["(request-target)", "host", "date"]
+    hvals = {
+        "(request-target)": f"get {path}",
+        "host": parsed.netloc,
+        "date": date,
+    }
+    signing_string = "\n".join(f"{h}: {hvals[h]}" for h in signed)
+    priv = serialization.load_pem_private_key(
+        as_user.ap_private_key.encode("utf-8"), password=None,
+    )
+    sig = base64.b64encode(priv.sign(
+        signing_string.encode("utf-8"),
+        padding.PKCS1v15(),
+        hashes.SHA256(),
+    )).decode("ascii")
+    key_id = f"{_actor_id(as_user.handle)}#main-key"
+    sig_hdr = (
+        f'keyId="{key_id}",algorithm="rsa-sha256",'
+        f'headers="(request-target) host date",'
+        f'signature="{sig}"'
+    )
+    return httpx.get(
         actor_url,
-        headers={"Accept": "application/activity+json"},
+        headers={
+            "Accept": "application/activity+json",
+            "Host": parsed.netloc,
+            "Date": date,
+            "Signature": sig_hdr,
+            "User-Agent": f"rssFriends/0.11 (+{_base()})",
+        },
         timeout=10,
         follow_redirects=True,
     )
+
+
+def _fetch_remote_actor_doc(actor_url: str, as_user: User | None = None) -> dict:
+    """Fetch an actor's JSON. If `as_user` is provided (and has a
+    keypair), the request is HTTP-signed on their behalf — required
+    for Mastodon instances running "authorized fetch" mode. Falls
+    back to an unsigned GET when `as_user` is None (e.g. keyless
+    contexts)."""
+    if as_user is not None and as_user.ap_private_key:
+        r = _signed_get(actor_url, as_user)
+    else:
+        r = httpx.get(
+            actor_url,
+            headers={"Accept": "application/activity+json"},
+            timeout=10,
+            follow_redirects=True,
+        )
     r.raise_for_status()
     return r.json()
 
 
-def get_or_cache_remote_actor(db: Session, actor_url: str) -> RemoteActor:
+def get_or_cache_remote_actor(db: Session, actor_url: str,
+                              as_user: User | None = None) -> RemoteActor:
     """Find-or-create for a RemoteActor row. Refetches once every 7
     days so key rotations propagate without a manual purge."""
     existing = db.exec(
@@ -506,7 +558,7 @@ def get_or_cache_remote_actor(db: Session, actor_url: str) -> RemoteActor:
             return existing
 
     try:
-        doc = _fetch_remote_actor_doc(actor_url)
+        doc = _fetch_remote_actor_doc(actor_url, as_user=as_user)
     except (httpx.HTTPError, ValueError) as e:
         if existing:
             return existing  # stale is better than raising
@@ -638,6 +690,11 @@ async def inbox(
     if not our_user or our_user.visibility == "private":
         raise HTTPException(status.HTTP_404_NOT_FOUND, "No such account.")
 
+    # Make sure the recipient has a keypair — we need it to sign the
+    # actor-fetch GET (Mastodon's authorized-fetch mode) and later to
+    # sign the Accept POST.
+    our_user = ensure_user_keypair(db, our_user)
+
     body = await request.body()
     try:
         activity = json.loads(body.decode("utf-8"))
@@ -662,7 +719,7 @@ async def inbox(
             "Signature keyId doesn't match message actor.",
         )
 
-    remote_actor = get_or_cache_remote_actor(db, sender_url)
+    remote_actor = get_or_cache_remote_actor(db, sender_url, as_user=our_user)
     if not _verify_http_signature(request, body, remote_actor.public_key_pem):
         raise HTTPException(
             status.HTTP_401_UNAUTHORIZED, "HTTP Signature verification failed.",
