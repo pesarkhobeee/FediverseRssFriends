@@ -33,6 +33,14 @@ class User(SQLModel, table=True):
     # 0.9.0: handle-rename rate limit anchor. NULL = never renamed.
     # Users may rename at most once every RENAME_COOLDOWN_DAYS.
     last_renamed_at: datetime | None = Field(default=None)
+    # 0.11.17: ActivityPub actor keypair. Empty until the user's Actor
+    # JSON is first requested (or explicitly minted). PEM-encoded.
+    # NEVER exposed publicly for the private key — the public key is
+    # shipped inside the Actor document as `publicKey.publicKeyPem`.
+    ap_private_key: str = Field(default="",
+                                sa_column_kwargs={"server_default": ""})
+    ap_public_key: str = Field(default="",
+                               sa_column_kwargs={"server_default": ""})
 
 
 class HandleAlias(SQLModel, table=True):
@@ -437,6 +445,17 @@ def _run_sqlite_migrations(conn) -> None:
     # tombstones already recorded during its first successful run.
     # Future curator removals go through the normal UI path which
     # writes tombstones directly.
+
+    # 0.11.17: ActivityPub actor keypair columns on User. Both nullable
+    # with '' default — a key is generated lazily on the first Actor
+    # request via _ensure_user_keypair(). Keeps schema back-compat +
+    # doesn't force keys on users who never receive an AP request.
+    if _sqlite_column_exists(conn, "user", "id"):
+        for col in ("ap_private_key", "ap_public_key"):
+            if not _sqlite_column_exists(conn, "user", col):
+                conn.exec_driver_sql(
+                    f"ALTER TABLE user ADD COLUMN {col} TEXT NOT NULL DEFAULT ''"
+                )
 
     # 0.11.2: Subscription.note added for private per-user reminder notes
     # ("DHH → Rails creator"). Backfilled to empty string.

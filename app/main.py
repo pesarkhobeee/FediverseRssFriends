@@ -11,6 +11,7 @@ from sqlmodel import Session
 from starlette.middleware.sessions import SessionMiddleware
 
 from . import __version__, config, mail
+from .activitypub import router as activitypub_router
 from .auth import consume_token, current_user, issue_magic_link, peek_token
 from .bookmarks import router as bookmarks_router
 from .collections import router as collections_router
@@ -161,6 +162,7 @@ app.include_router(discover_router)
 app.include_router(collections_router)
 app.include_router(feed_page_router)
 app.include_router(personal_feeds_router)
+app.include_router(activitypub_router)
 
 
 @app.get("/help", response_class=HTMLResponse)

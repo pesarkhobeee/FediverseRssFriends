@@ -570,6 +570,14 @@ def user_radar(
     if redirect is not None:
         return redirect
 
+    # 0.11.17: content negotiation for ActivityPub actor discovery.
+    # If a remote server asks for AS 2.0 JSON, serve the Actor doc
+    # at this same URL instead of HTML. Private radars stay HTML —
+    # the AP module returns 404 for those anyway.
+    from . import activitypub as ap
+    if ap.wants_activitypub(request) and owner.visibility != "private":
+        return ap.render_actor_json(request, db, owner)
+
     from .follow import follow_state, follower_count, following_count
 
     def _signed_url(base_path: str) -> str:
