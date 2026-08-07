@@ -401,6 +401,13 @@ img.favicon {
 .wb-form .input { display: block; width: 100%; box-sizing: border-box; flex: 0 0 auto; height: auto; }
 .input {
   flex: 1 1 260px;
+  /* 0.11.15: default to full width so inputs stretch when their
+     parent isn't a flex row (e.g. the Account panel's stacked
+     cards). Inline forms that DO want a narrower input can override
+     with a .input-inline modifier or an explicit width. */
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
   padding: .55rem .8rem;
   font-size: 1rem;
   border: 1px solid var(--border);
@@ -478,6 +485,9 @@ img.favicon {
   border: 1px solid var(--border);
   border-radius: var(--radius);
 }
+/* 0.11.15: stacked .card + .card ran into each other on the Account
+   panel. 1rem between them reads clearly and matches user feedback. */
+.card + .card { margin-top: 1rem; }
 
 /* Category card — a <details> so the whole card can be collapsed to
    just its header. The <summary> holds the header row + chevron. */

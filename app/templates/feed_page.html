@@ -44,6 +44,12 @@
       <a class="btn-ghost" href="{{ feed.site_url }}" target="_blank" rel="noopener">Visit website</a>
     {% endif %}
     <a class="btn-ghost" href="{{ feed.url }}" target="_blank" rel="noopener">Raw RSS</a>
+    {# 0.11.15: shareable-page-URL copy button — puts /f/{feed.id} on the
+       clipboard so users can send it to others without hunting the URL
+       bar. Reuses the base.html data-copy-url click handler. #}
+    <button type="button" class="btn-ghost"
+            data-copy-url="/f/{{ feed.id }}"
+            title="Copy this page's URL to your clipboard">🔗 Copy link</button>
   </p>
 </section>
 
