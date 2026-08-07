@@ -1,25 +1,33 @@
-"""ActivityPub — discovery-only outbox (0.11.17, aka the M6 milestone).
+"""ActivityPub — WebFinger + Actor + Outbox + Inbox + delivery.
 
-What this ships:
-  - WebFinger:  /.well-known/webfinger?resource=acct:<handle>@<host>
-  - Actor JSON: content-negotiated at /u/{handle} (Accept:
-                application/activity+json OR application/ld+json)
-                and also at explicit /u/{handle}/actor.json.
-  - Outbox:     /u/{handle}/outbox — an OrderedCollection of
-                Create{Note} activities derived from the user's
-                Activity log (bookmarked + posted kinds, which map
-                cleanly to AS 2.0 Notes).
+Covers milestones M6 (Discoverable, 0.11.17), M7 (Inbound follow,
+0.11.18), M8 (Outbound delivery, 0.11.18-0.11.21).
 
-What this DELIBERATELY doesn't ship:
-  - Inbox / inbound Follow acceptance
-  - HTTP Signature verification of remote actors
-  - Outbound delivery (no queue, no push)
-  - Non-Note activity kinds (Subscribe, Fork — those need a custom
-    vocab and Mastodon won't render them meaningfully)
+What ships:
+  - WebFinger:      /.well-known/webfinger?resource=acct:<handle>@<host>
+  - Actor JSON:     content-negotiated at /u/{handle}, also explicit
+                    /u/{handle}/actor.json.
+  - Outbox:         /u/{handle}/outbox — OrderedCollection of
+                    Create{Note} activities (bookmarked + posted
+                    kinds map cleanly to AS 2.0 Notes).
+  - Inbox:          POST /u/{handle}/inbox accepts Follow +
+                    Undo{Follow}. HTTP-Signature verified via the
+                    signer's advertised publicKeyPem (fetched with
+                    a signed GET so Mastodon "authorized fetch" mode
+                    works). Accept{Follow} POSTed back on success.
+  - Followers:      GET /u/{handle}/followers (content-negotiated
+                    with the HTML follower page owned by follow.py).
+  - Delivery:       every bookmark / cross-post fires a background
+                    thread that HTTP-signs a Create{Note} and POSTs
+                    it to each remote follower's inbox. Snapshot is
+                    taken in the caller's session to avoid racing
+                    the outer commit.
 
-Result: a Mastodon user can paste `@handle@rssfriends.com` into their
-search, see your profile + a feed of your recent activity, but can't
-follow you into their timeline. That's the "M6 · Discoverable" scope.
+Still missing (the M9 wish-list):
+  - Delete / Update propagation
+  - Blocks + Announce
+  - Custom radar:Subscribe / radar:Fork vocab
+  - Outbound Follow (rssFriends → Mastodon)
 """
 
 from __future__ import annotations
@@ -179,7 +187,6 @@ def _activity_to_note(act: Activity, user: User,
     ts_iso = ts.isoformat()
 
     actor_id = _actor_id(user.handle)
-    note_id = f"{_base()}/i/{item.id}"
     verb = "bookmarked" if act.kind == "bookmarked" else "posted"
 
     # Human-readable body. Keep it plain — Mastodon will render <a> and
@@ -190,20 +197,27 @@ def _activity_to_note(act: Activity, user: User,
         f'from <em>{feed.title}</em>.</p>'
     )
 
+    # 0.11.21: activities delivered to a remote inbox must carry the
+    # AP @context at the top level — Mastodon silently drops Create
+    # wrappers without it (they return 202 anyway, so the drop is
+    # invisible unless you dig into their sidekiq errors). Also give
+    # the Create + Note distinct, dereferenceable-looking IDs.
     return {
-        "id": f"{note_id}#activity-{act.id}",
+        "@context": AP_CONTEXT,
+        "id": f"{_base()}/ap/activities/{act.id}",
         "type": "Create",
         "actor": actor_id,
         "published": ts_iso,
         "to": ["https://www.w3.org/ns/activitystreams#Public"],
         "cc": [f"{actor_id}/followers"],
         "object": {
-            "id": note_id,
+            "id": f"{_base()}/ap/notes/{act.id}",
             "type": "Note",
             "attributedTo": actor_id,
             "published": ts_iso,
             "content": content_html,
             "url": item.link,
+            "sensitive": False,
             "to": ["https://www.w3.org/ns/activitystreams#Public"],
             "cc": [f"{actor_id}/followers"],
         },
