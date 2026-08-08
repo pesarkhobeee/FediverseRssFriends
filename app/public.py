@@ -1009,6 +1009,14 @@ def delete_activity(
     ev = db.get(Activity, event_id)
     if not ev or ev.user_id != user.id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "not found")
+    # 0.11.23: notify remote AP followers so the Note we previously
+    # delivered disappears from their timelines too. Fires before the
+    # local delete so we can still read ev.kind + ev.id.
+    try:
+        from . import activitypub as ap
+        ap.enqueue_activity_delete(db, user, ev)
+    except Exception:  # noqa: BLE001 — delete propagation must never block the local erase
+        pass
     db.delete(ev)
     db.commit()
     return Response(status_code=200)

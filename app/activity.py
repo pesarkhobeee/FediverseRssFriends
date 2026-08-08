@@ -40,7 +40,7 @@ def record(
         ref_id=ref_id,
     )
     db.add(row)
-    if kind in ("bookmarked", "posted"):
+    if kind in ("bookmarked", "posted", "subscribed"):
         db.flush()   # populates row.id without committing
         try:
             from .activitypub import enqueue_activity_delivery

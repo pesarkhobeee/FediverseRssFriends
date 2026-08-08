@@ -165,20 +165,35 @@ def _actor_document(user: User) -> dict:
     }
 
 
+def _resolve_ap_targets(db: Session, act: Activity) -> tuple[Feed | None, FeedItem | None]:
+    """Look up the Feed + FeedItem context for building an AS 2.0 Note
+    from an Activity row. Different kinds ref different tables:
+      - bookmarked / posted → ref_id is a FeedItem
+      - subscribed         → ref_id is a Feed (no item)
+    Returns (None, None) for kinds we don't federate as Notes."""
+    if act.kind in ("bookmarked", "posted"):
+        item = db.get(FeedItem, act.ref_id) if act.ref_id else None
+        feed = db.get(Feed, item.feed_id) if item else None
+        return (feed, item)
+    if act.kind == "subscribed":
+        feed = db.get(Feed, act.ref_id) if act.ref_id else None
+        return (feed, None)
+    return (None, None)
+
+
 def _activity_to_note(act: Activity, user: User,
                       feed: Feed | None, item: FeedItem | None) -> dict | None:
     """Convert a rssFriends Activity row to an AS 2.0 Create{Note}.
 
-    Only two kinds map cleanly:
-      - bookmarked (ref_type='item', item + feed lookup required)
-      - posted     (ref_type='external_item', item + feed lookup required)
+    Kinds mapped:
+      - bookmarked (item + feed required)
+      - posted     (item + feed required, from personal-feed cross-post)
+      - subscribed (feed only — 0.11.23; renders "started following …")
 
-    Other kinds (subscribed / followed / forked / created_category)
-    need a custom vocab and Mastodon would render them as empty. We
-    return None for those so the caller filters them out."""
-    if act.kind not in ("bookmarked", "posted"):
-        return None
-    if not item or not feed:
+    Followed / forked / created_category don't map — they'd need a
+    custom vocab Mastodon can't render. Returns None so the caller
+    filters them out."""
+    if act.kind not in ("bookmarked", "posted", "subscribed"):
         return None
 
     ts = act.created_at
@@ -187,15 +202,29 @@ def _activity_to_note(act: Activity, user: User,
     ts_iso = ts.isoformat()
 
     actor_id = _actor_id(user.handle)
-    verb = "bookmarked" if act.kind == "bookmarked" else "posted"
 
-    # Human-readable body. Keep it plain — Mastodon will render <a> and
-    # <br/>, but the point is discovery, not rich reproduction.
-    content_html = (
-        f'<p><strong>{user.handle}</strong> {verb} '
-        f'<a href="{item.link}">{item.title}</a> '
-        f'from <em>{feed.title}</em>.</p>'
-    )
+    if act.kind == "subscribed":
+        if not feed:
+            return None
+        target_url = feed.site_url or feed.url
+        content_html = (
+            f'<p><strong>{user.handle}</strong> is now following '
+            f'<a href="{target_url}"><em>{feed.title}</em></a> '
+            f'on rssFriends.</p>'
+        )
+        note_url = target_url
+    else:
+        if not item or not feed:
+            return None
+        verb = "bookmarked" if act.kind == "bookmarked" else "posted"
+        # Human-readable body. Keep it plain — Mastodon will render <a>
+        # and <br/>, but the point is discovery, not rich reproduction.
+        content_html = (
+            f'<p><strong>{user.handle}</strong> {verb} '
+            f'<a href="{item.link}">{item.title}</a> '
+            f'from <em>{feed.title}</em>.</p>'
+        )
+        note_url = item.link
 
     # 0.11.21: activities delivered to a remote inbox must carry the
     # AP @context at the top level — Mastodon silently drops Create
@@ -216,7 +245,7 @@ def _activity_to_note(act: Activity, user: User,
             "attributedTo": actor_id,
             "published": ts_iso,
             "content": content_html,
-            "url": item.link,
+            "url": note_url,
             "sensitive": False,
             "to": ["https://www.w3.org/ns/activitystreams#Public"],
             "cc": [f"{actor_id}/followers"],
@@ -315,26 +344,14 @@ def outbox(
     rows = db.exec(
         select(Activity)
         .where(Activity.user_id == user.id)
-        .where(Activity.kind.in_(("bookmarked", "posted")))
+        .where(Activity.kind.in_(("bookmarked", "posted", "subscribed")))
         .order_by(Activity.created_at.desc())
         .limit(OUTBOX_LIMIT)
     ).all()
 
-    item_ids = {a.ref_id for a in rows if a.ref_id is not None}
-    items_by_id: dict[int, FeedItem] = {}
-    feeds_by_id: dict[int, Feed] = {}
-    if item_ids:
-        items = db.exec(select(FeedItem).where(FeedItem.id.in_(item_ids))).all()
-        items_by_id = {i.id: i for i in items}
-        feed_ids = {i.feed_id for i in items}
-        if feed_ids:
-            feeds = db.exec(select(Feed).where(Feed.id.in_(feed_ids))).all()
-            feeds_by_id = {f.id: f for f in feeds}
-
     notes: list[dict] = []
     for act in rows:
-        item = items_by_id.get(act.ref_id) if act.ref_id else None
-        feed = feeds_by_id.get(item.feed_id) if item else None
+        feed, item = _resolve_ap_targets(db, act)
         note = _activity_to_note(act, user, feed, item)
         if note:
             notes.append(note)
@@ -651,26 +668,19 @@ def _enqueue_history_backfill(db: Session, our_user: User,
     rows = db.exec(
         select(Activity)
         .where(Activity.user_id == our_user.id)
-        .where(Activity.kind.in_(("bookmarked", "posted")))
+        .where(Activity.kind.in_(("bookmarked", "posted", "subscribed")))
         .order_by(Activity.created_at.desc())
         .limit(BACKFILL_LIMIT)
     ).all()
     if not rows:
         return
-    item_ids = {a.ref_id for a in rows if a.ref_id is not None}
-    items = db.exec(select(FeedItem).where(FeedItem.id.in_(item_ids))).all() if item_ids else []
-    items_by_id = {i.id: i for i in items}
-    feed_ids = {i.feed_id for i in items}
-    feeds = db.exec(select(Feed).where(Feed.id.in_(feed_ids))).all() if feed_ids else []
-    feeds_by_id = {f.id: f for f in feeds}
 
     payloads: list[bytes] = []
     # Deliver oldest→newest so the timeline reads in the expected order
     # if Mastodon happens to render by delivery time rather than
     # `published` (belt+braces).
     for act in reversed(rows):
-        item = items_by_id.get(act.ref_id) if act.ref_id else None
-        feed = feeds_by_id.get(item.feed_id) if item else None
+        feed, item = _resolve_ap_targets(db, act)
         note = _activity_to_note(act, our_user, feed, item)
         if note:
             payloads.append(json.dumps(note).encode("utf-8"))
@@ -878,6 +888,55 @@ def _deliver_payload(private_pem: str, key_id: str,
         _deliver_one(private_pem, key_id, inbox_url, payload)
 
 
+def enqueue_activity_delete(db: Session, user: User,
+                            activity_row: Activity) -> None:
+    """Called from the /activity/{id} DELETE endpoint (0.11.23).
+    Pushes a signed Delete{Tombstone} to every remote follower so
+    the Note we previously delivered disappears from their timeline.
+    Snapshots the follower list in the caller's session (same
+    no-DB-in-thread pattern as new-note delivery)."""
+    if not user.ap_private_key:
+        return
+    # We can only delete Notes we would have sent — mirror the
+    # emission filter exactly so we don't send phantom Deletes for
+    # kinds we never federated as Notes in the first place.
+    if activity_row.kind not in ("bookmarked", "posted", "subscribed"):
+        return
+    follows = db.exec(
+        select(RemoteFollow, RemoteActor)
+        .join(RemoteActor, RemoteActor.id == RemoteFollow.remote_actor_id)
+        .where(RemoteFollow.user_id == user.id)
+    ).all()
+    inboxes = [ra.inbox_url for _rf, ra in follows]
+    if not inboxes:
+        return
+
+    actor_id = _actor_id(user.handle)
+    note_id = f"{_base()}/ap/notes/{activity_row.id}"
+    delete_activity = {
+        "@context": AP_CONTEXT,
+        "id": f"{_base()}/ap/activities/{activity_row.id}/delete",
+        "type": "Delete",
+        "actor": actor_id,
+        "to": ["https://www.w3.org/ns/activitystreams#Public"],
+        "cc": [f"{actor_id}/followers"],
+        "object": {
+            "id": note_id,
+            "type": "Tombstone",
+        },
+    }
+    payload = json.dumps(delete_activity).encode("utf-8")
+    key_id = f"{actor_id}#main-key"
+    log.warning("AP delete: notifying %d follower(s) of note deletion for user=%s",
+                len(inboxes), user.handle)
+    t = threading.Thread(
+        target=_deliver_payload,
+        args=(user.ap_private_key, key_id, payload, inboxes),
+        daemon=True,
+    )
+    t.start()
+
+
 def enqueue_activity_delivery(db: Session, user: User,
                               activity_row: Activity) -> None:
     """Called from activity.record() while the caller's session is
@@ -895,11 +954,10 @@ def enqueue_activity_delivery(db: Session, user: User,
     payload directly bypasses that race entirely."""
     if not user.ap_private_key:
         return
-    if activity_row.kind not in ("bookmarked", "posted"):
+    if activity_row.kind not in ("bookmarked", "posted", "subscribed"):
         return
 
-    item = db.get(FeedItem, activity_row.ref_id) if activity_row.ref_id else None
-    feed = db.get(Feed, item.feed_id) if item else None
+    feed, item = _resolve_ap_targets(db, activity_row)
     note = _activity_to_note(activity_row, user, feed, item)
     if not note:
         return
