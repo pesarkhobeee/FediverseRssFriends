@@ -232,15 +232,22 @@ def _activity_to_note(act: Activity, user: User,
     # invisible unless you dig into their sidekiq errors). Also give
     # the Create + Note distinct, dereferenceable-looking IDs.
     return {
+        # 0.11.25: note + activity IDs now include the user's current
+        # handle. Reason: on a handle rename, the same activity_id
+        # gets re-delivered under a NEW actor URL. Mastodon caches
+        # Notes by object.id and rejects a re-send whose actor changed
+        # (looks like spoofing). Baking the handle into the id makes
+        # post-rename backfill produce fresh URIs Mastodon treats as
+        # new, so the follower's profile fills in correctly.
         "@context": AP_CONTEXT,
-        "id": f"{_base()}/ap/activities/{act.id}",
+        "id": f"{_base()}/ap/{user.handle}/activities/{act.id}",
         "type": "Create",
         "actor": actor_id,
         "published": ts_iso,
         "to": ["https://www.w3.org/ns/activitystreams#Public"],
         "cc": [f"{actor_id}/followers"],
         "object": {
-            "id": f"{_base()}/ap/notes/{act.id}",
+            "id": f"{_base()}/ap/{user.handle}/notes/{act.id}",
             "type": "Note",
             "attributedTo": actor_id,
             "published": ts_iso,
@@ -949,10 +956,10 @@ def enqueue_activity_delete(db: Session, user: User,
         return
 
     actor_id = _actor_id(user.handle)
-    note_id = f"{_base()}/ap/notes/{activity_row.id}"
+    note_id = f"{_base()}/ap/{user.handle}/notes/{activity_row.id}"
     delete_activity = {
         "@context": AP_CONTEXT,
-        "id": f"{_base()}/ap/activities/{activity_row.id}/delete",
+        "id": f"{_base()}/ap/{user.handle}/activities/{activity_row.id}/delete",
         "type": "Delete",
         "actor": actor_id,
         "to": ["https://www.w3.org/ns/activitystreams#Public"],
