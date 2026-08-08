@@ -740,11 +740,14 @@ def _handle_follow(db: Session, activity: dict, our_user: User,
         # still land, so it self-heals. Log and move on.
         log.warning("Accept delivery failed to %s: %s", remote_actor.inbox_url, e)
 
-    # 0.11.22: only backfill the FIRST time this remote follows us —
-    # re-follows (unfollow → follow) skip so we don't re-deliver notes
-    # they've already seen.
-    if not existing:
-        _enqueue_history_backfill(db, our_user, remote_actor)
+    # 0.11.24: backfill on every accepted Follow (was: only when we
+    # didn't already have a RemoteFollow row). Reason: a handle rename
+    # leaves the old row in place with the same user_id, so a fresh
+    # Follow of the new handle would skip backfill and show an empty
+    # profile — surprising and wrong. If a remote server double-follows
+    # without an intervening Undo (Mastodon's client normally prevents
+    # this), yes, they get the same 20 Notes twice; acceptable trade.
+    _enqueue_history_backfill(db, our_user, remote_actor)
 
 
 def _handle_undo(db: Session, activity: dict, our_user: User,
@@ -766,6 +769,37 @@ def _handle_undo(db: Session, activity: dict, our_user: User,
         db.commit()
 
 
+@router.post("/u/{handle}/ap/backfill")
+def admin_backfill(
+    handle: str,
+    request: Request,
+    db: Session = Depends(get_session),
+):
+    """0.11.24: owner-only manual re-delivery of the last 20 Notes to
+    every existing remote follower. Useful when the automatic
+    on-follow backfill was skipped (e.g. renames prior to this
+    release, or restoring from backup)."""
+    from .auth import current_user
+    viewer = current_user(request, db)
+    if not viewer or viewer.handle != handle:
+        raise HTTPException(status.HTTP_403_FORBIDDEN,
+                            "Owner-only: sign in as this handle.")
+    user = db.exec(select(User).where(User.handle == handle)).first()
+    if not user:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "No such account.")
+    user = ensure_user_keypair(db, user)
+    follows = db.exec(
+        select(RemoteFollow, RemoteActor)
+        .join(RemoteActor, RemoteActor.id == RemoteFollow.remote_actor_id)
+        .where(RemoteFollow.user_id == user.id)
+    ).all()
+    for _rf, ra in follows:
+        _enqueue_history_backfill(db, user, ra)
+    return JSONResponse(
+        {"queued_backfill_to": [ra.actor_url for _rf, ra in follows]},
+    )
+
+
 @router.post("/u/{handle}/inbox")
 async def inbox(
     handle: str,
@@ -776,7 +810,10 @@ async def inbox(
     be HTTP-signed by an actor whose public key we can fetch. Other
     activity types (Create, Delete, Like, Announce) return 202 Accepted
     so remote servers stop retrying, but we don't act on them yet."""
-    our_user = db.exec(select(User).where(User.handle == handle)).first()
+    # 0.11.24: resolve via HandleAlias too so Undo/Follow addressed
+    # to a retired handle (after a rename) still reach the right user.
+    from .public import resolve_handle
+    our_user = resolve_handle(db, handle)
     if not our_user or our_user.visibility == "private":
         raise HTTPException(status.HTTP_404_NOT_FOUND, "No such account.")
 
