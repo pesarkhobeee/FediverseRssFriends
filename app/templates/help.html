@@ -20,6 +20,9 @@
     <li><a href="#privacy">Public, unlisted, private</a></li>
     <li><a href="#opml-rss">OPML &amp; RSS in / out</a></li>
     <li><a href="#fork">Pick feeds &amp; copy radars</a></li>
+    <li><a href="#mastodon">Follow me from Mastodon (ActivityPub)</a></li>
+    <li><a href="#collections">Collections</a></li>
+    <li><a href="#notes">Private per-feed notes</a></li>
     <li><a href="#wallabag">Wallabag integration</a></li>
     <li><a href="#install">Install as an app</a></li>
   </ul>
@@ -243,6 +246,135 @@
       copy repeatedly without piling up.
     </li>
   </ul>
+</section>
+
+<section class="help-block">
+  <h2 id="mastodon">🐘 Follow me from Mastodon (ActivityPub)</h2>
+  <p>
+    Every public rssFriends account is also a native ActivityPub
+    actor. From Mastodon (or any AP-speaking server), paste
+    <code>@your-handle@rssfriends.com</code> into search — your
+    profile shows up and Mastodon can follow you.
+  </p>
+  <p>
+    Once someone on Mastodon follows you, these events land on their
+    home timeline as regular toots:
+  </p>
+  <ul>
+    <li><strong>Bookmarks</strong> — <code>@you bookmarked "title"
+        from "feed"</code>, linked to the original article.</li>
+    <li><strong>Subscribing to a new feed</strong> —
+        <code>@you is now following "Feed Name" on rssFriends</code>.</li>
+    <li><strong>Cross-posts</strong> — items from your personal feeds
+        (Mastodon, YouTube, blog) posted with the source-domain chip.</li>
+  </ul>
+  <p class="muted">Nuances worth knowing:</p>
+  <ul>
+    <li>
+      <strong>The first Follow triggers a backfill</strong> — the last
+      20 items from your outbox are delivered to the new follower's
+      inbox with their original timestamps, so their profile view of
+      you isn't empty. Also re-runnable by the account owner via
+      <code>POST /u/&lt;handle&gt;/ap/backfill</code>.
+    </li>
+    <li>
+      <strong>Erasing an event from
+      <a href="/u/{{ user.handle if user else 'you' }}/activity">/activity</a>
+      propagates</strong> — clicking the ✕ button sends a
+      <code>Delete{Tombstone}</code> so the toot disappears from your
+      followers' timelines too. Unbookmarking (☆ toggle) does NOT
+      propagate — that's local-only by design.
+    </li>
+    <li>
+      <strong>Rename federates automatically</strong> — renaming your
+      handle sends an AP <code>Move</code> activity to every remote
+      follower. Mastodon auto-migrates the follow to your new handle
+      (backed by the standard <code>movedTo</code> +
+      <code>alsoKnownAs</code> handshake on both actor documents).
+      Followers see a "moved" notice in their app and don't have to
+      re-follow.
+    </li>
+    <li>
+      <strong>Private radars don't federate</strong> — WebFinger and
+      the Actor endpoint both 404 for private users. Switching a
+      public radar to private doesn't retract existing followers
+      (that'd require a Delete{Actor}) but new follows fail.
+    </li>
+    <li>
+      <strong>This instance is currently follow-in only.</strong>
+      You can be followed from Mastodon; you can't (yet) follow
+      Mastodon accounts from rssFriends — subscribe to their RSS
+      feed instead (Mastodon exposes one at
+      <code>https://mastodon.example/@user.rss</code>).
+    </li>
+  </ul>
+</section>
+
+<section class="help-block">
+  <h2 id="collections">📚 Collections</h2>
+  <p>
+    Collections are hand-curated bundles of RSS feeds around a topic,
+    place, or language — the "not just BBC and CNN" answer to RSS's
+    discovery problem. Browse them at
+    <a href="/collections">/collections</a>, filter by language via
+    the pill row, and either add individual feeds (☆ + button per row)
+    or all at once ("+ Add all N feeds to my radar").
+  </p>
+  <ul>
+    <li>
+      <strong>Two view modes</strong>: <em>Feeds</em> shows the
+      curated card list (default); <em>🕒 Latest items</em> gives a
+      merged newest-first stream so you can preview what a collection
+      actually delivers before subscribing.
+    </li>
+    <li>
+      <strong>Subscribable as RSS</strong> — every collection is also
+      an RSS 2.0 feed at
+      <code>/collections/&lt;slug&gt;.rss</code>. Any reader can
+      subscribe without an rssFriends account.
+    </li>
+    <li>
+      <strong>Suggest a feed</strong> for an existing collection with
+      "Know a feed we're missing?" at the bottom of the detail page.
+      Curators review + accept via the Manage tab; admins get
+      notified by email.
+    </li>
+    <li>
+      <strong>Request a new collection</strong> from
+      <a href="/collections/request">the request page</a> if the topic
+      you want doesn't exist yet.
+    </li>
+    <li>
+      <strong>Curator removals persist across deploys</strong> — if a
+      collection maintainer removes a feed, a tombstone is recorded
+      so the seed loop won't quietly re-add it on the next release.
+    </li>
+  </ul>
+</section>
+
+<section class="help-block">
+  <h2 id="notes">📝 Private per-feed notes</h2>
+  <p>
+    Cryptic feed titles like <code>the_pythonist</code> or a raw
+    GitHub handle don't tell you <em>who</em> is behind them. Click
+    the 📝 Note button on any feed row on
+    <a href="/dashboard">Settings → Feeds</a> and type a private
+    reminder ("DHH → creator of Rails", "the_pythonist → @Samuel").
+  </p>
+  <p>Notes appear wherever the feed shows up for you:</p>
+  <ul>
+    <li>Your radar cards on <a href="/u/{{ user.handle if user else 'you' }}">/u/&lt;you&gt;</a> — feeds and stream views</li>
+    <li>The friends timeline (<a href="/feed">/feed</a>) byline —
+        <code>@dhh — creator of Rails</code></li>
+    <li>Settings → Feeds page where you edit them</li>
+  </ul>
+  <p class="muted">
+    Notes are strictly private — they're never rendered on other
+    users' radars, in RSS output, or in your ActivityPub Notes.
+    Capped at 280 characters. Per-device only in the sense that
+    they're per-account on rssFriends — sync happens automatically
+    across every device you sign in from.
+  </p>
 </section>
 
 <section class="help-block">

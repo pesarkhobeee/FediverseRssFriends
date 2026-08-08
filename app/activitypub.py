@@ -54,6 +54,7 @@ from .db import (
     Activity,
     Feed,
     FeedItem,
+    HandleAlias,
     RemoteActor,
     RemoteFollow,
     User,
@@ -132,11 +133,17 @@ def ensure_user_keypair(db: Session, user: User) -> User:
     return user
 
 
-def _actor_document(user: User) -> dict:
+def _actor_document(user: User, aliases: list[str] | None = None) -> dict:
     """AS 2.0 Person JSON for a rssFriends user. Callers must have
-    already called ensure_user_keypair(db, user)."""
+    already called ensure_user_keypair(db, user).
+
+    `aliases` (0.11.26): list of OLD actor URLs the user previously
+    lived at. Emitted as `alsoKnownAs` — the half of the AP Move
+    handshake that says "these prior identities are still me." The
+    other half is the OLD actor's document declaring `movedTo`; see
+    _moved_actor_document()."""
     actor_id = _actor_id(user.handle)
-    return {
+    doc = {
         "@context": AP_CONTEXT,
         "id": actor_id,
         "type": "Person",
@@ -149,10 +156,6 @@ def _actor_document(user: User) -> dict:
         ),
         "url": actor_id,
         "manuallyApprovesFollowers": user.visibility == "private",
-        # Inbox is REQUIRED on Person; we point at a placeholder that
-        # currently returns 501. That's honest — Mastodon will render
-        # the profile fine, and if it ever tries to POST a Follow it
-        # gets a clean rejection instead of a 404.
         "inbox": f"{actor_id}/inbox",
         "outbox": f"{actor_id}/outbox",
         "followers": f"{actor_id}/followers",
@@ -163,6 +166,54 @@ def _actor_document(user: User) -> dict:
             "publicKeyPem": user.ap_public_key,
         },
     }
+    if aliases:
+        doc["alsoKnownAs"] = aliases
+    return doc
+
+
+def _moved_actor_document(user: User, old_handle: str) -> dict:
+    """AS 2.0 Person JSON served at an OLD (retired) handle's URL —
+    identical to the current actor but with `movedTo` set. Mastodon
+    fetches this URL when processing a Move activity; the presence of
+    `movedTo` + the current user's `alsoKnownAs` on the OTHER end
+    completes the two-sided rename proof and triggers Mastodon to
+    auto-migrate the follower relationship to the new handle."""
+    new_actor_id = _actor_id(user.handle)
+    old_actor_id = _actor_id(old_handle)
+    return {
+        "@context": AP_CONTEXT,
+        "id": old_actor_id,
+        "type": "Person",
+        "preferredUsername": old_handle,
+        "name": old_handle,
+        "summary": (
+            f"This account was renamed to @{user.handle}@{_instance_host()}. "
+            f"Follow the new account at {new_actor_id}."
+        ),
+        "url": new_actor_id,   # web browsers get redirected there anyway
+        "movedTo": new_actor_id,
+        # Serve the same key so a Move signed with `keyId=old#main-key`
+        # verifies against the fetched-old-actor's publicKey.
+        "publicKey": {
+            "id": f"{old_actor_id}#main-key",
+            "owner": old_actor_id,
+            "publicKeyPem": user.ap_public_key,
+        },
+        # These aren't functional at the old URL but Mastodon expects
+        # them present on any Person document.
+        "inbox": f"{old_actor_id}/inbox",
+        "outbox": f"{old_actor_id}/outbox",
+        "followers": f"{old_actor_id}/followers",
+        "following": f"{old_actor_id}/following",
+    }
+
+
+def _aliases_for(db: Session, user: User) -> list[str]:
+    """Every prior handle this user has held, as full actor URLs."""
+    rows = db.exec(
+        select(HandleAlias.old_handle).where(HandleAlias.user_id == user.id)
+    ).all()
+    return [_actor_id(h) for h in rows]
 
 
 def _resolve_ap_targets(db: Session, act: Activity) -> tuple[Feed | None, FeedItem | None]:
@@ -313,9 +364,20 @@ def webfinger(
 
 def render_actor_json(request: Request, db: Session, user: User) -> JSONResponse:
     """Shared path for both /u/{handle} (Accept-negotiated) and
-    /u/{handle}/actor.json (explicit)."""
+    /u/{handle}/actor.json (explicit). Includes `alsoKnownAs` for
+    every retired handle this user has held (0.11.26)."""
     user = ensure_user_keypair(db, user)
-    doc = _actor_document(user)
+    doc = _actor_document(user, aliases=_aliases_for(db, user))
+    return JSONResponse(doc, media_type=AP_CONTENT_TYPE)
+
+
+def render_moved_actor_json(request: Request, db: Session,
+                            old_handle: str, user: User) -> JSONResponse:
+    """Served at an aliased (retired-handle) URL when the caller wants
+    AS 2.0 JSON. Delivers a "moved to X" pointer so Mastodon can
+    complete the Move handshake."""
+    user = ensure_user_keypair(db, user)
+    doc = _moved_actor_document(user, old_handle)
     return JSONResponse(doc, media_type=AP_CONTENT_TYPE)
 
 
@@ -930,6 +992,55 @@ def _deliver_payload(private_pem: str, key_id: str,
     through remote inbox URLs and fires a signed POST at each."""
     for inbox_url in targets:
         _deliver_one(private_pem, key_id, inbox_url, payload)
+
+
+def enqueue_move_activity(db: Session, user: User, old_handle: str) -> None:
+    """0.11.26 (M9): dispatch an AP Move to every remote follower so
+    Mastodon auto-migrates the follow relationship from the old
+    handle to the new one. Called from the rename endpoint AFTER the
+    User.handle swap is committed — so both actors are already in
+    their final state.
+
+    The Move is signed by keyId=<old>#main-key. Mastodon will fetch
+    the old actor URL, see `movedTo: <new>`, then fetch the new actor
+    URL and confirm `alsoKnownAs: [<old>]`. Both docs share the same
+    publicKeyPem (there's only one keypair per user in our schema),
+    so signature verification succeeds against either keyId."""
+    if not user.ap_private_key:
+        return
+    follows = db.exec(
+        select(RemoteFollow, RemoteActor)
+        .join(RemoteActor, RemoteActor.id == RemoteFollow.remote_actor_id)
+        .where(RemoteFollow.user_id == user.id)
+    ).all()
+    inboxes = [ra.inbox_url for _rf, ra in follows]
+    if not inboxes:
+        return
+
+    old_actor_id = _actor_id(old_handle)
+    new_actor_id = _actor_id(user.handle)
+    move = {
+        "@context": AP_CONTEXT,
+        "id": f"{old_actor_id}#moves/{new_actor_id}",
+        "type": "Move",
+        "actor": old_actor_id,
+        "object": old_actor_id,
+        "target": new_actor_id,
+        "to": ["https://www.w3.org/ns/activitystreams#Public"],
+        "cc": [f"{new_actor_id}/followers"],
+    }
+    payload = json.dumps(move).encode("utf-8")
+    # keyId is the OLD actor's key URI — Mastodon must fetch the old
+    # actor first (finds movedTo) before verifying our signature.
+    key_id = f"{old_actor_id}#main-key"
+    log.warning("AP Move: notifying %d follower(s) of rename %s -> %s",
+                len(inboxes), old_handle, user.handle)
+    t = threading.Thread(
+        target=_deliver_payload,
+        args=(user.ap_private_key, key_id, payload, inboxes),
+        daemon=True,
+    )
+    t.start()
 
 
 def enqueue_activity_delete(db: Session, user: User,

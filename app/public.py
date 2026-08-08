@@ -566,17 +566,24 @@ def user_radar(
     owner = resolve_handle(db, handle)
     if not owner:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "user not found")
+
+    # 0.11.17 + 0.11.26 (M9): content negotiation for ActivityPub.
+    #   - Canonical handle + Accept AS 2.0 → live Actor doc.
+    #   - RETIRED handle (alias) + Accept AS 2.0 → "moved" Actor doc.
+    #     Skipping the canonical-redirect for AP is deliberate:
+    #     Mastodon needs to fetch the OLD URL to see `movedTo` and
+    #     complete the rename handshake. A 301 would send it to the
+    #     NEW URL and it'd never learn the account moved.
+    #   - HTML request on retired handle: 301 to canonical as before.
+    from . import activitypub as ap
+    if ap.wants_activitypub(request) and owner.visibility != "private":
+        if handle != owner.handle:
+            return ap.render_moved_actor_json(request, db, handle, owner)
+        return ap.render_actor_json(request, db, owner)
+
     redirect = maybe_redirect_to_canonical(request, handle, owner)
     if redirect is not None:
         return redirect
-
-    # 0.11.17: content negotiation for ActivityPub actor discovery.
-    # If a remote server asks for AS 2.0 JSON, serve the Actor doc
-    # at this same URL instead of HTML. Private radars stay HTML —
-    # the AP module returns 404 for those anyway.
-    from . import activitypub as ap
-    if ap.wants_activitypub(request) and owner.visibility != "private":
-        return ap.render_actor_json(request, db, owner)
 
     from .follow import follow_state, follower_count, following_count
 
@@ -829,6 +836,20 @@ def rename_handle(
     db.add(user)
 
     db.commit()
+
+    # 6. Federate the rename to remote Mastodon followers (M9).
+    #    Fires AFTER commit so both endpoints (old + new) are already
+    #    in their final state when Mastodon fetches to verify the
+    #    Move handshake.
+    from . import activitypub as ap
+    try:
+        with Session(db.get_bind()) as fresh:
+            fresh_user = fresh.get(User, user.id)
+            if fresh_user:
+                ap.enqueue_move_activity(fresh, fresh_user, old_handle)
+    except Exception:  # noqa: BLE001 — Move dispatch must never break the rename
+        pass
+
     return RedirectResponse(f"/u/{new_handle}", status_code=303)
 
 
