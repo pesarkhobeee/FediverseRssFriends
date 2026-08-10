@@ -75,28 +75,10 @@ def test_landing_shows_email_to_handle_consent_notice():
     assert 'id="handle-preview"' in body
 
 
-def test_contact_page_renders_for_anon_and_logged_in():
+def test_contact_form_is_gone():
+    """0.11.27: /contact was removed after it started attracting spam.
+    Anyone who bookmarked the URL now gets a clean 404."""
     r = _client().get("/contact")
-    assert r.status_code == 200
-    assert "Contact" in r.text
-    # Anon sees the optional-email field.
-    assert 'name="email"' in r.text
-    assert 'name="message"' in r.text
-
-
-def test_contact_form_submit_redirects_with_ok_flag():
-    r = _client().post(
-        "/contact",
-        data={"message": "Hello there — this is a test.", "email": ""},
-        follow_redirects=False,
-    )
-    assert r.status_code == 303
-    assert r.headers["location"] == "/contact?ok=1"
-    # And the ok page shows the confirmation.
-    r2 = _client().get("/contact?ok=1")
-    assert "Thanks" in r2.text
-
-
-def test_contact_form_rejects_empty_message():
-    r = _client().post("/contact", data={"message": "   "})
-    assert r.status_code == 400
+    assert r.status_code == 404
+    r = _client().post("/contact", data={"message": "spam"})
+    assert r.status_code == 405 or r.status_code == 404
