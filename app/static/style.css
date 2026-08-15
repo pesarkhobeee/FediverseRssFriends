@@ -2310,6 +2310,35 @@ img.favicon {
 }
 .collection-suggest-thanks { max-width: 560px; padding: 12px 0; }
 
+/* 0.11.31: /follow/remote page — form + pending/following pills + example list */
+.remote-follow-form {
+  display: flex; gap: 10px; align-items: center; margin-top: 6px;
+  flex-wrap: wrap;
+}
+.remote-follow-form .input { flex: 1 1 260px; }
+.remote-follow-pill {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 10px; border-radius: 999px; font-weight: 500;
+  font-size: 12px; letter-spacing: .01em;
+}
+.remote-follow-pill-ok {
+  background: #E9F5EC; color: #1F5D3A;
+}
+.remote-follow-pill-pending {
+  background: var(--warn-bg); color: var(--warn-fg);
+}
+[data-theme="dark"] .remote-follow-pill-ok {
+  background: #1F5D3A; color: #EAF7EF;
+}
+.remote-follow-examples {
+  list-style: none; padding: 0; margin: 0;
+  display: flex; flex-direction: column; gap: 6px;
+  font-size: .95rem;
+}
+.remote-follow-examples code {
+  background: var(--card-hover); padding: 1px 6px; border-radius: 4px;
+}
+
 /* 0.11.1: admin/curator forms (new / edit collection, add feed inline) */
 .collections-hero-head {
   display: flex; align-items: baseline; justify-content: space-between;

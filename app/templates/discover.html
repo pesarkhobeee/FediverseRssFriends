@@ -114,6 +114,12 @@
            hx-swap="innerHTML" />
   </div>
   <div id="user-search-results" class="discover-search-results"></div>
+  {% if user %}
+    <p class="muted" style="margin:.6rem 0 0; font-size:.9rem">
+      🐘 Looking for someone from <strong>Mastodon</strong>?
+      <a href="/follow/remote">Follow them from the fediverse →</a>
+    </p>
+  {% endif %}
 </section>
 
 {# ─── Bottom: Browse collections ────────────────────────────────── #}

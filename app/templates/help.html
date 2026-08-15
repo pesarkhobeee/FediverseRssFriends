@@ -21,6 +21,7 @@
     <li><a href="#opml-rss">OPML &amp; RSS in / out</a></li>
     <li><a href="#fork">Pick feeds &amp; copy radars</a></li>
     <li><a href="#mastodon">Follow me from Mastodon (ActivityPub)</a></li>
+    <li><a href="#fediverse">Follow accounts from the fediverse</a></li>
     <li><a href="#collections">Collections</a></li>
     <li><a href="#notes">Private per-feed notes</a></li>
     <li><a href="#wallabag">Wallabag integration</a></li>
@@ -302,10 +303,71 @@
     </li>
     <li>
       <strong>This instance is currently follow-in only.</strong>
-      You can be followed from Mastodon; you can't (yet) follow
-      Mastodon accounts from rssFriends — subscribe to their RSS
-      feed instead (Mastodon exposes one at
-      <code>https://mastodon.example/@user.rss</code>).
+      You can follow accounts from Mastodon, Pleroma, Firefish or any
+      ActivityPub server — see the next section.
+    </li>
+  </ul>
+</section>
+
+<section class="help-block">
+  <h2 id="fediverse">🐘 Follow accounts from the fediverse</h2>
+  <p>
+    rssFriends can follow any account that speaks ActivityPub
+    (Mastodon, Pleroma, Firefish, Akkoma, GoToSocial, …). Their new
+    toots land on your <a href="/feed">Friends page</a> chronologically
+    mixed with rssFriends activity.
+  </p>
+  <p>
+    <strong>How to follow someone:</strong>
+  </p>
+  <ol>
+    <li>
+      Go to <a href="/follow/remote">Follow from the fediverse</a>
+      (also linked in the site footer as
+      <strong>🐘 Follow from fediverse</strong>).
+    </li>
+    <li>
+      Paste an <code>@user@host</code> handle (copy-paste from the
+      target profile if unsure) and hit <strong>Follow →</strong>.
+    </li>
+    <li>
+      The row appears as ⏳ <em>pending</em>. Their server confirms
+      within a few seconds and it flips to ✓ <em>following</em>.
+      Reload if you're impatient.
+    </li>
+    <li>
+      From then on their new posts appear on your Friends timeline
+      with a 🐘 icon and a source-domain chip.
+    </li>
+  </ol>
+  <p class="muted">Nuances worth knowing:</p>
+  <ul>
+    <li>
+      <strong>Historical posts don't backfill</strong> — the same
+      Mastodon design decision that affected our outbox works both
+      ways. You'll see posts from the moment you follow onward. Older
+      posts remain browsable on their original server.
+    </li>
+    <li>
+      <strong>Delete propagation works</strong> — when they delete a
+      post, we remove the cached copy from your Friends page too.
+    </li>
+    <li>
+      <strong>Unfollowing sends an Undo</strong> — clicking Unfollow
+      posts a signed Undo{Follow} to their server and drops all their
+      cached toots from your Friends page.
+    </li>
+    <li>
+      <strong>We don't render replies, boosts, or likes</strong> —
+      only original Notes are shown for now. Their profile page on
+      their own server has the full thread if you want to reply
+      (open in a new tab from the ↗ link on the post).
+    </li>
+    <li>
+      <strong>Spam protection</strong> — we only render Notes
+      delivered to us from actors you actively follow. Broadcast
+      Public-addressed toots from strangers are dropped at the
+      inbox (they'd otherwise flood your Friends page).
     </li>
   </ul>
 </section>

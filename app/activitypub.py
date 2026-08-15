@@ -316,6 +316,99 @@ def _activity_to_note(act: Activity, user: User,
 # ─── Routes ────────────────────────────────────────────────────────────
 
 
+# ─── NodeInfo — instance-level discoverability (0.11.31) ──────────────
+
+
+NODEINFO_REL = "http://nodeinfo.diaspora.software/ns/schema/2.0"
+
+
+@router.get("/.well-known/nodeinfo")
+def nodeinfo_index() -> JSONResponse:
+    """Root NodeInfo discovery doc. Points crawlers + Mastodon peers
+    at the actual 2.0 payload URL."""
+    return JSONResponse(
+        {
+            "links": [
+                {"rel": NODEINFO_REL, "href": f"{_base()}/nodeinfo/2.0"},
+            ],
+        },
+        media_type="application/json; charset=utf-8",
+    )
+
+
+@router.get("/nodeinfo/2.0")
+def nodeinfo_v2(db: Session = Depends(get_session)) -> JSONResponse:
+    """NodeInfo v2.0 metadata. Advertised to the fediverse so crawlers
+    (fediverse.observer, fedidb, Mastodon federation tools) can index
+    our instance's software, protocols, and activity level."""
+    from datetime import timedelta
+
+    from . import __version__
+
+    now = datetime.now(UTC)
+    month_ago = now - timedelta(days=30)
+    halfyear_ago = now - timedelta(days=180)
+
+    total_users = db.exec(
+        select(User).where(User.visibility != "private")
+    ).all()
+    total_count = len(total_users)
+
+    active_month = len({
+        a.user_id for a in db.exec(
+            select(Activity).where(Activity.created_at >= month_ago)
+        ).all()
+    })
+    active_halfyear = len({
+        a.user_id for a in db.exec(
+            select(Activity).where(Activity.created_at >= halfyear_ago)
+        ).all()
+    })
+    # "localPosts" for us = bookmarked + posted + subscribed activities
+    # (the kinds we federate as Notes). That's what a fediverse crawler
+    # would recognise as our post volume.
+    local_posts = len(db.exec(
+        select(Activity).where(
+            Activity.kind.in_(("bookmarked", "posted", "subscribed"))
+        )
+    ).all())
+
+    doc = {
+        "version": "2.0",
+        "software": {
+            "name": "rssfriends",
+            "version": __version__,
+        },
+        "protocols": ["activitypub"],
+        "services": {"inbound": [], "outbound": []},
+        "openRegistrations": True,  # magic-link signup is open
+        "usage": {
+            "users": {
+                "total": total_count,
+                "activeMonth": active_month,
+                "activeHalfyear": active_halfyear,
+            },
+            "localPosts": local_posts,
+        },
+        "metadata": {
+            "nodeName": "rssFriends",
+            "nodeDescription": (
+                "A self-hosted RSS reader that turns your subscriptions "
+                "into a public radar others can follow — including from "
+                "Mastodon, via ActivityPub."
+            ),
+        },
+    }
+    # Content-Type is spec'd — clients look for the profile parameter.
+    return JSONResponse(
+        doc,
+        media_type=(
+            "application/json; "
+            f'profile="{NODEINFO_REL}#"; charset=utf-8'
+        ),
+    )
+
+
 @router.get("/.well-known/webfinger")
 def webfinger(
     resource: str = Query(...),

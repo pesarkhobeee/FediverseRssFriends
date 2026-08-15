@@ -532,3 +532,34 @@ def test_remote_follow_bad_handle_returns_400():
     # raw error page.
     assert r.status_code == 303
     assert "err=400" in r.headers["location"]
+
+
+# ─── NodeInfo (0.11.31) ────────────────────────────────────────────────
+
+
+def test_nodeinfo_discovery_points_at_v2():
+    r = _client().get("/.well-known/nodeinfo")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["links"][0]["rel"] == "http://nodeinfo.diaspora.software/ns/schema/2.0"
+    assert body["links"][0]["href"] == "https://rssfriends.com/nodeinfo/2.0"
+
+
+def test_nodeinfo_v2_payload_shape():
+    r = _client().get("/nodeinfo/2.0")
+    assert r.status_code == 200
+    # Content-Type must include the NodeInfo profile parameter.
+    ct = r.headers["content-type"]
+    assert "application/json" in ct
+    assert "nodeinfo.diaspora.software/ns/schema/2.0" in ct
+
+    body = r.json()
+    assert body["version"] == "2.0"
+    assert body["software"]["name"] == "rssfriends"
+    assert body["protocols"] == ["activitypub"]
+    assert body["openRegistrations"] is True
+    # Structure the fediverse crawler cares about.
+    for k in ("total", "activeMonth", "activeHalfyear"):
+        assert k in body["usage"]["users"]
+    assert "localPosts" in body["usage"]
+    assert body["metadata"]["nodeName"] == "rssFriends"
