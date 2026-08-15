@@ -22,6 +22,9 @@ from .db import (
     Feed,
     FeedItem,
     Follow,
+    RemoteActor,
+    RemoteFollowing,
+    RemoteItem,
     Subscription,
     User,
     get_session,
@@ -137,6 +140,29 @@ def _load_timeline(db: Session, user: User) -> dict:
                 "actor": actor,
                 "activity": ev,
             })
+
+    # 0.11.30 (M10): mix in Notes from remote actors we follow via
+    # ActivityPub. RemoteItem rows are populated by the inbox handler
+    # when a Mastodon (etc.) account we follow toots.
+    remote_rows = db.exec(
+        select(RemoteItem, RemoteActor)
+        .join(RemoteActor, RemoteActor.id == RemoteItem.remote_actor_id)
+        .join(RemoteFollowing,
+              RemoteFollowing.remote_actor_id == RemoteActor.id)
+        .where(RemoteFollowing.user_id == user.id)
+        .where(RemoteFollowing.accepted_at.is_not(None))
+        .where(RemoteItem.published_at >= cutoff)
+        .order_by(RemoteItem.published_at.desc())
+        .limit(FEED_LIMIT)
+    ).all()
+    for it, ra in remote_rows:
+        entries.append({
+            "kind": "remote_note",
+            "ts": _aware(it.published_at),
+            "actor": None,          # no local User for remote actors
+            "remote_actor": ra,
+            "note": it,
+        })
 
     entries.sort(key=lambda e: e["ts"], reverse=True)
     entries = entries[:FEED_LIMIT]

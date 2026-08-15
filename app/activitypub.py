@@ -45,8 +45,8 @@ import httpx
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from fastapi.responses import JSONResponse, Response
+from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request, status
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from sqlmodel import Session, select
 
 from . import config
@@ -57,6 +57,8 @@ from .db import (
     HandleAlias,
     RemoteActor,
     RemoteFollow,
+    RemoteFollowing,
+    RemoteItem,
     User,
     get_session,
 )
@@ -926,7 +928,14 @@ async def inbox(
         _handle_follow(db, activity, our_user, remote_actor)
     elif kind == "Undo":
         _handle_undo(db, activity, our_user, remote_actor)
-    # else: 202-accept-and-drop for MVP scope.
+    elif kind == "Accept":
+        _handle_accept(db, activity, our_user)
+    elif kind == "Create":
+        _handle_create_note(db, activity, our_user, remote_actor)
+    elif kind == "Delete":
+        _handle_delete(db, activity, remote_actor)
+    # Other verbs (Announce, Like, Update) still 202-drop — we don't
+    # render them yet. Mastodon stops retrying on 202.
 
     return Response(status_code=status.HTTP_202_ACCEPTED)
 
@@ -992,6 +1001,237 @@ def _deliver_payload(private_pem: str, key_id: str,
     through remote inbox URLs and fires a signed POST at each."""
     for inbox_url in targets:
         _deliver_one(private_pem, key_id, inbox_url, payload)
+
+
+# ─── M10: outbound Follow (rssFriends → Mastodon) ─────────────────────
+
+
+def resolve_remote_handle(handle_at_host: str) -> str:
+    """WebFinger lookup: '@simon@simonwillison.net' → actor URL.
+
+    Accepts with or without a leading '@'. Raises HTTPException on
+    unresolvable input so callers get clean 4xx behaviour."""
+    s = handle_at_host.strip().lstrip("@")
+    if "@" not in s:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "Use @user@host — e.g. @simon@simonwillison.net.",
+        )
+    handle, host = s.rsplit("@", 1)
+    if not handle or not host:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Malformed handle.")
+
+    url = f"https://{host}/.well-known/webfinger"
+    try:
+        r = httpx.get(
+            url,
+            params={"resource": f"acct:{handle}@{host}"},
+            headers={"Accept": "application/jrd+json"},
+            timeout=10,
+            follow_redirects=True,
+        )
+        r.raise_for_status()
+        doc = r.json()
+    except (httpx.HTTPError, ValueError) as e:
+        raise HTTPException(
+            status.HTTP_502_BAD_GATEWAY,
+            f"WebFinger lookup failed for {host}: {e}",
+        ) from e
+
+    for link in doc.get("links") or []:
+        if link.get("rel") == "self" and link.get("type", "").startswith(
+            "application/activity+json"
+        ):
+            actor = link.get("href")
+            if actor:
+                return actor
+    raise HTTPException(
+        status.HTTP_502_BAD_GATEWAY,
+        f"WebFinger for {handle}@{host} has no ActivityPub self link.",
+    )
+
+
+def follow_remote(db: Session, user: User, remote_input: str) -> RemoteFollowing:
+    """Kick off an outbound Follow: WebFinger resolve → fetch actor →
+    signed POST of a Follow activity → return the pending
+    RemoteFollowing row (accepted_at NULL until inbox handler sees
+    the Accept)."""
+    if not user.ap_private_key:
+        user = ensure_user_keypair(db, user)
+
+    actor_url = resolve_remote_handle(remote_input)
+    remote_actor = get_or_cache_remote_actor(db, actor_url, as_user=user)
+
+    existing = db.exec(
+        select(RemoteFollowing)
+        .where(RemoteFollowing.user_id == user.id)
+        .where(RemoteFollowing.remote_actor_id == remote_actor.id)
+    ).first()
+    if existing:
+        # Already following (or pending) — silent no-op.
+        return existing
+
+    our_actor_id = _actor_id(user.handle)
+    follow_id = f"{our_actor_id}#follows/{remote_actor.id}"
+    follow = {
+        "@context": AP_CONTEXT,
+        "id": follow_id,
+        "type": "Follow",
+        "actor": our_actor_id,
+        "object": actor_url,
+    }
+    try:
+        _sign_and_post(
+            user.ap_private_key,
+            f"{our_actor_id}#main-key",
+            remote_actor.inbox_url,
+            json.dumps(follow).encode("utf-8"),
+        )
+    except httpx.HTTPError as e:
+        log.warning("outbound Follow delivery failed to %s: %s",
+                    remote_actor.inbox_url, e)
+        # Don't raise — we still record the intent so the user sees
+        # the row on their /follow/remote page as "pending".
+
+    row = RemoteFollowing(
+        user_id=user.id,
+        remote_actor_id=remote_actor.id,
+        follow_activity_id=follow_id,
+    )
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return row
+
+
+def unfollow_remote(db: Session, user: User, following: RemoteFollowing) -> None:
+    """Send Undo{Follow} to the remote inbox and drop the row + any
+    cached Notes from that actor."""
+    remote_actor = db.get(RemoteActor, following.remote_actor_id)
+    if not remote_actor:
+        db.delete(following)
+        db.commit()
+        return
+
+    our_actor_id = _actor_id(user.handle)
+    undo = {
+        "@context": AP_CONTEXT,
+        "id": f"{following.follow_activity_id}/undo",
+        "type": "Undo",
+        "actor": our_actor_id,
+        "object": {
+            "id": following.follow_activity_id,
+            "type": "Follow",
+            "actor": our_actor_id,
+            "object": remote_actor.actor_url,
+        },
+    }
+    try:
+        _sign_and_post(
+            user.ap_private_key,
+            f"{our_actor_id}#main-key",
+            remote_actor.inbox_url,
+            json.dumps(undo).encode("utf-8"),
+        )
+    except httpx.HTTPError as e:
+        log.warning("Undo delivery failed to %s: %s",
+                    remote_actor.inbox_url, e)
+
+    # Drop cached items from this actor + the following row itself.
+    for item in db.exec(
+        select(RemoteItem)
+        .where(RemoteItem.remote_actor_id == remote_actor.id)
+    ).all():
+        db.delete(item)
+    db.delete(following)
+    db.commit()
+
+
+# ─── M10: inbound handlers for Accept + Create{Note} ──────────────────
+
+
+def _handle_accept(db: Session, activity: dict, our_user: User) -> None:
+    """Mastodon accepted our Follow — mark the RemoteFollowing row."""
+    inner = activity.get("object") or {}
+    if isinstance(inner, str):
+        return
+    if inner.get("type") != "Follow":
+        return
+    if inner.get("actor") != _actor_id(our_user.handle):
+        return
+    follow_id = inner.get("id") or ""
+    row = db.exec(
+        select(RemoteFollowing)
+        .where(RemoteFollowing.user_id == our_user.id)
+        .where(RemoteFollowing.follow_activity_id == follow_id)
+    ).first()
+    if row and row.accepted_at is None:
+        row.accepted_at = datetime.now(UTC)
+        db.add(row)
+        db.commit()
+
+
+def _handle_create_note(db: Session, activity: dict, our_user: User,
+                        remote_actor: RemoteActor) -> None:
+    """Persist an inbound Note from an actor we follow. Ignore Notes
+    from actors that aren't in our RemoteFollowing set — spam
+    protection + Mastodon delivers to Public which we DO NOT want to
+    display for the whole world."""
+    is_following = db.exec(
+        select(RemoteFollowing)
+        .where(RemoteFollowing.user_id == our_user.id)
+        .where(RemoteFollowing.remote_actor_id == remote_actor.id)
+        .where(RemoteFollowing.accepted_at.is_not(None))
+    ).first()
+    if not is_following:
+        return
+
+    note = activity.get("object") or {}
+    if not isinstance(note, dict) or note.get("type") not in ("Note", "Article"):
+        return
+    note_id = note.get("id")
+    if not note_id:
+        return
+
+    dup = db.exec(
+        select(RemoteItem).where(RemoteItem.ap_note_id == note_id)
+    ).first()
+    if dup:
+        return
+
+    published = note.get("published") or activity.get("published") or ""
+    try:
+        ts = datetime.fromisoformat(published.replace("Z", "+00:00"))
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=UTC)
+    except ValueError:
+        ts = datetime.now(UTC)
+
+    db.add(RemoteItem(
+        remote_actor_id=remote_actor.id,
+        ap_note_id=note_id,
+        content_html=(note.get("content") or "")[:8000],
+        note_url=(note.get("url") or note_id)[:2000],
+        published_at=ts,
+    ))
+    db.commit()
+
+
+def _handle_delete(db: Session, activity: dict, remote_actor: RemoteActor) -> None:
+    """Remote actor deleted a Note we cached — drop the RemoteItem row
+    if we have one."""
+    inner = activity.get("object") or {}
+    obj_id = inner.get("id") if isinstance(inner, dict) else inner
+    if not obj_id:
+        return
+    row = db.exec(
+        select(RemoteItem)
+        .where(RemoteItem.remote_actor_id == remote_actor.id)
+        .where(RemoteItem.ap_note_id == obj_id)
+    ).first()
+    if row:
+        db.delete(row)
+        db.commit()
 
 
 def enqueue_move_activity(db: Session, user: User, old_handle: str) -> None:
@@ -1136,3 +1376,73 @@ def enqueue_activity_delivery(db: Session, user: User,
         daemon=True,
     )
     t.start()
+
+
+# ─── M10: UI routes for outbound Follow ────────────────────────────────
+
+from .auth import login_required as _login_required  # noqa: E402
+from .templating import make_templates as _make_templates  # noqa: E402
+
+_templates = _make_templates()
+
+
+@router.get("/follow/remote", response_class=HTMLResponse)
+def remote_follow_page(
+    request: Request,
+    user: User = Depends(_login_required),
+    db: Session = Depends(get_session),
+):
+    """List of remote accounts we follow (accepted + pending) + form
+    to add a new one."""
+    rows = db.exec(
+        select(RemoteFollowing, RemoteActor)
+        .join(RemoteActor, RemoteActor.id == RemoteFollowing.remote_actor_id)
+        .where(RemoteFollowing.user_id == user.id)
+        .order_by(RemoteFollowing.created_at.desc())
+    ).all()
+    entries = [
+        {
+            "row": rf,
+            "actor": ra,
+            "handle_at_host": (
+                f"@{ra.preferred_username}@{urlparse(ra.actor_url).netloc}"
+                if ra.preferred_username else ra.actor_url
+            ),
+        }
+        for rf, ra in rows
+    ]
+    return _templates.TemplateResponse(
+        request, "remote_follow.html",
+        {"user": user, "entries": entries},
+    )
+
+
+@router.post("/follow/remote")
+def remote_follow_submit(
+    request: Request,
+    handle: str = Form(...),
+    user: User = Depends(_login_required),
+    db: Session = Depends(get_session),
+):
+    """Kick off the outbound Follow. Redirects to /follow/remote with
+    a flash flag; the actual Accept lands async via inbox."""
+    try:
+        follow_remote(db, user, handle)
+    except HTTPException as e:
+        return RedirectResponse(
+            f"/follow/remote?err={e.status_code}", status_code=303,
+        )
+    return RedirectResponse("/follow/remote?ok=1", status_code=303)
+
+
+@router.post("/follow/remote/{following_id}/unfollow")
+def remote_unfollow_submit(
+    following_id: int,
+    user: User = Depends(_login_required),
+    db: Session = Depends(get_session),
+):
+    row = db.get(RemoteFollowing, following_id)
+    if not row or row.user_id != user.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "not found")
+    unfollow_remote(db, user, row)
+    return RedirectResponse("/follow/remote?unfollowed=1", status_code=303)

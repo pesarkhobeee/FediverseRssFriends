@@ -463,3 +463,72 @@ def test_followers_collection_lists_accepted_follows():
     body = r.json()
     assert body["totalItems"] == 1
     assert "https://mastodon.example/users/bar" in body["orderedItems"]
+
+
+# ─── M10: outbound Follow + inbound Note ingestion (0.11.30) ──────────
+
+
+def test_remote_follow_page_lists_pending_followings(monkeypatch):
+    """POST /follow/remote resolves WebFinger, records a pending
+    RemoteFollowing, and the page then lists it as ⏳ pending."""
+    import app.activitypub as ap
+    import app.db as db_mod
+
+    c = _client()
+    _login(c, "alice@example.com")
+
+    # Stub WebFinger + actor fetch + Follow POST so we don't hit the network.
+    monkeypatch.setattr(
+        ap, "resolve_remote_handle",
+        lambda h: "https://mastodon.example/users/foo",
+    )
+    monkeypatch.setattr(
+        ap, "_fetch_remote_actor_doc",
+        lambda url, as_user=None: {
+            "id": "https://mastodon.example/users/foo",
+            "inbox": "https://mastodon.example/users/foo/inbox",
+            "preferredUsername": "foo",
+            "name": "Foo",
+            "publicKey": {
+                "id": "https://mastodon.example/users/foo#main-key",
+                "owner": "https://mastodon.example/users/foo",
+                "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nAAA\n-----END PUBLIC KEY-----",
+            },
+        },
+    )
+
+    class _R:
+        status_code = 202
+        text = ""
+
+    monkeypatch.setattr(
+        ap, "_sign_and_post",
+        lambda priv, kid, url, body: _R(),
+    )
+
+    r = c.post("/follow/remote", data={"handle": "@foo@mastodon.example"},
+               follow_redirects=False)
+    assert r.status_code == 303
+    assert r.headers["location"] == "/follow/remote?ok=1"
+
+    # RemoteFollowing row exists, pending.
+    with Session(db_mod.engine) as s:
+        rows = s.exec(select(db_mod.RemoteFollowing)).all()
+        assert len(rows) == 1
+        assert rows[0].accepted_at is None
+
+    # Page renders the pending row.
+    r = c.get("/follow/remote")
+    assert "@foo@mastodon.example" in r.text
+    assert "pending" in r.text
+
+
+def test_remote_follow_bad_handle_returns_400():
+    c = _client()
+    _login(c, "alice@example.com")
+    r = c.post("/follow/remote", data={"handle": "not-a-handle"},
+               follow_redirects=False)
+    # 4xx cascades through to a flash on the page (via ?err=…), not a
+    # raw error page.
+    assert r.status_code == 303
+    assert "err=400" in r.headers["location"]

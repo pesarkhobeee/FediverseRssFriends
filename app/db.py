@@ -297,6 +297,44 @@ class RemoteActor(SQLModel, table=True):
     fetched_at: datetime = Field(default_factory=_now)
 
 
+class RemoteFollowing(SQLModel, table=True):
+    """0.11.30 (M10): a local rssFriends user follows a remote AP
+    actor (e.g. @simon@simonwillison.net). Complements RemoteFollow
+    which is the inbound direction (a remote actor follows us).
+    accepted_at NULL = we sent Follow, haven't seen Accept yet."""
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "remote_actor_id",
+                         name="uq_remotefollowing_pair"),
+    )
+
+    id: int | None = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="user.id", index=True)
+    remote_actor_id: int = Field(foreign_key="remoteactor.id", index=True)
+    follow_activity_id: str        # ID of the Follow we sent
+    accepted_at: datetime | None = Field(default=None)
+    created_at: datetime = Field(default_factory=_now)
+
+
+class RemoteItem(SQLModel, table=True):
+    """0.11.30 (M10): a Note delivered to our inbox from a remote
+    actor we follow (or that we've cached via someone else's
+    interaction). Rendered on the friends timeline alongside local
+    Activity rows."""
+
+    __table_args__ = (
+        UniqueConstraint("ap_note_id", name="uq_remoteitem_ap_id"),
+    )
+
+    id: int | None = Field(default=None, primary_key=True)
+    remote_actor_id: int = Field(foreign_key="remoteactor.id", index=True)
+    ap_note_id: str                  # object.id — dedup key
+    content_html: str = Field(default="")
+    note_url: str = Field(default="")     # Note.url — link to original
+    published_at: datetime
+    received_at: datetime = Field(default_factory=_now)
+
+
 class RemoteFollow(SQLModel, table=True):
     """0.11.18: a remote AP actor has followed one of our users. We
     accept and store; new activities from that user are delivered to

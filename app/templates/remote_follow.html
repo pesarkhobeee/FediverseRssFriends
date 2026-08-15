@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}Follow from the fediverse · rssFriends{% endblock %}
+{% block content %}
+<section class="hero stack">
+  <h1>🐘 Follow from the fediverse</h1>
+  <p class="muted" style="max-width:60ch">
+    Follow Mastodon, Pleroma, Firefish or any ActivityPub-speaking
+    account. Their toots land on your <a href="/feed">Friends</a> page
+    alongside your rssFriends followees.
+  </p>
+</section>
+
+{% if request.query_params.get("ok") %}
+  <p class="cta-badge" style="margin:1rem 0">
+    ✓ Follow request sent. Their server will confirm within a few
+    seconds; the row below will flip from <em>pending</em> to
+    <em>following</em>.
+  </p>
+{% elif request.query_params.get("unfollowed") %}
+  <p class="cta-badge" style="margin:1rem 0">✓ Unfollowed.</p>
+{% elif request.query_params.get("err") %}
+  <p class="muted" style="margin:1rem 0">
+    ⚠️ Couldn't reach that server ({{ request.query_params.get("err") }}).
+    Double-check the handle format.
+  </p>
+{% endif %}
+
+<form method="post" action="/follow/remote" class="collection-admin-form">
+  <label>
+    <div class="collection-admin-label">Handle</div>
+    <input class="input" type="text" name="handle" required maxlength="200"
+           placeholder="@simon@simonwillison.net" autocomplete="off"
+           spellcheck="false" />
+    <div class="muted collection-admin-hint">
+      Use the <code>@user@host</code> format. Copy-paste from the
+      target profile if unsure.
+    </div>
+  </label>
+  <div>
+    <button class="btn" type="submit">Follow</button>
+  </div>
+</form>
+
+<h2 class="section-title">Currently following ({{ entries|length }})</h2>
+{% if entries %}
+<ul class="fav-list">
+  {% for e in entries %}
+    <li class="fav-item">
+      <div class="fav-head">
+        <span>
+          <strong>{{ e.actor.display_name or e.actor.preferred_username or "@?" }}</strong>
+          <span class="muted"> · {{ e.handle_at_host }}</span>
+        </span>
+        <span class="spacer"></span>
+        {% if e.row.accepted_at %}
+          <span class="chip small">✓ following</span>
+        {% else %}
+          <span class="chip small">⏳ pending</span>
+        {% endif %}
+        <form method="post"
+              action="/follow/remote/{{ e.row.id }}/unfollow"
+              style="display:inline">
+          <button class="btn-ghost" type="submit"
+                  hx-confirm="Unfollow {{ e.handle_at_host }}?">Unfollow</button>
+        </form>
+      </div>
+      <div class="muted" style="font-size:.85rem">
+        <a href="{{ e.actor.actor_url }}" target="_blank" rel="noopener">
+          {{ e.actor.actor_url }}
+        </a>
+      </div>
+    </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="muted">
+  You're not following anyone on the fediverse yet. Paste an
+  <code>@user@host</code> above to start.
+</p>
+{% endif %}
+{% endblock %}

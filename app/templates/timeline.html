@@ -18,6 +18,30 @@
 {% if entries %}
 <ul class="fav-list">
   {% for e in entries %}
+    {% if e.kind == "remote_note" %}
+      {# 0.11.30 (M10): Note from a remote AP actor we follow. #}
+      <li class="fav-item">
+        <div class="fav-head">
+          <span aria-hidden="true">🐘</span>
+          <span>
+            <a class="title" href="{{ e.remote_actor.actor_url }}"
+               target="_blank" rel="noopener">
+              @{{ e.remote_actor.preferred_username or "?" }}
+            </a>
+            <span class="muted">·</span>
+            <span class="chip small source-chip">{{ e.remote_actor.actor_url|source_domain }}</span>
+          </span>
+          <span class="spacer"></span>
+          <a class="muted" href="{{ e.note.note_url }}" target="_blank"
+             rel="noopener" style="font-size:.85rem">
+            {{ e.ts|relative_time }} ↗
+          </a>
+        </div>
+        <div class="prose" style="margin:.4rem 0 0 2.2rem; font-size:.95rem">
+          {{ e.note.content_html|safe }}
+        </div>
+      </li>
+    {% else %}
     <li class="fav-item{% if e.activity.subject_url %} item-clickable{% endif %}">
       <div class="fav-head">
         {% if e.actor %}
@@ -67,6 +91,7 @@
         <span class="muted" style="font-size:.85rem">{{ e.ts|relative_time }}</span>
       </div>
     </li>
+    {% endif %}
   {% endfor %}
 </ul>
 {% else %}
