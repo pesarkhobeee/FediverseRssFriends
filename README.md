@@ -2,7 +2,21 @@
 
 **A social radar for the open web.** Watch the feeds and people you trust; share what caught your eye. No backlog, no unread counters, no algorithm — just signals worth catching.
 
-Self-hosted, magic-link auth, one SQLite file. Curate feeds by category, share your radar publicly, follow other users, bookmark items, and expose your activity as an RSS feed. RSS today; ActivityPub-shaped tomorrow.
+Self-hosted, magic-link auth, one SQLite file. Curate feeds by category, share your radar publicly, follow other users, bookmark items, expose your activity as an RSS feed, and — since v0.11.x — **federate with Mastodon and other rssFriends instances via ActivityPub**.
+
+## Self-host in 15 minutes
+
+The primary instance at [rssfriends.com](https://rssfriends.com) is just one node. You can run your own with your own name, tagline, admin, and community. Follow [`docs/self-host.md`](docs/self-host.md) for the walkthrough.
+
+```bash
+git clone https://github.com/pesarkhobeee/rssFriends.git /srv/rssfriends
+cd /srv/rssfriends
+cp .env.example .env
+# edit .env — set RSSFRIENDS_HOSTNAME, INSTANCE_NAME, SESSION_SECRET
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+Federation between instances is real and two-way: users on `you.example` can follow `@farid@rssfriends.com`, and vice versa. See `docs/self-host.md` § "Federating with rssfriends.com".
 
 Stack: **FastAPI + HTMX + Jinja2 + SQLite (WAL) + APScheduler**, managed with **uv**. No JS build step, no Redis, no worker process. One Docker container.
 
