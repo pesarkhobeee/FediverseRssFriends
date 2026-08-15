@@ -189,15 +189,16 @@
         if (s >= 500) { show("Server error (" + s + "). Try again in a moment."); return; }
         show(serverMsg || ("Something went wrong (" + s + ")."));
       });
-      document.body.addEventListener("htmx:afterRequest", function (evt) {
-        if (evt.detail && evt.detail.successful) toast.hidden = true;
-      });
-
       // 0.11.28: server-driven success/warn/info toasts via HX-Trigger.
       // Endpoints emit an rsstoast event with {kind, text}; we style
       // the strip accordingly and auto-dismiss after 5s.
       var toastTimer = null;
       var toastIcon = toast.querySelector(".net-toast-icon");
+      // Was the last shown toast a "real" one (success/warn/info) we
+      // don't want htmx:afterRequest to clear? 0.11.29 fix: my earlier
+      // afterRequest handler hid the toast on every 200, which killed
+      // the success toast half a millisecond after it appeared.
+      var toastIsSticky = false;
       function setKind(kind) {
         toast.classList.remove("net-toast-success", "net-toast-warn",
                                "net-toast-info", "net-toast-error");
@@ -210,8 +211,22 @@
         var d = evt.detail || {};
         setKind(d.kind || "info");
         show(d.text || "");
+        toastIsSticky = true;
         if (toastTimer) clearTimeout(toastTimer);
-        toastTimer = setTimeout(function () { toast.hidden = true; }, 5000);
+        toastTimer = setTimeout(function () {
+          toast.hidden = true;
+          toastIsSticky = false;
+        }, 5000);
+      });
+
+      document.body.addEventListener("htmx:afterRequest", function (evt) {
+        // Only auto-clear the toast if it's currently showing an ERROR
+        // (the original purpose of this handler — "next successful
+        // request means the network is back, hide the error toast").
+        // Success/warn/info toasts have their own 5s dismiss timer.
+        if (evt.detail && evt.detail.successful && !toastIsSticky) {
+          toast.hidden = true;
+        }
       });
 
       window.addEventListener("offline", function () {
