@@ -178,6 +178,10 @@ def _load_timeline(db: Session, user: User) -> dict:
     feed_ids_needed: set[int] = set()
     item_ids_needed: set[int] = set()
     for e in entries:
+        # 0.11.33: remote_note entries (M10 inbound AP Notes) don't
+        # carry a local Activity — skip enrichment for them.
+        if e.get("kind") == "remote_note":
+            continue
         ev = e["activity"]
         if ev.ref_type == "feed" and ev.ref_id is not None:
             feed_ids_needed.add(ev.ref_id)
@@ -213,6 +217,8 @@ def _load_timeline(db: Session, user: User) -> dict:
         viewer_note_by_feed = {fid: n for fid, n in my_subs if n}
 
     for e in entries:
+        if e.get("kind") == "remote_note":
+            continue
         ev = e["activity"]
         feed_id: int | None = None
         if ev.ref_type == "feed" and ev.ref_id is not None:

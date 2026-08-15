@@ -563,3 +563,55 @@ def test_nodeinfo_v2_payload_shape():
         assert k in body["usage"]["users"]
     assert "localPosts" in body["usage"]
     assert body["metadata"]["nodeName"] == "rssFriends"
+
+
+# ─── 0.11.33: /feed must not 500 when a remote_note is present ────────
+
+
+def test_feed_renders_with_remote_note_entries():
+    """Regression: after 0.11.30 shipped M10, /feed raised
+    KeyError: 'activity' in the timeline enrichment loops when the
+    entry list contained remote_note dicts (which don't carry a
+    local Activity row). Fixed in 0.11.33 by skipping remote_note
+    entries in the enrichment. Test seeds one accepted-follow + one
+    RemoteItem and asserts /feed renders 200 with the note visible."""
+    from datetime import UTC, datetime
+
+    import app.db as db_mod
+
+    c = _client()
+    _login(c, "alice@example.com")
+
+    with Session(db_mod.engine) as s:
+        alice = s.exec(select(db_mod.User)
+                       .where(db_mod.User.handle == "alice")).one()
+        ra = db_mod.RemoteActor(
+            actor_url="https://mastodon.example/users/foo",
+            inbox_url="https://mastodon.example/users/foo/inbox",
+            public_key_pem="-----BEGIN PUBLIC KEY-----\nXX\n-----END PUBLIC KEY-----",
+            preferred_username="foo",
+            display_name="Foo",
+        )
+        s.add(ra)
+        s.commit()
+        s.refresh(ra)
+        s.add(db_mod.RemoteFollowing(
+            user_id=alice.id,
+            remote_actor_id=ra.id,
+            follow_activity_id="https://rssfriends.com/u/alice#follows/1",
+            accepted_at=datetime.now(UTC),
+        ))
+        s.add(db_mod.RemoteItem(
+            remote_actor_id=ra.id,
+            ap_note_id="https://mastodon.example/notes/1",
+            content_html="<p>Hello from Mastodon</p>",
+            note_url="https://mastodon.example/@foo/1",
+            published_at=datetime.now(UTC),
+        ))
+        s.commit()
+
+    r = c.get("/feed")
+    assert r.status_code == 200, r.text[:400]
+    assert "Hello from Mastodon" in r.text
+    # Rendered as a remote-note row, not raw activity markup.
+    assert "🐘" in r.text
