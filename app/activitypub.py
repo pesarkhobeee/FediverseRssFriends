@@ -1173,6 +1173,24 @@ def follow_remote(db: Session, user: User, remote_input: str) -> RemoteFollowing
         "actor": our_actor_id,
         "object": actor_url,
     }
+    # 0.11.36: commit the RemoteFollowing row FIRST, then dispatch the
+    # Follow POST. Reason: rssFriends peers run _handle_follow
+    # synchronously, which POSTs an Accept back to our inbox BEFORE our
+    # own _sign_and_post() returns. If we hadn't committed the row yet,
+    # our inbox's _handle_accept can't find a matching
+    # RemoteFollowing row (looked up by follow_activity_id) and silently
+    # returns — leaving accepted_at NULL forever. Same class of bug as
+    # the local delivery race we fixed in 0.11.20; different endpoint,
+    # same fix pattern (commit before you dispatch).
+    row = RemoteFollowing(
+        user_id=user.id,
+        remote_actor_id=remote_actor.id,
+        follow_activity_id=follow_id,
+    )
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+
     try:
         _sign_and_post(
             user.ap_private_key,
@@ -1183,17 +1201,10 @@ def follow_remote(db: Session, user: User, remote_input: str) -> RemoteFollowing
     except httpx.HTTPError as e:
         log.warning("outbound Follow delivery failed to %s: %s",
                     remote_actor.inbox_url, e)
-        # Don't raise — we still record the intent so the user sees
-        # the row on their /follow/remote page as "pending".
+        # Don't raise — the row above records the pending intent so
+        # the user sees it on /follow/remote. Manual retry via a
+        # future unfollow + refollow (or admin-poke) can heal it.
 
-    row = RemoteFollowing(
-        user_id=user.id,
-        remote_actor_id=remote_actor.id,
-        follow_activity_id=follow_id,
-    )
-    db.add(row)
-    db.commit()
-    db.refresh(row)
     return row
 
 
