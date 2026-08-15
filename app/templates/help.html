@@ -20,7 +20,7 @@
     <li><a href="#privacy">Public, unlisted, private</a></li>
     <li><a href="#opml-rss">OPML &amp; RSS in / out</a></li>
     <li><a href="#fork">Pick feeds &amp; copy radars</a></li>
-    <li><a href="#mastodon">Follow me from Mastodon (ActivityPub)</a></li>
+    <li><a href="#mastodon">Be followed from the fediverse</a></li>
     <li><a href="#fediverse">Follow accounts from the fediverse</a></li>
     <li><a href="#collections">Collections</a></li>
     <li><a href="#notes">Private per-feed notes</a></li>
@@ -250,16 +250,17 @@
 </section>
 
 <section class="help-block">
-  <h2 id="mastodon">🐘 Follow me from Mastodon (ActivityPub)</h2>
+  <h2 id="mastodon">🌐 Be followed from anywhere on the fediverse</h2>
   <p>
-    Every public rssFriends account is also a native ActivityPub
-    actor. From Mastodon (or any AP-speaking server), paste
-    <code>@your-handle@rssfriends.com</code> into search — your
-    profile shows up and Mastodon can follow you.
+    Every public rssFriends account is a native ActivityPub actor.
+    From Mastodon, Pleroma, another rssFriends instance, or any
+    AP-speaking server, someone can paste
+    <code>@your-handle@your-rssfriends-instance</code> into their
+    search box and follow you.
   </p>
   <p>
-    Once someone on Mastodon follows you, these events land on their
-    home timeline as regular toots:
+    Once someone follows you, these events land on their home
+    timeline as regular posts:
   </p>
   <ul>
     <li><strong>Bookmarks</strong> — <code>@you bookmarked "title"
@@ -310,12 +311,25 @@
 </section>
 
 <section class="help-block">
-  <h2 id="fediverse">🐘 Follow accounts from the fediverse</h2>
+  <h2 id="fediverse">🌐 Follow accounts from the open web</h2>
   <p>
-    rssFriends can follow any account that speaks ActivityPub
-    (Mastodon, Pleroma, Firefish, Akkoma, GoToSocial, …). Their new
-    toots land on your <a href="/feed">Friends page</a> chronologically
-    mixed with rssFriends activity.
+    rssFriends is one node on the fediverse — the open network of
+    servers that speak <a href="https://www.w3.org/TR/activitypub/"
+    target="_blank" rel="noopener">ActivityPub</a>. You can follow
+    accounts on:
+  </p>
+  <ul>
+    <li>Other <strong>rssFriends</strong> instances (self-hosted or
+        run by friends) — <code>@user@some-other-rssfriends.example</code></li>
+    <li><strong>Mastodon</strong>, <strong>Pleroma</strong>,
+        <strong>Firefish</strong>, <strong>Akkoma</strong>,
+        <strong>GoToSocial</strong>, and anything else that implements
+        ActivityPub actor + inbox</li>
+  </ul>
+  <p>
+    Their new posts land on your <a href="/feed">Friends page</a>
+    chronologically, mixed with local activity from the people you
+    follow on this instance.
   </p>
   <p>
     <strong>How to follow someone:</strong>

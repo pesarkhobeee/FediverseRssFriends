@@ -4,12 +4,12 @@
 {% block content %}
 
 <section class="hero stack">
-  <h1>🐘 Follow from the fediverse</h1>
+  <h1>🌐 Follow from the open web</h1>
   <p class="muted" style="max-width:60ch">
-    Paste any <code>@user@host</code> from Mastodon, Pleroma, Firefish
-    or another ActivityPub server. Their new toots land on your
-    <a href="/feed">Friends page</a>, mixed in with rssFriends
-    activity, chronologically.
+    Paste any <code>@user@host</code> — from another rssFriends
+    instance, Mastodon, Pleroma, Firefish, or any ActivityPub server.
+    Their new posts land on your <a href="/feed">Friends page</a>
+    chronologically, mixed with local rssFriends activity.
   </p>
 </section>
 
@@ -58,17 +58,20 @@
     Not sure who to follow?
   </h2>
   <p class="muted" style="margin:.25rem 0 .75rem">
-    A few handles you might recognize:
+    A few real accounts you might recognize — all verified reachable
+    at the time of writing:
   </p>
   <ul class="remote-follow-examples">
-    <li><code>@dhh@world.hey.com</code> <span class="muted">— creator of Ruby on Rails</span></li>
-    <li><code>@simon@simonwillison.net</code> <span class="muted">— Django co-creator, LLM commentary</span></li>
-    <li><code>@mitchellh@waterken.social</code> <span class="muted">— creator of Terraform</span></li>
-    <li><code>@Gargron@mastodon.social</code> <span class="muted">— founder of Mastodon</span></li>
-    <li><code>@julia@jvns.ca</code> <span class="muted">— Julia Evans on debugging + zines</span></li>
+    <li><code>@simon@fedi.simonwillison.net</code> <span class="muted">— Simon Willison: Django co-creator, LLM commentary</span></li>
+    <li><code>@b0rk@jvns.ca</code> <span class="muted">— Julia Evans: debugging zines, teaching</span></li>
+    <li><code>@bagder@mastodon.social</code> <span class="muted">— Daniel Stenberg: creator of curl</span></li>
+    <li><code>@Gargron@mastodon.social</code> <span class="muted">— Eugen Rochko: founder of Mastodon</span></li>
+    <li><code>@pluralistic@mamot.fr</code> <span class="muted">— Cory Doctorow: writer, EFF, tech policy</span></li>
   </ul>
-  <p class="muted" style="font-size:.85rem; margin:.5rem 0 0">
-    Copy any of these into the box above.
+  <p class="muted" style="font-size:.85rem; margin:.75rem 0 0">
+    Copy any of these into the box above. rssFriends handles work too
+    — if a friend runs their own instance, follow them as
+    <code>@friend@their-instance.example</code>.
   </p>
 </section>
 {% endif %}
