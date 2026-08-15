@@ -7,10 +7,11 @@ set the `app_version` global — so every page rendered outside main
 served `?v=` with an empty value and browsers cached CSS forever."""
 
 from pathlib import Path
+from urllib.parse import urlparse
 
 from fastapi.templating import Jinja2Templates
 
-from . import __version__
+from . import __version__, config
 from .avatars import color as avatar_color
 from .avatars import initials as avatar_initials
 from .avatars import text_color as avatar_text
@@ -38,4 +39,15 @@ def make_templates() -> Jinja2Templates:
     t.env.globals["avatar_initials"] = avatar_initials
     t.env.globals["avatar_color"] = avatar_color
     t.env.globals["avatar_text"] = avatar_text
+    # 0.11.34: instance identity globals. Templates use these instead of
+    # hardcoded "rssFriends" / "rssfriends.com" so self-hosters get
+    # their own branding without editing HTML. See app/config.py for
+    # the RSSFRIENDS_INSTANCE_* env-var contract.
+    t.env.globals["instance_name"] = config.INSTANCE_NAME
+    t.env.globals["instance_tagline"] = config.INSTANCE_TAGLINE
+    t.env.globals["instance_description"] = config.INSTANCE_DESCRIPTION
+    t.env.globals["instance_admin_email"] = config.INSTANCE_ADMIN_EMAIL
+    t.env.globals["instance_host"] = urlparse(config.BASE_URL).netloc or "localhost"
+    t.env.globals["instance_base_url"] = config.BASE_URL.rstrip("/")
+    t.env.globals["instance_open_registration"] = config.OPEN_REGISTRATION
     return t

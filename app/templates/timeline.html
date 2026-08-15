@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% from "_avatar.html" import avatar %}
-{% block title %}Friends on rssFriends{% endblock %}
-{% block meta_description %}What the people you follow on rssFriends have been bookmarking, adding, and copying lately.{% endblock %}
+{% block title %}Friends on {{ instance_name }}{% endblock %}
+{% block meta_description %}What the people you follow on {{ instance_name }} have been bookmarking, adding, and copying lately.{% endblock %}
 {% block content %}
 <section class="hero stack">
   <h1>👥 Friends</h1>
@@ -103,7 +103,7 @@
     up once you follow a few curators whose taste you trust.
   </p>
   <p style="margin:.5rem 0">
-    <a class="btn" href="/discover">🔭 Find people on rssFriends</a>
+    <a class="btn" href="/discover">🔭 Find people on {{ instance_name }}</a>
     <a class="btn-ghost" href="/follow/remote">🌐 Follow from the fediverse</a>
   </p>
   <p class="muted" style="font-size:.9rem; margin:1rem 0 0">
@@ -111,7 +111,7 @@
     that's how RSS gets social. New to it?
     <a href="/help#follow">Short intro →</a>
     &nbsp;·&nbsp;
-    Following someone on Mastodon or another rssFriends instance?
+    Following someone on Mastodon or another {{ instance_name }} instance?
     <a href="/help#fediverse">How it works →</a>
   </p>
 </section>

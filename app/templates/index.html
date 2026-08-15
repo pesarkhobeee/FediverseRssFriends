@@ -1,12 +1,12 @@
 {% extends "base.html" %}
-{% block title %}rssFriends — a social radar for the open web{% endblock %}
+{% block title %}{{ instance_name }} — {{ instance_tagline }}{% endblock %}
 {% block meta_description %}A social radar for the open web. Watch the feeds and people you trust — no backlog, no unread counters, just signals worth catching.{% endblock %}
 {% block main_class %}landing-page{% endblock %}
 {% block content %}
 
 {% if deleted %}
   <section class="card" style="border-color:var(--danger-border); background:var(--danger-bg); max-width:520px; margin: 1rem auto 0;">
-    <p style="margin:0">Your account was deleted. Thanks for trying rssFriends 👋</p>
+    <p style="margin:0">Your account was deleted. Thanks for trying {{ instance_name }} 👋</p>
   </section>
 {% endif %}
 
@@ -41,7 +41,7 @@
           <strong>Before you sign up:</strong>
           the part before <code>@</code> in your email becomes your public handle
           (e.g. <code>alice@example.com</code> → <code>@alice</code>,
-          visible at <code>rssfriends.com/u/alice</code>).
+          visible at <code>{{ instance_host }}/u/alice</code>).
           Your radar (the feeds you subscribe to) and your activity are
           <strong>public by default</strong> — you can switch to unlisted or
           private in Settings after signing in. Your email itself is

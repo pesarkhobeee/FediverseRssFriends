@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}rssFriends{% endblock %}</title>
+  <title>{% block title %}{{ instance_name }}{% endblock %}</title>
   <link rel="icon" type="image/svg+xml" href="{{ url_for('static', path='favicon.svg') }}?v={{ app_version }}">
 
   {# Typography: Instrument Serif for headlines, Instrument Sans for UI.
@@ -23,7 +23,7 @@
   <meta name="theme-color" content="#FBF8F3" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#1A1512" media="(prefers-color-scheme: dark)">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-title" content="rssFriends">
+  <meta name="apple-mobile-web-app-title" content="{{ instance_name }}">
   <script src="https://unpkg.com/htmx.org@2.0.3" defer></script>
   {# Theme: honor stored preference before body renders (avoids flash).
      If nothing stored, the CSS media query defaults to system. #}
@@ -55,8 +55,8 @@
      Per-page templates override the meta_description / meta_image
      blocks; og:title tracks the page's <title>. Block defaults are
      defined at their first use so they render exactly once each. #}
-  <meta name="description" content="{% block meta_description %}rssFriends — a social radar for the open web. Watch the feeds and people you trust; share what caught your eye. No backlog, no algorithm.{% endblock %}">
-  <meta property="og:site_name" content="rssFriends">
+  <meta name="description" content="{% block meta_description %}{{ instance_name }} — {{ instance_tagline }}.{% endblock %}">
+  <meta property="og:site_name" content="{{ instance_name }}">
   <meta property="og:type" content="{% block og_type %}website{% endblock %}">
   <meta property="og:title" content="{{ self.title() }}">
   <meta property="og:description" content="{{ self.meta_description() }}">
@@ -71,7 +71,7 @@
 </head>
 <body>
   <header>
-    <a href="/" class="brand">rssFriends<span class="brand-beta" title="rssFriends is under active development — v{{ app_version }}">beta <span class="brand-beta-version">v{{ app_version }}</span></span></a>
+    <a href="/" class="brand">{{ instance_name }}<span class="brand-beta" title="{{ instance_name }} is under active development — v{{ app_version }}">beta <span class="brand-beta-version">v{{ app_version }}</span></span></a>
     <nav>
       {% if user %}
         {# 0.11.12: trimmed from 10 items → 6.
@@ -114,8 +114,14 @@
       <span class="muted">·</span>
       <a href="/follow/remote">🌐 Follow from the fediverse</a>
     {% endif %}
+    {% if instance_admin_email %}
+      <span class="muted">·</span>
+      <a href="mailto:{{ instance_admin_email }}?subject={{ instance_name }}%20instance">Admin</a>
+    {% endif %}
     <span class="muted">·</span>
-    <span class="muted">rssFriends v{{ app_version }}</span>
+    <span class="muted">
+      Powered by <a href="https://github.com/pesarkhobeee/rssFriends" target="_blank" rel="noopener" style="color:inherit">rssFriends</a> v{{ app_version }}
+    </span>
   </footer>
 
   <div id="net-toast" class="net-toast" role="alert" aria-live="polite" hidden>

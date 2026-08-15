@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block title %}@{{ owner.handle }}'s bookmarks{% endblock %}
-{% block meta_description %}Items {{ 'you' if is_owner else '@' + owner.handle }} bookmarked on rssFriends, newest first.{% endblock %}
+{% block meta_description %}Items {{ 'you' if is_owner else '@' + owner.handle }} bookmarked on {{ instance_name }}, newest first.{% endblock %}
 {% block content %}
 <section class="hero stack">
   <h1>⭐ @{{ owner.handle }}'s bookmarks</h1>

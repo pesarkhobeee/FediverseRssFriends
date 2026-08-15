@@ -152,7 +152,7 @@ def _actor_document(user: User, aliases: list[str] | None = None) -> dict:
         "preferredUsername": user.handle,
         "name": user.handle,
         "summary": (
-            "rssFriends radar — RSS reading history + bookmarks. "
+            f"{config.INSTANCE_NAME} radar — RSS reading history + bookmarks. "
             "Follow me here and my bookmarks + cross-posts land on your "
             f"timeline. Web view: {_base()}/u/{user.handle}"
         ),
@@ -263,7 +263,7 @@ def _activity_to_note(act: Activity, user: User,
         content_html = (
             f'<p><strong>{user.handle}</strong> is now following '
             f'<a href="{target_url}"><em>{feed.title}</em></a> '
-            f'on rssFriends.</p>'
+            f'on {config.INSTANCE_NAME}.</p>'
         )
         note_url = target_url
     else:
@@ -376,12 +376,12 @@ def nodeinfo_v2(db: Session = Depends(get_session)) -> JSONResponse:
     doc = {
         "version": "2.0",
         "software": {
-            "name": "rssfriends",
+            "name": "rssfriends",           # the SOFTWARE identifier
             "version": __version__,
         },
         "protocols": ["activitypub"],
         "services": {"inbound": [], "outbound": []},
-        "openRegistrations": True,  # magic-link signup is open
+        "openRegistrations": config.OPEN_REGISTRATION,
         "usage": {
             "users": {
                 "total": total_count,
@@ -391,11 +391,11 @@ def nodeinfo_v2(db: Session = Depends(get_session)) -> JSONResponse:
             "localPosts": local_posts,
         },
         "metadata": {
-            "nodeName": "rssFriends",
-            "nodeDescription": (
-                "A self-hosted RSS reader that turns your subscriptions "
-                "into a public radar others can follow — including from "
-                "Mastodon, via ActivityPub."
+            "nodeName": config.INSTANCE_NAME,
+            "nodeDescription": config.INSTANCE_DESCRIPTION,
+            **(
+                {"adminEmail": config.INSTANCE_ADMIN_EMAIL}
+                if config.INSTANCE_ADMIN_EMAIL else {}
             ),
         },
     }

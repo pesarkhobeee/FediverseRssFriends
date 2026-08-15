@@ -1,15 +1,15 @@
 {% extends "base.html" %}
-{% block title %}Follow from the fediverse · rssFriends{% endblock %}
-{% block meta_description %}Follow Mastodon, Pleroma, Firefish or any ActivityPub-speaking account. Their toots land on your Friends page alongside rssFriends followees.{% endblock %}
+{% block title %}Follow from the fediverse · {{ instance_name }}{% endblock %}
+{% block meta_description %}Follow Mastodon, Pleroma, Firefish or any ActivityPub-speaking account. Their toots land on your Friends page alongside {{ instance_name }} followees.{% endblock %}
 {% block content %}
 
 <section class="hero stack">
   <h1>🌐 Follow from the open web</h1>
   <p class="muted" style="max-width:60ch">
-    Paste any <code>@user@host</code> — from another rssFriends
+    Paste any <code>@user@host</code> — from another {{ instance_name }}
     instance, Mastodon, Pleroma, Firefish, or any ActivityPub server.
     Their new posts land on your <a href="/feed">Friends page</a>
-    chronologically, mixed with local rssFriends activity.
+    chronologically, mixed with local {{ instance_name }} activity.
   </p>
 </section>
 
@@ -69,7 +69,7 @@
     <li><code>@pluralistic@mamot.fr</code> <span class="muted">— Cory Doctorow: writer, EFF, tech policy</span></li>
   </ul>
   <p class="muted" style="font-size:.85rem; margin:.75rem 0 0">
-    Copy any of these into the box above. rssFriends handles work too
+    Copy any of these into the box above. {{ instance_name }} handles work too
     — if a friend runs their own instance, follow them as
     <code>@friend@their-instance.example</code>.
   </p>

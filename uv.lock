@@ -902,7 +902,7 @@ wheels = [
 
 [[package]]
 name = "rssfriends"
-version = "0.11.33"
+version = "0.11.34"
 source = { editable = "." }
 dependencies = [
     { name = "apscheduler" },

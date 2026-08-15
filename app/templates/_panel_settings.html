@@ -2,7 +2,7 @@
 <section class="card">
   <h2 style="margin-top:0">Your handle</h2>
   <p class="muted" style="margin:.25rem 0 .75rem">
-    Your radar lives at <code>rssfriends.com/u/{{ user.handle }}</code>.
+    Your radar lives at <code>{{ instance_host }}/u/{{ user.handle }}</code>.
     You can rename once every {{ rename_cooldown_days }} days. Old handles
     stay permanently reserved and 301-redirect to your new one, so
     external RSS subscribers keep working.
@@ -11,7 +11,7 @@
   {% set rename_flash = request.query_params.get('handle') %}
   {% if rename_flash == 'ok' %}
     <p class="muted" style="color:var(--accent)"><strong>Renamed.</strong>
-      Your new radar is at <code>rssfriends.com/u/{{ user.handle }}</code>.
+      Your new radar is at <code>{{ instance_host }}/u/{{ user.handle }}</code>.
     </p>
   {% endif %}
 

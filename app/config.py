@@ -18,13 +18,17 @@ SMTP_HOST = os.getenv("RSSFRIENDS_SMTP_HOST", "")
 SMTP_PORT = int(os.getenv("RSSFRIENDS_SMTP_PORT", "587"))
 SMTP_USER = os.getenv("RSSFRIENDS_SMTP_USER", "")
 SMTP_PASSWORD = os.getenv("RSSFRIENDS_SMTP_PASSWORD", "")
-SMTP_FROM = os.getenv("RSSFRIENDS_SMTP_FROM", "rssFriends <no-reply@rssfriends.local>")
+SMTP_FROM = os.getenv(
+    "RSSFRIENDS_SMTP_FROM",
+    f"{os.getenv('RSSFRIENDS_INSTANCE_NAME', 'rssFriends')} <no-reply@rssfriends.local>",
+)
 SMTP_STARTTLS = os.getenv("RSSFRIENDS_SMTP_STARTTLS", "1") == "1"
 
 # Resend HTTP API — preferred over SMTP when the key is set.
 RESEND_API_KEY = os.getenv("RSSFRIENDS_RESEND_API_KEY", "")
 RESEND_FROM = os.getenv(
-    "RSSFRIENDS_RESEND_FROM", "rssFriends <onboarding@resend.dev>"
+    "RSSFRIENDS_RESEND_FROM",
+    f"{os.getenv('RSSFRIENDS_INSTANCE_NAME', 'rssFriends')} <onboarding@resend.dev>",
 )
 
 # Background feed refresh
@@ -62,3 +66,29 @@ ADMIN_HANDLES: list[str] = [
     h.strip() for h in os.getenv("RSSFRIENDS_ADMIN_HANDLES", "").split(",")
     if h.strip()
 ]
+
+# ─── Instance identity (0.11.34 — self-hosting story) ───────────────────
+# rssFriends is designed to be self-hosted. Every self-hoster runs their
+# own instance with their own branding, tagline, and admin contact. These
+# knobs feed the nav, landing hero, help page, NodeInfo, and email FROM.
+# All default to the canonical rssfriends.com identity for backward
+# compat with the primary instance.
+INSTANCE_NAME: str = os.getenv("RSSFRIENDS_INSTANCE_NAME", "rssFriends")
+INSTANCE_TAGLINE: str = os.getenv(
+    "RSSFRIENDS_INSTANCE_TAGLINE",
+    "A social radar for the open web",
+)
+INSTANCE_DESCRIPTION: str = os.getenv(
+    "RSSFRIENDS_INSTANCE_DESCRIPTION",
+    "A self-hosted RSS reader that turns your subscriptions into a "
+    "public radar others can follow — including from Mastodon, via "
+    "ActivityPub.",
+)
+# Contact email displayed on the landing page footer + in NodeInfo.
+# Empty = no email shown.
+INSTANCE_ADMIN_EMAIL: str = os.getenv("RSSFRIENDS_ADMIN_EMAIL", "")
+# When False, new-user signup via /login is refused with an "invite-only"
+# message. Existing users can still request magic links.
+OPEN_REGISTRATION: bool = (
+    os.getenv("RSSFRIENDS_OPEN_REGISTRATION", "1") != "0"
+)

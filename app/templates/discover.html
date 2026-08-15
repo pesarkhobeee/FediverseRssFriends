@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% from "_avatar.html" import avatar %}
-{% block title %}Discover · rssFriends{% endblock %}
-{% block meta_description %}New radars, popular feeds, and the most-copied curators on rssFriends. Only public radars are listed.{% endblock %}
+{% block title %}Discover · {{ instance_name }}{% endblock %}
+{% block meta_description %}New radars, popular feeds, and the most-copied curators on {{ instance_name }}. Only public radars are listed.{% endblock %}
 {% block content %}
 
 {# 0.10.1: Recent radars + Popular feeds are the primary discovery
@@ -46,7 +46,7 @@
             <div class="discover-forked-body">
               <div class="discover-forked-handle">@{{ f.user.handle }}</div>
               <div class="discover-forked-meta">
-                curator on rssFriends
+                curator on {{ instance_name }}
               </div>
             </div>
             <span class="discover-forked-badge">
@@ -100,7 +100,7 @@
 <section class="discover-hero">
   <h1 class="discover-hero-title">Discover</h1>
   <p class="discover-hero-lead">
-    Find a specific person on rssFriends. Typos welcome.
+    Find a specific person on {{ instance_name }}. Typos welcome.
   </p>
   <div class="discover-search">
     <input class="input discover-search-input"
@@ -116,7 +116,7 @@
   <div id="user-search-results" class="discover-search-results"></div>
   {% if user %}
     <p class="muted" style="margin:.6rem 0 0; font-size:.9rem">
-      🌐 Looking for someone on <strong>Mastodon, another rssFriends
+      🌐 Looking for someone on <strong>Mastodon, another {{ instance_name }}
       instance, or anywhere on the fediverse</strong>?
       <a href="/follow/remote">Follow them from the open web →</a>
     </p>

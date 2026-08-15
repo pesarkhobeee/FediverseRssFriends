@@ -111,6 +111,25 @@ def login(
     # If the landing hero's inline signup posted via HTMX, return a
     # partial that swaps just the signup card — no full-page bounce.
     hx = request.headers.get("HX-Request") == "true"
+    # 0.11.34: instance-owner-gated registration. If OPEN_REGISTRATION
+    # is off, we still let known emails request magic links (so existing
+    # users can sign in) but refuse new emails with a clear message.
+    if not config.OPEN_REGISTRATION:
+        from sqlmodel import select as _sel
+        existing = db.exec(
+            _sel(User).where(User.email == email.strip().lower())
+        ).first()
+        if not existing:
+            msg = (
+                f"{config.INSTANCE_NAME} is invite-only. If you already "
+                "have an account, use the same email you signed up with."
+                + (
+                    f" Otherwise contact the admin: {config.INSTANCE_ADMIN_EMAIL}."
+                    if config.INSTANCE_ADMIN_EMAIL else ""
+                )
+            )
+            template = "_landing_signup_error.html" if hx else "login_error.html"
+            return render(request, template, user=None, message=msg, email=email)
     try:
         _, url = issue_magic_link(db, email)
     except HTTPException as e:
@@ -210,13 +229,9 @@ def pwa_manifest() -> JSONResponse:
     v = __version__
     return JSONResponse(
         {
-            "name": "rssFriends",
-            "short_name": "rssFriends",
-            "description": (
-                "A social radar for the open web — watch the feeds and "
-                "people you trust, share what caught your eye. No backlog, "
-                "no algorithm."
-            ),
+            "name": config.INSTANCE_NAME,
+            "short_name": config.INSTANCE_NAME,
+            "description": config.INSTANCE_DESCRIPTION,
             "start_url": "/",
             "scope": "/",
             "display": "standalone",

@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% from "_avatar.html" import avatar %}
-{% block title %}@{{ owner.handle }}'s radar on rssFriends{% endblock %}
-{% block meta_description %}{{ total_feeds }} feed{{ '' if total_feeds == 1 else 's' }} on @{{ owner.handle }}'s radar. Follow to see their bookmarks, subscriptions, and cross-posts on rssFriends.{% endblock %}
+{% block title %}@{{ owner.handle }}'s radar on {{ instance_name }}{% endblock %}
+{% block meta_description %}{{ total_feeds }} feed{{ '' if total_feeds == 1 else 's' }} on @{{ owner.handle }}'s radar. Follow to see their bookmarks, subscriptions, and cross-posts on {{ instance_name }}.{% endblock %}
 {% block og_type %}profile{% endblock %}
 {% block content %}
 
@@ -101,7 +101,7 @@
    RSS is disabled for private radars (0.2.44). #}
 {% if active_category and owner.visibility != "private" %}
   {% set rss_path = "/u/" ~ owner.handle ~ "/c/" ~ active_category.name ~ ".rss" %}
-  {% set rss_short = "rssfriends.com/u/" ~ owner.handle ~ "/c/" ~ active_category.name ~ ".rss" %}
+  {% set rss_short = instance_host ~ "/u/" ~ owner.handle ~ "/c/" ~ active_category.name ~ ".rss" %}
   <div class="radar-category-rss">
     <span class="radar-category-rss-label">“{{ active_category.name }}” as RSS</span>
     <span class="radar-rss-pill">
