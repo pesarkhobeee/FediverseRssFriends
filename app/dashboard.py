@@ -454,10 +454,29 @@ def subscribe(
     # Feed row by fetch_one() itself and rendered as a warning chip in
     # the template, so this call never raises.
     item_count = _fetch_inline_for_new_subscription(db, feed)
-    return _partial(
+    resp = _partial(
         request, "_feed_row.html",
         sub=sub, feed=feed, item_count=item_count, just_added=True,
     )
+    # 0.11.28: also flash a top-of-page toast so success is impossible
+    # to miss (the inline "✓ Fetched N items" chip is easy to overlook
+    # when the feed appended lands off-screen). Kind = success / warn
+    # depending on whether the fetch actually delivered items.
+    resp.headers["HX-Trigger"] = _toast_trigger(
+        kind="success" if item_count else "warn",
+        text=(f"✓ Added {feed.title} — fetched {item_count} item"
+              f"{'' if item_count == 1 else 's'}") if item_count else
+             (f"⚠️ Added {feed.title} — no items yet, background refresh will retry"),
+    )
+    return resp
+
+
+def _toast_trigger(kind: str, text: str) -> str:
+    """Build the HX-Trigger JSON header value for a client-side toast.
+    kind ∈ {'success', 'warn', 'error', 'info'} — styles the toast.
+    Consumed by the rsstoast listener in base.html."""
+    import json
+    return json.dumps({"rsstoast": {"kind": kind, "text": text}})
 
 
 def _fetch_inline_for_new_subscription(db: Session, feed: Feed) -> int:
@@ -543,7 +562,15 @@ def subscribe_selected(
                 "just_added": True, "request": request,
             },
         ))
-    return HTMLResponse("\n".join(fragments))
+    resp = HTMLResponse("\n".join(fragments))
+    # 0.11.28: also flash a toast so the multi-add path confirms
+    # what actually landed on the user's radar.
+    n = len(added_rows)
+    resp.headers["HX-Trigger"] = _toast_trigger(
+        kind="success",
+        text=f"✓ Subscribed to {n} feed{'' if n == 1 else 's'} from your picks.",
+    )
+    return resp
 
 
 _CATEGORY_FOLLOW_URL_RE = re.compile(

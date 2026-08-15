@@ -192,7 +192,30 @@
       document.body.addEventListener("htmx:afterRequest", function (evt) {
         if (evt.detail && evt.detail.successful) toast.hidden = true;
       });
+
+      // 0.11.28: server-driven success/warn/info toasts via HX-Trigger.
+      // Endpoints emit an rsstoast event with {kind, text}; we style
+      // the strip accordingly and auto-dismiss after 5s.
+      var toastTimer = null;
+      var toastIcon = toast.querySelector(".net-toast-icon");
+      function setKind(kind) {
+        toast.classList.remove("net-toast-success", "net-toast-warn",
+                               "net-toast-info", "net-toast-error");
+        if (kind === "success") { toast.classList.add("net-toast-success"); toastIcon.textContent = "✓"; }
+        else if (kind === "warn") { toast.classList.add("net-toast-warn"); toastIcon.textContent = "⚠️"; }
+        else if (kind === "info") { toast.classList.add("net-toast-info"); toastIcon.textContent = "ℹ️"; }
+        else { toast.classList.add("net-toast-error"); toastIcon.textContent = "🚧"; }
+      }
+      document.body.addEventListener("rsstoast", function (evt) {
+        var d = evt.detail || {};
+        setKind(d.kind || "info");
+        show(d.text || "");
+        if (toastTimer) clearTimeout(toastTimer);
+        toastTimer = setTimeout(function () { toast.hidden = true; }, 5000);
+      });
+
       window.addEventListener("offline", function () {
+        setKind("error");
         show("You're offline. Changes won't save until you reconnect.");
       });
       window.addEventListener("online", function () { toast.hidden = true; });

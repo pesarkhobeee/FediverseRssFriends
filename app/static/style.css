@@ -652,6 +652,28 @@ img.favicon {
   from { transform: translate(-50%, .5rem); opacity: 0; }
   to   { transform: translate(-50%, 0);     opacity: 1; }
 }
+/* 0.11.28: kind-styled toasts driven by HX-Trigger rsstoast events */
+.net-toast-success {
+  background: #1F5D3A;           /* forest green */
+  color: #EAF7EF;
+  border-color: #2F7C50;
+}
+.net-toast-warn {
+  background: var(--warn-bg);
+  color: var(--warn-fg);
+  border-color: var(--warn-border);
+}
+.net-toast-info {
+  background: var(--accent-bg);
+  color: var(--warn-fg);
+  border-color: var(--accent);
+}
+.net-toast-error {
+  /* default (no modifier) — the original network-error look */
+  background: var(--toast-bg);
+  color: var(--toast-fg);
+  border-color: var(--toast-border);
+}
 
 .feed-refresh-err {
   margin-left: .5rem;

@@ -190,6 +190,13 @@ def test_subscribe_shows_fetched_confirmation_chip(monkeypatch):
     assert r.status_code == 200
     assert "feed-just-added-chip" in r.text
     assert "Fetched 7 items" in r.text
+    # 0.11.28: also emit an HX-Trigger toast so success is impossible
+    # to miss when the row appends off-screen.
+    import json
+    trigger = json.loads(r.headers["HX-Trigger"])
+    assert trigger["rsstoast"]["kind"] == "success"
+    assert "Test Blog" in trigger["rsstoast"]["text"]
+    assert "7 item" in trigger["rsstoast"]["text"]
 
 
 def test_subscribe_shows_warning_chip_on_fetch_failure(monkeypatch):
