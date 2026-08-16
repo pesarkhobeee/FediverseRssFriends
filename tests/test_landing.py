@@ -17,7 +17,7 @@ def test_landing_hero_renders_with_new_structure():
     assert r.status_code == 200
     body = r.text
     assert "Your RSS," in body                 # h1
-    assert "A social radar for the open web" in body  # eyebrow
+    assert "A social, RSS-friendly radar for the open web" in body  # eyebrow
     assert "Send magic link" in body           # inline signup CTA
     assert 'id="landing-signup"' in body       # HTMX target
     assert "landing-features" in body          # feature grid section

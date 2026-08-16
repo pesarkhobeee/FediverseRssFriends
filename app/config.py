@@ -76,7 +76,7 @@ ADMIN_HANDLES: list[str] = [
 INSTANCE_NAME: str = os.getenv("RSSFRIENDS_INSTANCE_NAME", "rssFriends")
 INSTANCE_TAGLINE: str = os.getenv(
     "RSSFRIENDS_INSTANCE_TAGLINE",
-    "A social radar for the open web",
+    "A social, RSS-friendly radar for the open web",
 )
 INSTANCE_DESCRIPTION: str = os.getenv(
     "RSSFRIENDS_INSTANCE_DESCRIPTION",

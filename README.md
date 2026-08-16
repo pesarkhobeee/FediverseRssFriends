@@ -1,6 +1,6 @@
 # rssFriends
 
-**A social radar for the open web.** Watch the feeds and people you trust; share what caught your eye. No backlog, no unread counters, no algorithm — just signals worth catching.
+**A social, RSS-friendly radar for the open web.** Watch the feeds and people you trust; share what caught your eye. No backlog, no unread counters, no algorithm — just signals worth catching.
 
 Self-hosted, magic-link auth, one SQLite file. Curate feeds by category, share your radar publicly, follow other users, bookmark items, expose your activity as an RSS feed, and — since v0.11.x — **federate with Mastodon and other rssFriends instances via ActivityPub**.
 

@@ -16,7 +16,7 @@ unread counters, no backlog, no algorithm. Copy should:
   urgency. If a user hasn't checked in for a week, that's fine; the
   radar doesn't accumulate shame.
 
-Tagline: **"A social radar for the open web."**
+Tagline: **"A social, RSS-friendly radar for the open web."**
 
 ## Visual identity
 
