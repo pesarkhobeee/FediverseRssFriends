@@ -2,7 +2,10 @@ __pycache__/
 *.py[cod]
 .venv/
 .env
-.env.*
+.env.local
+.env.*.local
+# `.env.example` MUST stay tracked — it's the config template every
+# self-hoster reads. Previously wiped by the `.env.*` blanket rule.
 data/
 backups/
 *.db
