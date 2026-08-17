@@ -245,3 +245,74 @@ def test_feed_hides_add_pill_when_viewer_already_subscribed():
     # b's activity row is present but pill is not (viewer already subs).
     assert "@b" in r.text
     assert "Add to my radar" not in r.text
+
+
+def _seed_remote_note_for(email: str):
+    """Create a RemoteActor + RemoteFollowing(accepted) + RemoteItem so
+    the given user's timeline includes one fediverse note."""
+    import app.db as db_mod
+    with Session(db_mod.engine) as s:
+        u = s.exec(select(db_mod.User).where(db_mod.User.email == email)).one()
+        ra = db_mod.RemoteActor(
+            actor_url="https://mastodon.example/users/simon",
+            inbox_url="https://mastodon.example/users/simon/inbox",
+            public_key_pem="-----BEGIN PUBLIC KEY-----\nx\n-----END PUBLIC KEY-----",
+            preferred_username="simon",
+            display_name="Simon",
+        )
+        s.add(ra)
+        s.commit()
+        s.refresh(ra)
+        s.add(db_mod.RemoteFollowing(
+            user_id=u.id, remote_actor_id=ra.id,
+            follow_activity_id="https://local.test/activities/1",
+            accepted_at=datetime.now(UTC),
+        ))
+        s.add(db_mod.RemoteItem(
+            remote_actor_id=ra.id,
+            ap_note_id="https://mastodon.example/notes/1",
+            content_html="<p>hello from the fediverse</p>",
+            note_url="https://mastodon.example/notes/1",
+            published_at=datetime.now(UTC) - timedelta(hours=1),
+        ))
+        s.commit()
+
+
+def test_feed_no_source_chips_without_fediverse_items():
+    """A user with only local activity shouldn't see the chip row —
+    it would just be visual clutter."""
+    a = _client()
+    _login(a, "a@e.com")
+    r = a.get("/feed")
+    assert r.status_code == 200
+    assert 'class="feed-src-filter"' not in r.text
+
+
+def test_feed_source_chips_render_when_fediverse_present():
+    a = _client()
+    _login(a, "a@e.com")
+    _seed_remote_note_for("a@e.com")
+    r = a.get("/feed")
+    assert r.status_code == 200
+    assert 'class="feed-src-filter"' in r.text
+    assert "hello from the fediverse" in r.text
+
+
+def test_feed_src_local_hides_remote_notes():
+    a = _client()
+    _login(a, "a@e.com")
+    _seed_remote_note_for("a@e.com")
+    r = a.get("/feed?src=local")
+    assert r.status_code == 200
+    assert "hello from the fediverse" not in r.text
+    # Chip row still rendered, and "local" is the active tab.
+    assert "feed-src-chip-active" in r.text
+
+
+def test_feed_src_fediverse_shows_only_remote_notes():
+    a = _client()
+    _login(a, "a@e.com")
+    _seed_remote_note_for("a@e.com")
+    r = a.get("/feed?src=fediverse")
+    assert r.status_code == 200
+    assert "hello from the fediverse" in r.text

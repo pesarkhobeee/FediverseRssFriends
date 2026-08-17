@@ -2502,3 +2502,51 @@ img.favicon {
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .collection-rss-url:hover { text-decoration: underline; }
+
+/* 0.11.41: source-filter chip row on /feed. Follows the same visual
+   pattern as .collections-lang-chip — pill outline, filled on active.
+   The Fediverse chip uses the --fedi accent so it visually pairs with
+   the violet-bordered remote_note cards below. */
+.feed-src-filter {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  margin: 10px 0 4px;
+}
+.feed-src-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 13px; font-weight: 500;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 99px;
+  padding: 5px 12px;
+  text-decoration: none;
+  transition: background 120ms ease-out, color 120ms ease-out, border-color 120ms ease-out;
+}
+.feed-src-chip:hover {
+  color: var(--fg); border-color: var(--muted); text-decoration: none;
+}
+.feed-src-chip-active {
+  background: var(--fg); color: var(--bg);
+  border-color: var(--fg); font-weight: 600;
+}
+.feed-src-chip-active:hover { color: var(--bg); }
+
+.feed-src-chip-fedi { color: var(--fedi-fg); border-color: var(--fedi-border); }
+.feed-src-chip-fedi:hover { color: var(--fedi); border-color: var(--fedi); }
+.feed-src-chip-fedi.feed-src-chip-active {
+  background: var(--fedi); color: #fff; border-color: var(--fedi);
+}
+.feed-src-chip-fedi.feed-src-chip-active:hover { color: #fff; }
+
+.feed-src-count {
+  font-size: 11px; font-weight: 600;
+  padding: 1px 7px; border-radius: 99px;
+  background: var(--bg); color: var(--muted);
+  border: 1px solid var(--border);
+  min-width: 18px; text-align: center;
+}
+.feed-src-chip-active .feed-src-count {
+  background: rgba(255,255,255,0.18);
+  color: inherit;
+  border-color: transparent;
+}

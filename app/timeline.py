@@ -245,12 +245,37 @@ def _load_timeline(db: Session, user: User) -> dict:
     }
 
 
+# 0.11.41: Friends-timeline source filter. Values are the exact
+# strings we accept in ?src= and render in the chip row.
+FEED_SRC_VALUES = ("all", "local", "fediverse")
+
+
 @router.get("/feed", response_class=HTMLResponse)
 def home_timeline(
     request: Request,
+    src: str = "all",
     user: User = Depends(login_required),
     db: Session = Depends(get_session),
 ):
     ctx = _load_timeline(db, user)
+    # Compute counts BEFORE filtering so the chip badges show the full
+    # total for each source, not the post-filter count.
+    all_entries = ctx["entries"]
+    n_local = sum(1 for e in all_entries if e.get("kind") != "remote_note")
+    n_fedi = len(all_entries) - n_local
+
+    src = src if src in FEED_SRC_VALUES else "all"
+    if src == "local":
+        ctx["entries"] = [e for e in all_entries if e.get("kind") != "remote_note"]
+    elif src == "fediverse":
+        ctx["entries"] = [e for e in all_entries if e.get("kind") == "remote_note"]
+    # else: "all" — keep the merged list as-is
+
     ctx["user"] = user
+    ctx["feed_src"] = src
+    ctx["feed_src_counts"] = {
+        "all": len(all_entries),
+        "local": n_local,
+        "fediverse": n_fedi,
+    }
     return templates.TemplateResponse(request, "timeline.html", ctx)

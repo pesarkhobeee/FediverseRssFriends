@@ -15,6 +15,29 @@
   </p>
 </section>
 
+{# 0.11.41: source filter — show only local activity, only fediverse
+   toots, or both. Only rendered if the viewer has at least one
+   fediverse follower so the chip row doesn't clutter empty timelines. #}
+{% if feed_src_counts.fediverse or feed_src == "fediverse" %}
+<div class="feed-src-filter" role="tablist" aria-label="Source">
+  <a class="feed-src-chip {% if feed_src == 'all' %}feed-src-chip-active{% endif %}"
+     href="/feed">
+    All
+    <span class="feed-src-count">{{ feed_src_counts.all }}</span>
+  </a>
+  <a class="feed-src-chip {% if feed_src == 'local' %}feed-src-chip-active{% endif %}"
+     href="/feed?src=local">
+    {{ instance_name }}
+    <span class="feed-src-count">{{ feed_src_counts.local }}</span>
+  </a>
+  <a class="feed-src-chip feed-src-chip-fedi {% if feed_src == 'fediverse' %}feed-src-chip-active{% endif %}"
+     href="/feed?src=fediverse">
+    🌐 Fediverse
+    <span class="feed-src-count">{{ feed_src_counts.fediverse }}</span>
+  </a>
+</div>
+{% endif %}
+
 {% if entries %}
 <ul class="fav-list">
   {% for e in entries %}
@@ -99,6 +122,26 @@
 </ul>
 {% else %}
 <section class="onboard-card">
+  {% if feed_src == "local" and feed_src_counts.all %}
+    {# Filtered view, but the other bucket has items. #}
+    <h2 style="margin-top:0">Nothing from {{ instance_name }} yet</h2>
+    <p class="muted" style="margin:.25rem 0 1rem">
+      No native activity from the people you follow on this instance
+      in the last 30 days. There are
+      <strong>{{ feed_src_counts.fediverse }}</strong> fediverse post{{ '' if feed_src_counts.fediverse == 1 else 's' }}
+      you could show instead — <a href="/feed?src=fediverse">flip to Fediverse</a>
+      or <a href="/feed">show all</a>.
+    </p>
+  {% elif feed_src == "fediverse" and feed_src_counts.all %}
+    <h2 style="margin-top:0">Nothing from the fediverse yet</h2>
+    <p class="muted" style="margin:.25rem 0 1rem">
+      The accounts you follow via ActivityPub haven't posted in the
+      last 30 days. There are <strong>{{ feed_src_counts.local }}</strong>
+      {{ instance_name }} post{{ '' if feed_src_counts.local == 1 else 's' }}
+      you could show instead — <a href="/feed?src=local">flip to {{ instance_name }}</a>
+      or <a href="/feed">show all</a>.
+    </p>
+  {% else %}
   <h2 style="margin-top:0">Your Friends page is quiet</h2>
   <p class="muted" style="margin:.25rem 0 1rem">
     This page shows what people you follow are doing — the items
@@ -117,6 +160,7 @@
     Following someone on Mastodon or another {{ instance_name }} instance?
     <a href="/help#fediverse">How it works →</a>
   </p>
+  {% endif %}
 </section>
 {% endif %}
 {% endblock %}
