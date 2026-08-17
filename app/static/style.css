@@ -2551,10 +2551,16 @@ img.favicon {
   border-color: transparent;
 }
 
-/* 0.11.42: cursor-based pagination footer on /feed. Sits below the
-   entry list, gives room to breathe from the last card. */
+/* 0.11.42/43: cursor-based "Load more" footer on /feed. HTMX swaps
+   this whole block out for the next batch + a fresh button. */
 .feed-pager {
   display: flex; justify-content: center;
   margin: 20px 0 4px;
 }
 .feed-pager-older { min-width: 160px; text-align: center; }
+
+/* HTMX inline spinner: hidden by default, shown while the request is
+   in flight via the htmx-request class. */
+.feed-pager-spinner { display: none; margin-left: 6px; opacity: .7; }
+.feed-pager-older.htmx-request .feed-pager-label { opacity: .5; }
+.feed-pager-older.htmx-request .feed-pager-spinner { display: inline; }

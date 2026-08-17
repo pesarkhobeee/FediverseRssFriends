@@ -368,9 +368,10 @@ def _seed_bookmarks_for_followee(follower_email: str, followee_email: str, n: in
     return a, item_ids
 
 
-def test_feed_paginates_with_older_link():
+def test_feed_paginates_with_load_more_link():
     """With more than one page of activity, the first page renders a
-    cursor-based 'Older posts →' link that preserves paging state."""
+    cursor-based 'Load more' button that preserves paging state, and
+    also carries HTMX attributes for inline append."""
     a, item_ids = _seed_bookmarks_for_followee("a@e.com", "b@e.com", 30)
     r = a.get("/feed")
     assert r.status_code == 200
@@ -378,15 +379,18 @@ def test_feed_paginates_with_older_link():
     assert "Item 0" in r.text
     assert "Item 24" in r.text
     assert "Item 25" not in r.text
-    # Older link present, carries a before= cursor.
-    assert "Older posts" in r.text
+    # Load-more button present with both a JS-off href AND HTMX attrs
+    # pointing at the partial endpoint.
+    assert "Load more" in r.text
     assert "before=" in r.text
+    assert "hx-get=" in r.text
+    assert "partial=1" in r.text
 
 
 def test_feed_second_page_shows_older_entries():
     a, item_ids = _seed_bookmarks_for_followee("a@e.com", "b@e.com", 30)
     r = a.get("/feed")
-    # Pull the cursor out of the Older link.
+    # Pull the cursor out of the Load-more link (href, not hx-get).
     import re
     m = re.search(r'href="/feed\?before=([^"&]+)', r.text)
     assert m, "expected cursor link on first page"
@@ -399,8 +403,23 @@ def test_feed_second_page_shows_older_entries():
     # Second page shows the tail we didn't see on page 1.
     assert "Item 25" in r2.text
     assert "Item 29" in r2.text
-    # And no more Older link (5 items < page size).
-    assert "Older posts" not in r2.text
+    # And no more Load-more button (5 items < page size).
+    assert "Load more" not in r2.text
+
+
+def test_feed_partial_returns_just_the_fragment():
+    """?partial=1 skips the base layout — used by HTMX to append inline
+    when 'Load more' is clicked. Must contain the entries but NOT the
+    surrounding page chrome (<html>, hero section, chip row)."""
+    a, _ = _seed_bookmarks_for_followee("a@e.com", "b@e.com", 30)
+    r = a.get("/feed?partial=1")
+    assert r.status_code == 200
+    assert "Item 0" in r.text
+    # Fragment: no <html> shell, no hero heading.
+    assert "<html" not in r.text
+    assert "👥 Friends" not in r.text
+    # Still carries a load-more button pointing at the next cursor.
+    assert "Load more" in r.text
 
 
 def test_feed_paginated_past_end_is_not_the_empty_onboarding():

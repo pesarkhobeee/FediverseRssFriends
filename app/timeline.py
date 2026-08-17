@@ -284,6 +284,7 @@ def home_timeline(
     request: Request,
     src: str = "all",
     before: str | None = None,
+    partial: int = 0,
     user: User = Depends(login_required),
     db: Session = Depends(get_session),
 ):
@@ -323,4 +324,7 @@ def home_timeline(
     }
     ctx["feed_next_before"] = next_before
     ctx["feed_before"] = before if before_dt is not None else None
-    return templates.TemplateResponse(request, "timeline.html", ctx)
+    # 0.11.43: ?partial=1 returns just the entries-and-load-more
+    # fragment, used by the HTMX "Load more" button to append inline.
+    template = "_timeline_page.html" if partial else "timeline.html"
+    return templates.TemplateResponse(request, template, ctx)

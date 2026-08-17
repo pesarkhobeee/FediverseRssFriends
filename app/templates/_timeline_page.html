@@ -1,0 +1,97 @@
+{# One page of the /feed timeline: the entries + a Load-more button.
+   Used both by the full page (via {% include %}) and returned on its
+   own for HTMX "Load more" swaps.
+
+   `avatar` must be imported here (not just in timeline.html) because
+   when this partial is rendered on its own for ?partial=1, it doesn't
+   inherit imports from the enclosing template. #}
+{% from "_avatar.html" import avatar %}
+{% if entries %}
+<ul class="fav-list">
+  {% for e in entries %}
+    {% if e.kind == "remote_note" %}
+      <li class="fav-item fav-item-remote">
+        <div class="fav-head">
+          <span aria-hidden="true">🐘</span>
+          <span>
+            <a class="title remote-actor-handle" href="{{ e.remote_actor.actor_url }}"
+               target="_blank" rel="noopener">
+              @{{ e.remote_actor.preferred_username or "?" }}
+            </a>
+            <span class="muted">·</span>
+            <span class="chip small source-chip source-chip-remote">{{ e.remote_actor.actor_url|source_domain }}</span>
+          </span>
+          <span class="spacer"></span>
+          <a class="muted" href="{{ e.note.note_url }}" target="_blank"
+             rel="noopener" style="font-size:.85rem">
+            {{ e.ts|relative_time }} ↗
+          </a>
+        </div>
+        <div class="prose remote-note-body">
+          {{ e.note.content_html|safe }}
+        </div>
+      </li>
+    {% else %}
+    <li class="fav-item{% if e.activity.subject_url %} item-clickable{% endif %}">
+      <div class="fav-head">
+        {% if e.actor %}
+          {{ avatar(e.actor.handle, size=32) }}
+        {% endif %}
+        <span aria-hidden="true">{{ kind_icon.get(e.activity.kind, '') }}</span>
+        <span>
+          {% if e.actor %}
+            <a class="title" href="/u/{{ e.actor.handle }}">@{{ e.actor.handle }}</a>
+          {% else %}
+            <span class="title">someone</span>
+          {% endif %}
+          {% if e.viewer_note %}
+            <span class="viewer-note muted" title="Your private note">— {{ e.viewer_note }}</span>
+          {% endif %}
+          {% if e.activity.kind == "posted" and e.activity.subject_url %}
+            <span class="chip small source-chip">{{ e.activity.subject_url|source_domain }}</span>
+          {% endif %}
+          <span class="muted">{{ kind_verb.get(e.activity.kind, e.activity.kind) }}</span>
+          {% if e.activity.subject_url %}
+            <a class="item-title" href="{{ e.activity.subject_url }}"
+               {% if e.activity.subject_url.startswith('http') %}target="_blank" rel="noopener"{% endif %}>
+              {{ e.activity.subject }}
+            </a>
+          {% else %}
+            <span class="item-title">{{ e.activity.subject }}</span>
+          {% endif %}
+        </span>
+        <span class="spacer"></span>
+        {% if e.feed and e.cta_state == "available" %}
+          <span class="timeline-cta">
+            {% with feed=e.feed, state=e.cta_state %}
+              {% include "_feed_cta.html" %}
+            {% endwith %}
+          </span>
+        {% endif %}
+        <span class="muted" style="font-size:.85rem">{{ e.ts|relative_time }}</span>
+      </div>
+    </li>
+    {% endif %}
+  {% endfor %}
+</ul>
+{% endif %}
+
+{# Load-more button. The href is a real navigable URL so JS-off users
+   still get pagination via a full page load; the hx-* attrs turn it
+   into an inline append when JS is on. The button targets its own
+   wrapping <div>, so on swap the returned fragment (a fresh <ul> +
+   this same <div> with the next cursor, or nothing at end) replaces
+   just the button. #}
+{% if feed_next_before %}
+<div class="feed-pager" aria-label="Timeline pagination">
+  <a class="btn-ghost feed-pager-older"
+     href="/feed?before={{ feed_next_before|urlencode }}{% if feed_src != 'all' %}&src={{ feed_src }}{% endif %}"
+     hx-get="/feed?before={{ feed_next_before|urlencode }}{% if feed_src != 'all' %}&src={{ feed_src }}{% endif %}&partial=1"
+     hx-target="closest .feed-pager"
+     hx-swap="outerHTML"
+     hx-indicator="this">
+    <span class="feed-pager-label">Load more</span>
+    <span class="feed-pager-spinner" aria-hidden="true">…</span>
+  </a>
+</div>
+{% endif %}
