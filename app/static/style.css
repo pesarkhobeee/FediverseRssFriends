@@ -42,6 +42,15 @@
   --warn-bg: #F7E8DD;
   --warn-fg: #7A3A1E;
   --warn-border: #E8C9B0;
+  /* 0.11.40: "from the fediverse" accent. Violet on cream reads
+     distinctly against the burnt-orange primary — friends timeline
+     uses this to mark entries delivered via ActivityPub from a
+     remote actor (Mastodon/Pleroma/another rssFriends instance)
+     versus native activity from a local user. */
+  --fedi:        #6E56CF;
+  --fedi-fg:     #4A3AA0;
+  --fedi-bg:     #F1EEFB;
+  --fedi-border: #D9CFF3;
   --toast-bg: #221B12;
   --toast-fg: #F7F0E0;
   --toast-border: #4A3A24;
@@ -74,6 +83,12 @@
   --toast-bg: #2F2820;
   --toast-fg: #F0E8D8;
   --toast-border: #4A3F30;
+  /* 0.11.40: dark-theme fediverse tokens. Same violet family,
+     shifted for legibility on the warm-charcoal bg. */
+  --fedi:        #A796F0;
+  --fedi-fg:     #C8BDF5;
+  --fedi-bg:     #2A2440;
+  --fedi-border: #4A3F70;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
@@ -99,6 +114,10 @@
     --warn-bg: #2F241C;
     --warn-fg: #E8B088;
     --warn-border: #4A3A2C;
+    --fedi:        #A796F0;
+    --fedi-fg:     #C8BDF5;
+    --fedi-bg:     #2A2440;
+    --fedi-border: #4A3F70;
     --toast-bg: #2F2820;
     --toast-fg: #F0E8D8;
     --toast-border: #4A3F30;
@@ -715,6 +734,39 @@ img.favicon {
 .fav-item + .fav-item { margin-top: 12px; }
 .fav-head { display: flex; align-items: center; gap: .55rem; margin-bottom: .25rem; }
 .fav-source { font-size: .85rem; }
+
+/* 0.11.40: friends-timeline entries that arrived over ActivityPub
+   (Notes from remote actors we follow) get a violet accent so
+   viewers can tell at a glance the post came from OUTSIDE this
+   instance. The rest of the layout is unchanged — same card shell,
+   same padding, same hover — only the palette shifts. */
+.fav-item-remote {
+  background: var(--fedi-bg);
+  border-color: var(--fedi-border);
+  border-left: 3px solid var(--fedi);
+  padding-left: calc(1rem - 2px);   /* keep visual left edge aligned */
+}
+.fav-item-remote .remote-actor-handle {
+  color: var(--fedi-fg);
+}
+.fav-item-remote .remote-actor-handle:hover {
+  color: var(--fedi);
+  text-decoration: underline;
+}
+.fav-item-remote .source-chip-remote {
+  background: var(--fedi);
+  color: var(--fedi-bg);
+  border-color: var(--fedi);
+}
+.remote-note-body {
+  margin: .4rem 0 0 2.2rem;
+  font-size: .95rem;
+  color: var(--fg);
+}
+/* Links inside the toot body pick up the fedi color too so they
+   don't clash with the burnt-orange primary link. */
+.fav-item-remote .remote-note-body a { color: var(--fedi-fg); }
+.fav-item-remote .remote-note-body a:hover { color: var(--fedi); }
 
 /* Whole-card click target (stretched-link pattern).
    Applied additively via `.item-clickable`. The visible `.item-title`

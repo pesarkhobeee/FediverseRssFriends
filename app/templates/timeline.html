@@ -19,17 +19,20 @@
 <ul class="fav-list">
   {% for e in entries %}
     {% if e.kind == "remote_note" %}
-      {# 0.11.30 (M10): Note from a remote AP actor we follow. #}
-      <li class="fav-item">
+      {# 0.11.30 (M10): Note from a remote AP actor we follow.
+         0.11.40: fav-item-remote gives it a violet accent + tint so
+         viewers can tell at a glance the entry came from outside
+         this instance, not from a local rssFriends user. #}
+      <li class="fav-item fav-item-remote">
         <div class="fav-head">
           <span aria-hidden="true">🐘</span>
           <span>
-            <a class="title" href="{{ e.remote_actor.actor_url }}"
+            <a class="title remote-actor-handle" href="{{ e.remote_actor.actor_url }}"
                target="_blank" rel="noopener">
               @{{ e.remote_actor.preferred_username or "?" }}
             </a>
             <span class="muted">·</span>
-            <span class="chip small source-chip">{{ e.remote_actor.actor_url|source_domain }}</span>
+            <span class="chip small source-chip source-chip-remote">{{ e.remote_actor.actor_url|source_domain }}</span>
           </span>
           <span class="spacer"></span>
           <a class="muted" href="{{ e.note.note_url }}" target="_blank"
@@ -37,7 +40,7 @@
             {{ e.ts|relative_time }} ↗
           </a>
         </div>
-        <div class="prose" style="margin:.4rem 0 0 2.2rem; font-size:.95rem">
+        <div class="prose remote-note-body">
           {{ e.note.content_html|safe }}
         </div>
       </li>
