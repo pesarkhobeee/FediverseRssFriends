@@ -120,9 +120,30 @@
     {% endif %}
   {% endfor %}
 </ul>
+
+{# 0.11.42: cursor pagination. `feed_next_before` is the ISO timestamp
+   of the last entry on this page; the next page asks for entries
+   strictly older than that. Preserves the active src filter. #}
+{% if feed_next_before %}
+<nav class="feed-pager" aria-label="Timeline pagination">
+  <a class="btn-ghost feed-pager-older"
+     href="/feed?before={{ feed_next_before|urlencode }}{% if feed_src != 'all' %}&src={{ feed_src }}{% endif %}">
+    Older posts →
+  </a>
+</nav>
+{% endif %}
+
 {% else %}
 <section class="onboard-card">
-  {% if feed_src == "local" and feed_src_counts.all %}
+  {% if feed_before %}
+    {# Walked past the end of the paginated timeline. #}
+    <h2 style="margin-top:0">You've reached the end</h2>
+    <p class="muted" style="margin:.25rem 0 1rem">
+      No older posts from this window
+      ({% if feed_src == "fediverse" %}fediverse only{% elif feed_src == "local" %}{{ instance_name }} only{% else %}last 30 days{% endif %}).
+      <a href="/feed{% if feed_src != 'all' %}?src={{ feed_src }}{% endif %}">← Back to top</a>
+    </p>
+  {% elif feed_src == "local" and feed_src_counts.all %}
     {# Filtered view, but the other bucket has items. #}
     <h2 style="margin-top:0">Nothing from {{ instance_name }} yet</h2>
     <p class="muted" style="margin:.25rem 0 1rem">

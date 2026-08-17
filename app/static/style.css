@@ -2550,3 +2550,11 @@ img.favicon {
   color: inherit;
   border-color: transparent;
 }
+
+/* 0.11.42: cursor-based pagination footer on /feed. Sits below the
+   entry list, gives room to breathe from the last card. */
+.feed-pager {
+  display: flex; justify-content: center;
+  margin: 20px 0 4px;
+}
+.feed-pager-older { min-width: 160px; text-align: center; }

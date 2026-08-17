@@ -37,6 +37,10 @@ router = APIRouter()
 
 FEED_WINDOW_DAYS = 30
 FEED_LIMIT = 100
+# 0.11.42: page size for cursor pagination on /feed. Small enough that
+# each page loads quickly; large enough that active users don't feel
+# the need to paginate constantly.
+FEED_PAGE_SIZE = 25
 
 
 def _aware(dt: datetime | None) -> datetime:
@@ -45,7 +49,9 @@ def _aware(dt: datetime | None) -> datetime:
     return dt if dt.tzinfo is not None else dt.replace(tzinfo=UTC)
 
 
-def _load_timeline(db: Session, user: User) -> dict:
+def _load_timeline(
+    db: Session, user: User, before: datetime | None = None
+) -> dict:
     cutoff = datetime.now(UTC) - timedelta(days=FEED_WINDOW_DAYS)
 
     # Who am I following (approved only)?
@@ -64,12 +70,15 @@ def _load_timeline(db: Session, user: User) -> dict:
     seen_activity_ids: set[int] = set()
     entries: list[dict] = []
     if followee_ids:
-        rows = db.exec(
+        q = (
             select(Activity)
             .where(Activity.user_id.in_(followee_ids))
             .where(Activity.created_at >= cutoff)
-            .order_by(Activity.created_at.desc())
-            .limit(FEED_LIMIT)
+        )
+        if before is not None:
+            q = q.where(Activity.created_at < before)
+        rows = db.exec(
+            q.order_by(Activity.created_at.desc()).limit(FEED_LIMIT)
         ).all()
         for ev in rows:
             seen_activity_ids.add(ev.id)
@@ -104,17 +113,15 @@ def _load_timeline(db: Session, user: User) -> dict:
         # For bookmarked (ref_type='item'), ref_id is a FeedItem — we need
         # to filter by item.feed_id. For subscribed (ref_type='feed'),
         # ref_id IS the feed_id.
-        subs_rows = db.exec(
+        subs_q = (
             select(Activity)
             .where(Activity.user_id == cat.user_id)
             .where(Activity.kind == "subscribed")
             .where(Activity.ref_type == "feed")
             .where(Activity.ref_id.in_(feed_ids))
             .where(Activity.created_at >= cutoff)
-            .order_by(Activity.created_at.desc())
-            .limit(FEED_LIMIT)
-        ).all()
-        fav_rows = db.exec(
+        )
+        fav_q = (
             select(Activity)
             .join(FeedItem, FeedItem.id == Activity.ref_id)
             .where(Activity.user_id == cat.user_id)
@@ -122,8 +129,15 @@ def _load_timeline(db: Session, user: User) -> dict:
             .where(Activity.ref_type == "item")
             .where(FeedItem.feed_id.in_(feed_ids))
             .where(Activity.created_at >= cutoff)
-            .order_by(Activity.created_at.desc())
-            .limit(FEED_LIMIT)
+        )
+        if before is not None:
+            subs_q = subs_q.where(Activity.created_at < before)
+            fav_q = fav_q.where(Activity.created_at < before)
+        subs_rows = db.exec(
+            subs_q.order_by(Activity.created_at.desc()).limit(FEED_LIMIT)
+        ).all()
+        fav_rows = db.exec(
+            fav_q.order_by(Activity.created_at.desc()).limit(FEED_LIMIT)
         ).all()
         actor = handle_by_id.get(cat.user_id)
         if actor is None:
@@ -144,7 +158,7 @@ def _load_timeline(db: Session, user: User) -> dict:
     # 0.11.30 (M10): mix in Notes from remote actors we follow via
     # ActivityPub. RemoteItem rows are populated by the inbox handler
     # when a Mastodon (etc.) account we follow toots.
-    remote_rows = db.exec(
+    remote_q = (
         select(RemoteItem, RemoteActor)
         .join(RemoteActor, RemoteActor.id == RemoteItem.remote_actor_id)
         .join(RemoteFollowing,
@@ -152,8 +166,11 @@ def _load_timeline(db: Session, user: User) -> dict:
         .where(RemoteFollowing.user_id == user.id)
         .where(RemoteFollowing.accepted_at.is_not(None))
         .where(RemoteItem.published_at >= cutoff)
-        .order_by(RemoteItem.published_at.desc())
-        .limit(FEED_LIMIT)
+    )
+    if before is not None:
+        remote_q = remote_q.where(RemoteItem.published_at < before)
+    remote_rows = db.exec(
+        remote_q.order_by(RemoteItem.published_at.desc()).limit(FEED_LIMIT)
     ).all()
     for it, ra in remote_rows:
         entries.append({
@@ -250,27 +267,53 @@ def _load_timeline(db: Session, user: User) -> dict:
 FEED_SRC_VALUES = ("all", "local", "fediverse")
 
 
+def _parse_before(raw: str | None) -> datetime | None:
+    """Parse the ?before= cursor (ISO-8601, produced by us). Silently
+    drops garbage — the worst outcome is a user seeing page 1 again."""
+    if not raw:
+        return None
+    try:
+        dt = datetime.fromisoformat(raw)
+    except ValueError:
+        return None
+    return dt if dt.tzinfo is not None else dt.replace(tzinfo=UTC)
+
+
 @router.get("/feed", response_class=HTMLResponse)
 def home_timeline(
     request: Request,
     src: str = "all",
+    before: str | None = None,
     user: User = Depends(login_required),
     db: Session = Depends(get_session),
 ):
-    ctx = _load_timeline(db, user)
+    before_dt = _parse_before(before)
+    ctx = _load_timeline(db, user, before=before_dt)
     # Compute counts BEFORE filtering so the chip badges show the full
-    # total for each source, not the post-filter count.
+    # total for each source, not the post-filter count. When paginating,
+    # counts reflect what's on THIS page — that's the honest signal
+    # (chip badge = "how much of what you're looking at is fedi").
     all_entries = ctx["entries"]
     n_local = sum(1 for e in all_entries if e.get("kind") != "remote_note")
     n_fedi = len(all_entries) - n_local
 
     src = src if src in FEED_SRC_VALUES else "all"
     if src == "local":
-        ctx["entries"] = [e for e in all_entries if e.get("kind") != "remote_note"]
+        filtered = [e for e in all_entries if e.get("kind") != "remote_note"]
     elif src == "fediverse":
-        ctx["entries"] = [e for e in all_entries if e.get("kind") == "remote_note"]
-    # else: "all" — keep the merged list as-is
+        filtered = [e for e in all_entries if e.get("kind") == "remote_note"]
+    else:
+        filtered = all_entries
 
+    # Slice to a page. If we have MORE than a page's worth of matching
+    # entries, expose a cursor pointing at the last kept entry's ts —
+    # the next request will ask for entries strictly older than that.
+    page = filtered[:FEED_PAGE_SIZE]
+    next_before = None
+    if len(filtered) > FEED_PAGE_SIZE:
+        next_before = page[-1]["ts"].isoformat()
+
+    ctx["entries"] = page
     ctx["user"] = user
     ctx["feed_src"] = src
     ctx["feed_src_counts"] = {
@@ -278,4 +321,6 @@ def home_timeline(
         "local": n_local,
         "fediverse": n_fedi,
     }
+    ctx["feed_next_before"] = next_before
+    ctx["feed_before"] = before if before_dt is not None else None
     return templates.TemplateResponse(request, "timeline.html", ctx)

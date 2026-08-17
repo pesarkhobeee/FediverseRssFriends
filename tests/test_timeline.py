@@ -316,3 +316,101 @@ def test_feed_src_fediverse_shows_only_remote_notes():
     r = a.get("/feed?src=fediverse")
     assert r.status_code == 200
     assert "hello from the fediverse" in r.text
+
+
+def _seed_bookmarks_for_followee(follower_email: str, followee_email: str, n: int):
+    """Have follower→follow followee, then create n bookmark events on
+    followee with descending timestamps. Returns the list of item ids
+    in newest-first order."""
+    import app.activity as act
+    import app.db as db_mod
+
+    fol = _client()
+    _login(fol, followee_email)
+    a = _client()
+    _login(a, follower_email)
+    a.post(f"/u/{followee_email.split('@')[0]}/follow")
+
+    item_ids = []
+    with Session(db_mod.engine) as s:
+        followee = s.exec(
+            select(db_mod.User).where(db_mod.User.email == followee_email)
+        ).one()
+        feed = db_mod.Feed(url=f"https://ex.example/{followee_email}", title="Ex")
+        s.add(feed)
+        s.commit()
+        s.refresh(feed)
+        now = datetime.now(UTC)
+        for i in range(n):
+            item = db_mod.FeedItem(
+                feed_id=feed.id, guid=f"urn:{i}", title=f"Item {i}",
+                link=f"https://ex.example/{i}",
+                published_at=now - timedelta(minutes=i),
+            )
+            s.add(item)
+            s.commit()
+            s.refresh(item)
+            item_ids.append(item.id)
+            # Backdate the activity row to ensure a strict order.
+            act.record(
+                s, followee, "bookmarked", item.title,
+                subject_url=item.link, ref_type="item", ref_id=item.id,
+            )
+            s.commit()
+            ev = s.exec(
+                select(db_mod.Activity)
+                .where(db_mod.Activity.user_id == followee.id)
+                .where(db_mod.Activity.ref_id == item.id)
+            ).one()
+            ev.created_at = now - timedelta(minutes=i)
+            s.add(ev)
+            s.commit()
+    return a, item_ids
+
+
+def test_feed_paginates_with_older_link():
+    """With more than one page of activity, the first page renders a
+    cursor-based 'Older posts →' link that preserves paging state."""
+    a, item_ids = _seed_bookmarks_for_followee("a@e.com", "b@e.com", 30)
+    r = a.get("/feed")
+    assert r.status_code == 200
+    # First page shows the newest 25 items, and NOT the tail.
+    assert "Item 0" in r.text
+    assert "Item 24" in r.text
+    assert "Item 25" not in r.text
+    # Older link present, carries a before= cursor.
+    assert "Older posts" in r.text
+    assert "before=" in r.text
+
+
+def test_feed_second_page_shows_older_entries():
+    a, item_ids = _seed_bookmarks_for_followee("a@e.com", "b@e.com", 30)
+    r = a.get("/feed")
+    # Pull the cursor out of the Older link.
+    import re
+    m = re.search(r'href="/feed\?before=([^"&]+)', r.text)
+    assert m, "expected cursor link on first page"
+    # Cursor is URL-encoded in the link (contains '+' from tz offset).
+    # Pass it through verbatim — httpx will not re-encode.
+    cursor_encoded = m.group(1)
+
+    r2 = a.get(f"/feed?before={cursor_encoded}")
+    assert r2.status_code == 200
+    # Second page shows the tail we didn't see on page 1.
+    assert "Item 25" in r2.text
+    assert "Item 29" in r2.text
+    # And no more Older link (5 items < page size).
+    assert "Older posts" not in r2.text
+
+
+def test_feed_paginated_past_end_is_not_the_empty_onboarding():
+    a, _ = _seed_bookmarks_for_followee("a@e.com", "b@e.com", 3)
+    # Cursor set to way in the past → no matching entries.
+    from urllib.parse import quote
+    far_past = (datetime.now(UTC) - timedelta(days=365)).isoformat()
+    r = a.get(f"/feed?before={quote(far_past)}")
+    assert r.status_code == 200
+    assert "You've reached the end" in r.text
+    # Should NOT show the first-run onboarding card in this state.
+    assert "Your Friends page is quiet" not in r.text
+
