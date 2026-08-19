@@ -89,6 +89,13 @@
       {% else %}
         <a href="/discover">Discover</a>
         <a href="/collections">Collections</a>
+        {# 0.11.46: 'Sign in' hidden on landing (form is already there,
+           having a redundant nav link was confusing) but MUST appear
+           on every other logged-out page so visitors have an obvious
+           entry point back to sign-in. #}
+        {% if request.url.path != "/" %}
+          <a href="/" class="nav-signin">Sign in</a>
+        {% endif %}
       {% endif %}
       <button type="button" class="nav-theme-toggle" onclick="toggleTheme()"
               aria-label="Toggle light / dark theme" title="Toggle light / dark theme">

@@ -182,11 +182,19 @@ def test_stream_row_stays_compact_when_no_summary():
     assert "stream-row-summary" not in r.text
 
 
-def test_anonymous_nav_no_longer_shows_login_link():
-    """0.11.44: 'Login' was removed from the nav — the landing page's
-    signup form is the entry point. Brand link still routes to /."""
-    r = _client().get("/discover")
-    assert r.status_code == 200
-    # Nav has Discover + Collections but not a Login item.
-    assert ">Login<" not in r.text
-    assert 'href="/#login"' not in r.text
+def test_anonymous_nav_hides_signin_on_landing_only():
+    """0.11.44: 'Login' item on the landing page was redundant next to
+    the magic-link form.
+    0.11.46: But logged-out visitors on OTHER pages still need an
+    obvious entry point back to sign-in — hidden only on '/'."""
+    c = _client()
+    # Landing: no Sign in link (the form itself is the CTA).
+    landing = c.get("/")
+    assert landing.status_code == 200
+    assert 'class="nav-signin"' not in landing.text
+    # Non-landing anonymous pages: Sign in link present.
+    for path in ("/discover", "/collections"):
+        r = c.get(path)
+        assert r.status_code == 200, path
+        assert 'class="nav-signin"' in r.text, path
+        assert ">Sign in<" in r.text, path
