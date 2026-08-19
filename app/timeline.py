@@ -11,6 +11,7 @@ from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse
+from sqlalchemy import func
 from sqlmodel import Session, select
 
 from . import activity
@@ -182,7 +183,6 @@ def _load_timeline(
         })
 
     entries.sort(key=lambda e: e["ts"], reverse=True)
-    entries = entries[:FEED_LIMIT]
 
     # Enrich entries with feed + "already on my radar?" state so the
     # template can render an "Add to my radar" pill for feeds the
@@ -267,6 +267,72 @@ def _load_timeline(
 FEED_SRC_VALUES = ("all", "local", "fediverse")
 
 
+def _source_totals(db: Session, user: User, cutoff: datetime) -> tuple[int, int]:
+    """Real per-bucket totals over the 30-day window.
+
+    Prior to 0.11.45 the chip badges reflected the paginated top-slice
+    (capped at FEED_LIMIT), which under-counted local activity when
+    the fediverse bucket was dominant enough to crowd it out of the
+    merged window. These are separate COUNT queries so the badges are
+    an honest signal — "how much your radar actually has to offer",
+    not "how much made it onto this page". """
+    # Local: distinct Activity.id across direct Follow + CategoryFollow
+    # sources. Collect ids so dedup between the two paths is exact.
+    followee_ids = list(db.exec(
+        select(Follow.followee_id)
+        .where(Follow.follower_id == user.id)
+        .where(Follow.approved_at.is_not(None))
+    ).all())
+    ids: set[int] = set()
+    if followee_ids:
+        ids.update(db.exec(
+            select(Activity.id)
+            .where(Activity.user_id.in_(followee_ids))
+            .where(Activity.created_at >= cutoff)
+        ).all())
+    cat_follow_rows = db.exec(
+        select(CategoryFollow, Category)
+        .join(Category, Category.id == CategoryFollow.category_id)
+        .where(CategoryFollow.follower_id == user.id)
+    ).all()
+    for _cf, cat in cat_follow_rows:
+        feed_ids = list(db.exec(
+            select(Subscription.feed_id)
+            .where(Subscription.user_id == cat.user_id)
+            .where(Subscription.category_id == cat.id)
+        ).all())
+        if not feed_ids:
+            continue
+        ids.update(db.exec(
+            select(Activity.id)
+            .where(Activity.user_id == cat.user_id)
+            .where(Activity.kind == "subscribed")
+            .where(Activity.ref_type == "feed")
+            .where(Activity.ref_id.in_(feed_ids))
+            .where(Activity.created_at >= cutoff)
+        ).all())
+        ids.update(db.exec(
+            select(Activity.id)
+            .join(FeedItem, FeedItem.id == Activity.ref_id)
+            .where(Activity.user_id == cat.user_id)
+            .where(Activity.kind == "bookmarked")
+            .where(Activity.ref_type == "item")
+            .where(FeedItem.feed_id.in_(feed_ids))
+            .where(Activity.created_at >= cutoff)
+        ).all())
+    n_local = len(ids)
+
+    n_fedi = db.exec(
+        select(func.count(RemoteItem.id))
+        .join(RemoteActor, RemoteActor.id == RemoteItem.remote_actor_id)
+        .join(RemoteFollowing, RemoteFollowing.remote_actor_id == RemoteActor.id)
+        .where(RemoteFollowing.user_id == user.id)
+        .where(RemoteFollowing.accepted_at.is_not(None))
+        .where(RemoteItem.published_at >= cutoff)
+    ).one() or 0
+    return n_local, n_fedi
+
+
 def _parse_before(raw: str | None) -> datetime | None:
     """Parse the ?before= cursor (ISO-8601, produced by us). Silently
     drops garbage — the worst outcome is a user seeing page 1 again."""
@@ -290,13 +356,14 @@ def home_timeline(
 ):
     before_dt = _parse_before(before)
     ctx = _load_timeline(db, user, before=before_dt)
-    # Compute counts BEFORE filtering so the chip badges show the full
-    # total for each source, not the post-filter count. When paginating,
-    # counts reflect what's on THIS page — that's the honest signal
-    # (chip badge = "how much of what you're looking at is fedi").
+    # 0.11.45: chip-badge counts are REAL bucket totals over the 30-day
+    # window (via _source_totals), not the size of the loaded slice.
+    # Prior versions counted `all_entries` after the load — which was
+    # capped at FEED_LIMIT and so under-counted whichever source lost
+    # the timestamp race in the merge.
+    cutoff = datetime.now(UTC) - timedelta(days=FEED_WINDOW_DAYS)
+    n_local, n_fedi = _source_totals(db, user, cutoff)
     all_entries = ctx["entries"]
-    n_local = sum(1 for e in all_entries if e.get("kind") != "remote_note")
-    n_fedi = len(all_entries) - n_local
 
     src = src if src in FEED_SRC_VALUES else "all"
     if src == "local":
@@ -318,7 +385,7 @@ def home_timeline(
     ctx["user"] = user
     ctx["feed_src"] = src
     ctx["feed_src_counts"] = {
-        "all": len(all_entries),
+        "all": n_local + n_fedi,
         "local": n_local,
         "fediverse": n_fedi,
     }

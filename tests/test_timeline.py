@@ -407,6 +407,57 @@ def test_feed_second_page_shows_older_entries():
     assert "Load more" not in r2.text
 
 
+def test_feed_source_counts_reflect_real_totals_not_loaded_slice():
+    """0.11.45 regression: when a viewer has more fediverse content
+    than fits in the loaded window, the LOCAL chip badge used to under-
+    count because it was derived from the merged top-N slice (fedi
+    crowded local out on timestamps). Chip counts must reflect the real
+    per-bucket totals over the 30-day window."""
+    import app.db as db_mod
+    # 40 local bookmarks from b (viewer a follows b).
+    a, _ = _seed_bookmarks_for_followee("a@e.com", "b@e.com", 40)
+    # 200 fediverse notes from a remote actor a follows, with very
+    # recent timestamps so they'd otherwise dominate the merged slice.
+    with Session(db_mod.engine) as s:
+        u = s.exec(select(db_mod.User).where(db_mod.User.email == "a@e.com")).one()
+        ra = db_mod.RemoteActor(
+            actor_url="https://mastodon.example/users/loud",
+            inbox_url="https://mastodon.example/users/loud/inbox",
+            public_key_pem="-----BEGIN PUBLIC KEY-----\nx\n-----END PUBLIC KEY-----",
+            preferred_username="loud",
+        )
+        s.add(ra)
+        s.commit()
+        s.refresh(ra)
+        s.add(db_mod.RemoteFollowing(
+            user_id=u.id, remote_actor_id=ra.id,
+            follow_activity_id="https://local.test/a/1",
+            accepted_at=datetime.now(UTC),
+        ))
+        s.commit()
+        now = datetime.now(UTC)
+        for i in range(200):
+            s.add(db_mod.RemoteItem(
+                remote_actor_id=ra.id,
+                ap_note_id=f"https://mastodon.example/notes/{i}",
+                content_html=f"<p>toot {i}</p>",
+                note_url=f"https://mastodon.example/notes/{i}",
+                published_at=now - timedelta(seconds=i),
+            ))
+        s.commit()
+
+    r = a.get("/feed")
+    assert r.status_code == 200
+    body = r.text
+    # Chip row present with distinct counts. The local badge must
+    # reflect the FULL 40 local events (not the 0-ish that would land
+    # on the first merged page against 200 louder fedi entries).
+    assert 'class="feed-src-count">40<' in body
+    assert 'class="feed-src-count">200<' in body
+    # All = local + fedi.
+    assert 'class="feed-src-count">240<' in body
+
+
 def test_feed_partial_returns_just_the_fragment():
     """?partial=1 skips the base layout — used by HTMX to append inline
     when 'Load more' is clicked. Must contain the entries but NOT the
