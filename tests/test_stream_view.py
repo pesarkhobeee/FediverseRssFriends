@@ -150,3 +150,43 @@ def test_stream_view_has_more_sentinel_only_when_needed():
     r = _client().get("/u/owner?view=stream")
     # Under a page — no load-more.
     assert "stream-load-more" not in r.text
+
+
+def test_stream_row_renders_expandable_summary_when_present():
+    """0.11.44: items with a summary get a <details> block below the
+    row so readers can peek at the excerpt without leaving the page.
+    Rows without a summary stay compact — no <details> element."""
+    from sqlmodel import Session, select
+
+    import app.db as db_mod
+
+    _seed_owner_with_items(item_count=1)
+    with Session(db_mod.engine) as s:
+        # Give the sole item a long summary so we exercise the truncated
+        # <details> branch (excerpt + "Read more").
+        it = s.exec(select(db_mod.FeedItem)).one()
+        it.summary = "The quick brown fox jumps over the lazy dog. " * 30
+        s.add(it)
+        s.commit()
+
+    r = _client().get("/u/owner?view=stream")
+    assert r.status_code == 200
+    assert "stream-row-summary" in r.text
+    assert "Read more" in r.text
+
+
+def test_stream_row_stays_compact_when_no_summary():
+    _seed_owner_with_items(item_count=1)
+    r = _client().get("/u/owner?view=stream")
+    assert r.status_code == 200
+    assert "stream-row-summary" not in r.text
+
+
+def test_anonymous_nav_no_longer_shows_login_link():
+    """0.11.44: 'Login' was removed from the nav — the landing page's
+    signup form is the entry point. Brand link still routes to /."""
+    r = _client().get("/discover")
+    assert r.status_code == 200
+    # Nav has Discover + Collections but not a Login item.
+    assert ">Login<" not in r.text
+    assert 'href="/#login"' not in r.text

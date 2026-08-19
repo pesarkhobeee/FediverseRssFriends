@@ -22,7 +22,6 @@
            target="_blank" rel="noopener">{{ row.item.title }}</a>
         <span class="stream-row-meta">
           <span class="stream-row-source">{{ row.feed.title }}</span>
-          {# 0.11.3: private per-user note, owner-only surface #}
           {% if is_owner and row.note %}
             <span class="feed-note muted" title="Your private note">— {{ row.note }}</span>
           {% endif %}
@@ -43,6 +42,28 @@
         </span>
       {% endif %}
     </div>
+
+    {# 0.11.44: item excerpt — same <details>/"Read more" pattern as
+       /f/{id}. Only rendered when there's actual body text so rows
+       without summaries stay compact. #}
+    {% if row.item.summary %}
+      {% set excerpt = row.item.summary|summary_excerpt %}
+      {% if excerpt %}
+        {% if row.item.summary|summary_was_truncated %}
+          <details class="item-summary stream-row-summary">
+            <summary>
+              <span class="excerpt">{{ excerpt }}</span>
+              <span class="more-link">Read more</span>
+            </summary>
+            <div class="full">{{ row.item.summary|clean_summary|safe }}</div>
+          </details>
+        {% else %}
+          <div class="item-summary item-summary-short stream-row-summary">
+            <div class="full">{{ row.item.summary|clean_summary|safe }}</div>
+          </div>
+        {% endif %}
+      {% endif %}
+    {% endif %}
   </li>
 {% endfor %}
 
