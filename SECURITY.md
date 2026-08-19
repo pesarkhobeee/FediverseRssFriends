@@ -5,7 +5,7 @@
 Please **do not** open a public GitHub issue for security-sensitive
 reports. Instead, either:
 
-- Open a [private security advisory](https://github.com/pesarkhobeee/rssFriends/security/advisories/new) on this repository, or
+- Open a [private security advisory](https://github.com/pesarkhobeee/FediverseRssFriends/security/advisories/new) on this repository, or
 - Email `security@rssfriends.com` if you can't use GitHub.
 
 I aim to acknowledge reports within 48 hours and to ship a fix (or a

@@ -11,7 +11,7 @@ from urllib.parse import urljoin, urlparse
 import feedparser
 import httpx
 
-USER_AGENT = "rssFriends/0.1 (+https://github.com/pesarkhobeee/rssFriends)"
+USER_AGENT = "FediverseRssFriends/0.1 (+https://github.com/pesarkhobeee/FediverseRssFriends)"
 FETCH_TIMEOUT = 3.0
 
 

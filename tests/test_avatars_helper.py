@@ -9,7 +9,7 @@ from app.avatars import _PALETTE, color, initials, text_color
 
 
 def test_initials_two_word_handle():
-    assert initials("ahmadian-farid") == "AF"
+    assert initials("farid-ahmadian") == "FA"
 
 
 def test_initials_underscore_and_dot_separators_normalize():
@@ -29,8 +29,8 @@ def test_initials_empty_returns_double_qmark():
 def test_color_is_stable_across_calls():
     """Same handle must always map to the same palette entry —
     otherwise a user's identity color would rotate between requests."""
-    a = color("ahmadian-farid")
-    b = color("ahmadian-farid")
+    a = color("farid")
+    b = color("farid")
     assert a == b
     assert a in _PALETTE
 

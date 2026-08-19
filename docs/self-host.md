@@ -33,7 +33,7 @@ challenge. You can flip to proxied afterwards.
 ## Step 2 · Clone + configure
 
 ```bash
-git clone https://github.com/pesarkhobeee/rssFriends.git /srv/rssfriends
+git clone https://github.com/pesarkhobeee/FediverseRssFriends.git /srv/rssfriends
 cd /srv/rssfriends
 cp .env.example .env
 ```

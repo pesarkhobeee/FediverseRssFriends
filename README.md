@@ -9,7 +9,7 @@ Self-hosted, magic-link auth, one SQLite file. Curate feeds by category, share y
 The primary instance at [rssfriends.com](https://rssfriends.com) is just one node. You can run your own with your own name, tagline, admin, and community. Follow [`docs/self-host.md`](docs/self-host.md) for the walkthrough.
 
 ```bash
-git clone https://github.com/pesarkhobeee/rssFriends.git /srv/rssfriends
+git clone https://github.com/pesarkhobeee/FediverseRssFriends.git /srv/rssfriends
 cd /srv/rssfriends
 cp .env.example .env
 # edit .env — set RSSFRIENDS_HOSTNAME, INSTANCE_NAME, SESSION_SECRET

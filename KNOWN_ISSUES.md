@@ -2,7 +2,7 @@
 
 This is the legacy Python app that lives on the `poc` branch. Active
 development has moved to the AP-native rewrite tracked in
-[Milestones on GitHub](https://github.com/pesarkhobeee/rssFriends/milestones).
+[Milestones on GitHub](https://github.com/pesarkhobeee/FediverseRssFriends/milestones).
 Small legacy bugs are noted here rather than filed as issues, because
 the rewrite will re-implement the affected features from scratch and
 those decisions are being made per-milestone.

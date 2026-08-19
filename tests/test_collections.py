@@ -9,13 +9,55 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session, select
 
+SHARED_FEED_URL = "https://example.com/shared.xml"
+
+
+TEST_SEED_ALPHA = {
+    "slug": "test-seed-alpha",
+    "name": "Test — Alpha",
+    "description": "Synthetic alpha seed for tests.",
+    "language": "en",
+    "locale": "Global",
+    "is_official": True,
+    "curator_handle": None,
+    "feeds": [
+        (SHARED_FEED_URL, "Shared Feed",
+         "https://example.com", "", None),
+        ("https://example.com/alpha-one.xml", "Alpha One",
+         "https://example.com/one", "", None),
+        ("https://example.org/alpha-two.xml", "Alpha Two",
+         "https://example.org/two", "", None),
+    ],
+}
+
+
+TEST_SEED_BETA = {
+    "slug": "test-seed-beta",
+    "name": "Test — Beta",
+    "description": "Synthetic beta seed for tests.",
+    "language": "de",
+    "locale": "DE",
+    "is_official": True,
+    "curator_handle": None,
+    "feeds": [
+        (SHARED_FEED_URL, "Shared Feed",
+         "https://example.com", "", None),
+        ("https://example.org/beta-only.xml", "Beta Only",
+         "https://example.org/beta", "", None),
+    ],
+}
+
 
 @pytest.fixture(autouse=True)
-def _seed_berlin_collection():
-    """This test module operates on the seeded Berlin collection.
+def _seed_test_collections(monkeypatch):
+    """Swap in synthetic seed collections and run the seeder for each test.
     conftest sets RSSFRIENDS_SEED_COLLECTIONS=0 globally so it doesn't
     pollute other tests; here we opt in per test."""
     import app.db as db_mod
+
+    monkeypatch.setattr(
+        db_mod, "ALL_SEED_COLLECTIONS", (TEST_SEED_ALPHA, TEST_SEED_BETA)
+    )
     prev = os.environ.get("RSSFRIENDS_SEED_COLLECTIONS")
     os.environ["RSSFRIENDS_SEED_COLLECTIONS"] = "1"
     try:
@@ -47,18 +89,8 @@ def _login(client, email):
 
 EXPECTED_SEEDS = {
     # slug: (language, locale, feed_count)
-    "berlin-nachrichten":        ("de", "Berlin, DE", 12),
-    "berlin-english":            ("en", "Berlin, DE",  4),  # +1 in 0.10.4 (All About Berlin)
-    "berlin-kultur":             ("de", "Berlin, DE",  5),
-    "better-software-engineer":  ("en", "",           12),
-    "better-product-manager":    ("en", "",            7),
-    "startup-craft":             ("en", "",            6),
-    "tehran-farsi":              ("fa", "Tehran, IR",  4),
-    "longform-reads":            ("en", "",           10),
-    "engineer-weblogs":          ("en", "",           30),  # +9 top-guns in 0.11.9
-    "tool-creators":             ("en", "",            7),  # new in 0.11.9
-    "curious-minds":             ("en", "",            9),  # new in 0.10.4
-    "tech-on-youtube":           ("en", "",           12),  # new in 0.10.4
+    "test-seed-alpha": ("en", "Global", 3),
+    "test-seed-beta":  ("de", "DE",     2),
 }
 
 
@@ -99,15 +131,15 @@ def test_seed_syncs_new_feeds_into_existing_collections():
     """0.10.4: the seeder is idempotent PER FEED, not just per
     collection. If a seed's `feeds` list grows in a future release,
     those extra URLs must land on the next boot without wiping any
-    existing data. Simulates the All About Berlin addition."""
+    existing data."""
     import app.db as db_mod
-    # Baseline: berlin-english currently has 4 feeds seeded.
+    # Baseline: test-seed-alpha currently has 3 feeds seeded.
     with Session(db_mod.engine) as s:
         col = s.exec(select(db_mod.Collection)
-                     .where(db_mod.Collection.slug == "berlin-english")).one()
+                     .where(db_mod.Collection.slug == "test-seed-alpha")).one()
         before = len(s.exec(select(db_mod.CollectionFeed)
                             .where(db_mod.CollectionFeed.collection_id == col.id)).all())
-        assert before == 4
+        assert before == 3
         # Delete one CollectionFeed row to simulate a future addition NOT
         # yet on disk. Then re-run the seed and confirm it re-adds it.
         one = s.exec(select(db_mod.CollectionFeed)
@@ -117,26 +149,26 @@ def test_seed_syncs_new_feeds_into_existing_collections():
         s.commit()
         after_delete = len(s.exec(select(db_mod.CollectionFeed)
                                   .where(db_mod.CollectionFeed.collection_id == col.id)).all())
-        assert after_delete == 3
+        assert after_delete == 2
 
     # Re-run the seed.
     db_mod._seed_official_collections()
 
     with Session(db_mod.engine) as s:
         col = s.exec(select(db_mod.Collection)
-                     .where(db_mod.Collection.slug == "berlin-english")).one()
+                     .where(db_mod.Collection.slug == "test-seed-alpha")).one()
         after_reseed = len(s.exec(select(db_mod.CollectionFeed)
                                   .where(db_mod.CollectionFeed.collection_id == col.id)).all())
-        assert after_reseed == 4  # re-added
+        assert after_reseed == 3  # re-added
 
 
-def test_berlin_spectator_feed_is_dual_listed():
-    """Berlin Spectator appears in both Nachrichten and English collections
+def test_shared_feed_is_dual_listed():
+    """The shared feed appears in both alpha and beta collections
     but shares one Feed row (dedup by URL)."""
     import app.db as db_mod
     with Session(db_mod.engine) as s:
         feed = s.exec(
-            select(db_mod.Feed).where(db_mod.Feed.url == "https://berlinspectator.com/feed/")
+            select(db_mod.Feed).where(db_mod.Feed.url == SHARED_FEED_URL)
         ).one()
         # Should be linked from two CollectionFeed rows.
         links = s.exec(
@@ -152,18 +184,18 @@ def test_berlin_spectator_feed_is_dual_listed():
 def test_list_collections_renders():
     r = _client().get("/collections")
     assert r.status_code == 200
-    assert "Berlin — Nachrichten" in r.text
+    assert "Test — Alpha" in r.text
     assert "collection-card" in r.text
 
 
 def test_collection_detail_renders_with_feeds():
-    r = _client().get("/collections/berlin-nachrichten")
+    r = _client().get("/collections/test-seed-alpha")
     assert r.status_code == 200
     body = r.text
-    assert "Berlin — Nachrichten" in body
-    assert "rbb24" in body
-    assert "Tagesspiegel" in body
-    assert "<strong>12</strong> feed" in body
+    assert "Test — Alpha" in body
+    assert "Alpha One" in body
+    assert "Alpha Two" in body
+    assert "<strong>3</strong> feed" in body
 
 
 def test_unknown_collection_returns_404():
@@ -173,10 +205,10 @@ def test_unknown_collection_returns_404():
 
 def test_anonymous_visitor_sees_signin_cta_not_add():
     """Anon users see 'Sign in' pills, not '+ Add' buttons."""
-    r = _client().get("/collections/berlin-nachrichten")
+    r = _client().get("/collections/test-seed-alpha")
     assert "Sign in to add these to your radar" in r.text
     # No POST button when logged out.
-    assert "hx-post=\"/collections/berlin-nachrichten/add/" not in r.text
+    assert "hx-post=\"/collections/test-seed-alpha/add/" not in r.text
 
 
 # ─── Per-feed add ──────────────────────────────────────────────────────
@@ -188,11 +220,14 @@ def test_add_one_feed_creates_subscription_under_named_category():
     _login(c, "alice@example.com")
     # Pick the first feed_id in the seeded collection.
     with Session(db_mod.engine) as s:
+        col = s.exec(select(db_mod.Collection)
+                     .where(db_mod.Collection.slug == "test-seed-alpha")).one()
         cf = s.exec(select(db_mod.CollectionFeed)
+                    .where(db_mod.CollectionFeed.collection_id == col.id)
                     .order_by(db_mod.CollectionFeed.sort_order)
                     .limit(1)).one()
         feed_id = cf.feed_id
-    r = c.post(f"/collections/berlin-nachrichten/add/{feed_id}")
+    r = c.post(f"/collections/test-seed-alpha/add/{feed_id}")
     assert r.status_code == 200
     with Session(db_mod.engine) as s:
         alice = s.exec(select(db_mod.User)
@@ -201,7 +236,7 @@ def test_add_one_feed_creates_subscription_under_named_category():
                      .where(db_mod.Subscription.user_id == alice.id)).one()
         assert sub.feed_id == feed_id
         cat = s.get(db_mod.Category, sub.category_id)
-        assert cat.name == "Berlin — Nachrichten"
+        assert cat.name == "Test — Alpha"
 
 
 def test_add_one_feed_not_in_collection_404():
@@ -219,7 +254,7 @@ def test_add_one_feed_not_in_collection_404():
         s.commit()
         s.refresh(rogue)
         rogue_id = rogue.id
-    r = c.post(f"/collections/berlin-nachrichten/add/{rogue_id}")
+    r = c.post(f"/collections/test-seed-alpha/add/{rogue_id}")
     assert r.status_code == 404
 
 
@@ -230,25 +265,25 @@ def test_add_all_bulk_subscribes_and_reports_added_count():
     import app.db as db_mod
     c = _client()
     _login(c, "bob@example.com")
-    r = c.post("/collections/berlin-nachrichten/add-all")
+    r = c.post("/collections/test-seed-alpha/add-all")
     assert r.status_code == 200
-    assert "Added 12 feeds" in r.text
+    assert "Added 3 feeds" in r.text
     with Session(db_mod.engine) as s:
         bob = s.exec(select(db_mod.User)
                      .where(db_mod.User.handle == "bob")).one()
         subs = s.exec(select(db_mod.Subscription)
                       .where(db_mod.Subscription.user_id == bob.id)).all()
-        assert len(subs) == 12
+        assert len(subs) == 3
 
 
 def test_add_all_idempotent_reports_already_count():
     c = _client()
     _login(c, "alice@example.com")
-    c.post("/collections/berlin-nachrichten/add-all")
-    r = c.post("/collections/berlin-nachrichten/add-all")
+    c.post("/collections/test-seed-alpha/add-all")
+    r = c.post("/collections/test-seed-alpha/add-all")
     assert r.status_code == 200
     assert "Added 0 feeds" in r.text
-    assert "12 were already there" in r.text
+    assert "3 were already there" in r.text
 
 
 # ─── Suggestions + moderation ──────────────────────────────────────────
@@ -259,8 +294,8 @@ def test_user_can_suggest_a_feed():
     c = _client()
     _login(c, "carol@example.com")
     r = c.post(
-        "/collections/berlin-nachrichten/suggest",
-        data={"feed_url": "https://example.com/new-berlin-feed.rss",
+        "/collections/test-seed-alpha/suggest",
+        data={"feed_url": "https://example.com/new-feed.rss",
               "note": "Missing this one!"},
     )
     assert r.status_code == 200
@@ -268,15 +303,15 @@ def test_user_can_suggest_a_feed():
     with Session(db_mod.engine) as s:
         sug = s.exec(select(db_mod.CollectionSuggestion)).one()
         assert sug.status == "pending"
-        assert sug.feed_url == "https://example.com/new-berlin-feed.rss"
+        assert sug.feed_url == "https://example.com/new-feed.rss"
 
 
 def test_suggest_dup_from_same_user_409():
     c = _client()
     _login(c, "carol@example.com")
-    c.post("/collections/berlin-nachrichten/suggest",
+    c.post("/collections/test-seed-alpha/suggest",
            data={"feed_url": "https://example.com/dup.rss"})
-    r = c.post("/collections/berlin-nachrichten/suggest",
+    r = c.post("/collections/test-seed-alpha/suggest",
                data={"feed_url": "https://example.com/dup.rss"})
     assert r.status_code == 409
 
@@ -284,26 +319,26 @@ def test_suggest_dup_from_same_user_409():
 def test_suggest_rejects_bad_url_400():
     c = _client()
     _login(c, "carol@example.com")
-    r = c.post("/collections/berlin-nachrichten/suggest",
+    r = c.post("/collections/test-seed-alpha/suggest",
                data={"feed_url": "not-a-url"})
     assert r.status_code == 400
 
 
 def test_non_curator_cannot_moderate():
     """First-registered user in the fresh-schema fixture is the
-    de-facto admin (curator_id is NULL because 'ahmadian-farid-1988'
-    doesn't exist in tests). Only that first user can manage the
-    system-curated Berlin collection."""
+    de-facto admin (curator_id is NULL because curator_handle is None
+    in the test seeds). Only that first user can manage the
+    system-curated test seed collection."""
     a = _client()
     _login(a, "first@example.com")  # first user → de-facto admin
     b = _client()
     _login(b, "second@example.com")
 
     # first can manage
-    r = a.get("/collections/berlin-nachrichten/manage")
+    r = a.get("/collections/test-seed-alpha/manage")
     assert r.status_code == 200
     # second cannot
-    r = b.get("/collections/berlin-nachrichten/manage")
+    r = b.get("/collections/test-seed-alpha/manage")
     assert r.status_code == 403
 
 
@@ -329,14 +364,14 @@ def test_curator_accepts_suggestion_and_feed_is_added(monkeypatch):
     _login(other, "u2@example.com")
 
     other.post(
-        "/collections/berlin-nachrichten/suggest",
+        "/collections/test-seed-alpha/suggest",
         data={"feed_url": "https://ex.example/suggested-feed.rss"},
     )
     with Session(db_mod.engine) as s:
         sug = s.exec(select(db_mod.CollectionSuggestion)
                      .where(db_mod.CollectionSuggestion.status == "pending")).one()
     r = admin.post(
-        f"/collections/berlin-nachrichten/suggestions/{sug.id}/accept",
+        f"/collections/test-seed-alpha/suggestions/{sug.id}/accept",
         follow_redirects=False,
     )
     assert r.status_code == 303
@@ -344,13 +379,13 @@ def test_curator_accepts_suggestion_and_feed_is_added(monkeypatch):
         s2 = s.get(db_mod.CollectionSuggestion, sug.id)
         assert s2.status == "accepted"
         assert s2.reviewed_at is not None
-        # Collection feed count grew from 12 to 13.
+        # Collection feed count grew from 3 to 4.
         n = len(s.exec(select(db_mod.CollectionFeed)
                        .where(db_mod.CollectionFeed.collection_id ==
                               s.exec(select(db_mod.Collection).where(
-                                  db_mod.Collection.slug == "berlin-nachrichten"
+                                  db_mod.Collection.slug == "test-seed-alpha"
                               )).one().id)).all())
-        assert n == 13
+        assert n == 4
 
 
 def test_curator_rejects_suggestion():
@@ -359,12 +394,12 @@ def test_curator_rejects_suggestion():
     _login(admin, "root@example.com")
     other = _client()
     _login(other, "u2@example.com")
-    other.post("/collections/berlin-nachrichten/suggest",
+    other.post("/collections/test-seed-alpha/suggest",
                data={"feed_url": "https://spam.example/no.rss"})
     with Session(db_mod.engine) as s:
         sug = s.exec(select(db_mod.CollectionSuggestion)).one()
     r = admin.post(
-        f"/collections/berlin-nachrichten/suggestions/{sug.id}/reject",
+        f"/collections/test-seed-alpha/suggestions/{sug.id}/reject",
         follow_redirects=False,
     )
     assert r.status_code == 303
@@ -381,8 +416,8 @@ def test_discover_page_shows_featured_collection_card():
     assert r.status_code == 200
     body = r.text
     assert "Browse collections" in body
-    assert "Berlin — Nachrichten" in body
-    assert "/collections/berlin-nachrichten" in body
+    assert "Test — Alpha" in body
+    assert "/collections/test-seed-alpha" in body
 
 
 def test_curator_can_remove_feed_from_collection():
@@ -394,7 +429,7 @@ def test_curator_can_remove_feed_from_collection():
 
     with Session(db_mod.engine) as s:
         col = s.exec(select(db_mod.Collection)
-                     .where(db_mod.Collection.slug == "berlin-nachrichten")).one()
+                     .where(db_mod.Collection.slug == "test-seed-alpha")).one()
         cf = s.exec(select(db_mod.CollectionFeed)
                     .where(db_mod.CollectionFeed.collection_id == col.id)
                     .order_by(db_mod.CollectionFeed.sort_order)
@@ -403,7 +438,7 @@ def test_curator_can_remove_feed_from_collection():
         before_count = len(s.exec(select(db_mod.CollectionFeed)
                                   .where(db_mod.CollectionFeed.collection_id == col.id)).all())
 
-    r = admin.post(f"/collections/berlin-nachrichten/remove/{feed_id}")
+    r = admin.post(f"/collections/test-seed-alpha/remove/{feed_id}")
     assert r.status_code == 200
 
     with Session(db_mod.engine) as s:
@@ -423,22 +458,22 @@ def test_non_curator_cannot_remove_feed():
     _login(other, "u2@example.com")
     with Session(db_mod.engine) as s:
         col = s.exec(select(db_mod.Collection)
-                     .where(db_mod.Collection.slug == "berlin-nachrichten")).one()
+                     .where(db_mod.Collection.slug == "test-seed-alpha")).one()
         cf = s.exec(select(db_mod.CollectionFeed)
                     .where(db_mod.CollectionFeed.collection_id == col.id)
                     .limit(1)).one()
         feed_id = cf.feed_id
 
-    r = other.post(f"/collections/berlin-nachrichten/remove/{feed_id}")
+    r = other.post(f"/collections/test-seed-alpha/remove/{feed_id}")
     assert r.status_code == 403
 
 
 def test_curator_sees_remove_button_on_detail_page():
     admin = _client()
     _login(admin, "root@example.com")
-    r = admin.get("/collections/berlin-nachrichten")
+    r = admin.get("/collections/test-seed-alpha")
     assert "collection-feed-remove" in r.text
-    assert "hx-post=\"/collections/berlin-nachrichten/remove/" in r.text
+    assert "hx-post=\"/collections/test-seed-alpha/remove/" in r.text
 
 
 def test_non_curator_does_not_see_remove_button():
@@ -446,7 +481,7 @@ def test_non_curator_does_not_see_remove_button():
     _login(admin, "root@example.com")  # ensures root exists
     other = _client()
     _login(other, "u2@example.com")
-    r = other.get("/collections/berlin-nachrichten")
+    r = other.get("/collections/test-seed-alpha")
     assert "collection-feed-remove" not in r.text
 
 
@@ -467,14 +502,14 @@ def test_suggest_triggers_notification_when_enabled(monkeypatch):
 
     c = _client()
     _login(c, "carol@example.com")
-    r = c.post("/collections/berlin-nachrichten/suggest",
+    r = c.post("/collections/test-seed-alpha/suggest",
                data={"feed_url": "https://ex.example/new.rss",
                      "note": "Missing!"})
     assert r.status_code == 200
     assert len(captured) == 1
     kw = captured[0]
-    assert kw["collection_slug"] == "berlin-nachrichten"
-    assert kw["collection_name"] == "Berlin — Nachrichten"
+    assert kw["collection_slug"] == "test-seed-alpha"
+    assert kw["collection_name"] == "Test — Alpha"
     assert kw["feed_url"] == "https://ex.example/new.rss"
     assert kw["note"] == "Missing!"
     assert kw["suggester_handle"] == "carol"
@@ -508,7 +543,7 @@ def test_collection_rss_returns_valid_rss():
     should return a well-formed empty channel, not 500."""
     import xml.etree.ElementTree as ET
 
-    r = _client().get("/collections/berlin-nachrichten.rss")
+    r = _client().get("/collections/test-seed-alpha.rss")
     assert r.status_code == 200
     assert r.headers["content-type"].startswith("application/rss+xml")
     assert r.headers.get("cache-control", "").startswith("public")
@@ -517,7 +552,7 @@ def test_collection_rss_returns_valid_rss():
     assert root.tag == "rss"
     channel = root.find("channel")
     assert channel is not None
-    assert channel.find("title").text == "Berlin — Nachrichten"
+    assert channel.find("title").text == "Test — Alpha"
     # Empty is fine here (test-mode has no FeedItems yet).
 
 
@@ -531,7 +566,7 @@ def test_collection_rss_aggregates_items_from_all_feeds():
     now = datetime.now(UTC)
     with Session(db_mod.engine) as s:
         col = s.exec(select(db_mod.Collection)
-                     .where(db_mod.Collection.slug == "berlin-nachrichten")).one()
+                     .where(db_mod.Collection.slug == "test-seed-alpha")).one()
         cfs = s.exec(select(db_mod.CollectionFeed)
                      .where(db_mod.CollectionFeed.collection_id == col.id)
                      .limit(2)).all()
@@ -546,7 +581,7 @@ def test_collection_rss_aggregates_items_from_all_feeds():
             link="https://b.example/1", published_at=now - timedelta(hours=1)))
         s.commit()
 
-    r = _client().get("/collections/berlin-nachrichten.rss")
+    r = _client().get("/collections/test-seed-alpha.rss")
     body = r.text
     assert "From feed A" in body
     assert "From feed B" in body
@@ -560,9 +595,9 @@ def test_collection_rss_unknown_slug_404():
 
 
 def test_collection_rss_url_appears_on_detail_page():
-    r = _client().get("/collections/berlin-nachrichten")
-    assert 'href="/collections/berlin-nachrichten.rss"' in r.text
-    assert 'data-copy-url="/collections/berlin-nachrichten.rss"' in r.text
+    r = _client().get("/collections/test-seed-alpha")
+    assert 'href="/collections/test-seed-alpha.rss"' in r.text
+    assert 'data-copy-url="/collections/test-seed-alpha.rss"' in r.text
 
 
 def test_language_filter_pill_row_renders_all_langs():
@@ -572,18 +607,17 @@ def test_language_filter_pill_row_renders_all_langs():
     r = _client().get("/collections")
     body = r.text
     assert "collections-lang-filter" in body
-    # Berlin collections declare 'de'; Farsi collection declares 'fa'.
+    # Alpha declares 'en'; Beta declares 'de'.
     assert "Deutsch" in body
-    assert "فارسی" in body
     assert "English" in body
 
 
 def test_language_filter_narrows_the_list():
-    r = _client().get("/collections?lang=fa")
+    r = _client().get("/collections?lang=de")
     body = r.text
-    # Only the Farsi collection should appear.
-    assert "Tehran" in body
-    assert "Berlin — Nachrichten" not in body
+    # Only the German collection (Beta) should appear.
+    assert "Test — Beta" in body
+    assert "Test — Alpha" not in body
 
 
 def test_language_filter_unknown_lang_shows_helpful_empty_state():
@@ -698,9 +732,9 @@ def test_non_curator_cannot_edit():
     _login(a, "first@example.com")
     b = _client()
     _login(b, "outsider@example.com")
-    r = b.get("/collections/berlin-nachrichten/edit")
+    r = b.get("/collections/test-seed-alpha/edit")
     assert r.status_code == 403
-    r = b.post("/collections/berlin-nachrichten/edit",
+    r = b.post("/collections/test-seed-alpha/edit",
                data={"name": "Hacked"})
     assert r.status_code == 403
 
@@ -721,7 +755,7 @@ def test_curator_add_feed_skips_suggestion_queue(monkeypatch):
     admin = _client()
     _login(admin, "first@example.com")
     r = admin.post(
-        "/collections/berlin-nachrichten/add-feed",
+        "/collections/test-seed-alpha/add-feed",
         data={"feed_url": "https://ex.example/direct.rss", "note": "curator pick"},
         follow_redirects=False,
     )
@@ -731,12 +765,12 @@ def test_curator_add_feed_skips_suggestion_queue(monkeypatch):
         # No suggestion row created.
         sugs = s.exec(select(db_mod.CollectionSuggestion)).all()
         assert sugs == []
-        # Collection feed count grew from 12 to 13.
+        # Collection feed count grew from 3 to 4.
         col = s.exec(select(db_mod.Collection)
-                     .where(db_mod.Collection.slug == "berlin-nachrichten")).one()
+                     .where(db_mod.Collection.slug == "test-seed-alpha")).one()
         n = len(s.exec(select(db_mod.CollectionFeed)
                        .where(db_mod.CollectionFeed.collection_id == col.id)).all())
-        assert n == 13
+        assert n == 4
 
 
 def test_curator_add_feed_dedup_returns_409(monkeypatch):
@@ -751,10 +785,10 @@ def test_curator_add_feed_dedup_returns_409(monkeypatch):
 
     admin = _client()
     _login(admin, "first@example.com")
-    admin.post("/collections/berlin-nachrichten/add-feed",
+    admin.post("/collections/test-seed-alpha/add-feed",
                data={"feed_url": "https://ex.example/dupe.rss"},
                follow_redirects=False)
-    r = admin.post("/collections/berlin-nachrichten/add-feed",
+    r = admin.post("/collections/test-seed-alpha/add-feed",
                    data={"feed_url": "https://ex.example/dupe.rss"},
                    follow_redirects=False)
     assert r.status_code == 409
@@ -766,7 +800,7 @@ def test_non_curator_cannot_add_feed():
     _login(a, "first@example.com")
     b = _client()
     _login(b, "outsider@example.com")
-    r = b.post("/collections/berlin-nachrichten/add-feed",
+    r = b.post("/collections/test-seed-alpha/add-feed",
                data={"feed_url": "https://ex.example/x.rss"})
     assert r.status_code == 403
 
@@ -784,7 +818,7 @@ def test_removing_feed_via_curator_writes_tombstone():
 
     with Session(db_mod.engine) as s:
         col = s.exec(select(db_mod.Collection)
-                     .where(db_mod.Collection.slug == "berlin-nachrichten")).one()
+                     .where(db_mod.Collection.slug == "test-seed-alpha")).one()
         cf = s.exec(select(db_mod.CollectionFeed)
                     .where(db_mod.CollectionFeed.collection_id == col.id)
                     .order_by(db_mod.CollectionFeed.sort_order)
@@ -792,7 +826,7 @@ def test_removing_feed_via_curator_writes_tombstone():
         feed = s.get(db_mod.Feed, cf.feed_id)
         col_id, feed_id, feed_url = col.id, cf.feed_id, feed.url
 
-    r = admin.post(f"/collections/berlin-nachrichten/remove/{feed_id}")
+    r = admin.post(f"/collections/test-seed-alpha/remove/{feed_id}")
     assert r.status_code == 200
 
     with Session(db_mod.engine) as s:
@@ -803,9 +837,8 @@ def test_removing_feed_via_curator_writes_tombstone():
 
 
 def test_seed_reseed_does_not_resurrect_removed_feed():
-    """Simulate the exact bug reported by @ahmadian-farid-1988: curator
-    removes a seed feed, then the seed loop runs again (as it does on
-    every startup). The removed feed must stay removed."""
+    """Curator removes a seed feed, then the seed loop runs again (as
+    it does on every startup). The removed feed must stay removed."""
     import app.db as db_mod
 
     admin = _client()
@@ -813,7 +846,7 @@ def test_seed_reseed_does_not_resurrect_removed_feed():
 
     with Session(db_mod.engine) as s:
         col = s.exec(select(db_mod.Collection)
-                     .where(db_mod.Collection.slug == "berlin-nachrichten")).one()
+                     .where(db_mod.Collection.slug == "test-seed-alpha")).one()
         cf = s.exec(select(db_mod.CollectionFeed)
                     .where(db_mod.CollectionFeed.collection_id == col.id)
                     .order_by(db_mod.CollectionFeed.sort_order)
@@ -821,14 +854,14 @@ def test_seed_reseed_does_not_resurrect_removed_feed():
         removed_feed_id = cf.feed_id
         removed_feed_url = s.get(db_mod.Feed, removed_feed_id).url
 
-    admin.post(f"/collections/berlin-nachrichten/remove/{removed_feed_id}")
+    admin.post(f"/collections/test-seed-alpha/remove/{removed_feed_id}")
 
     # Rerun the seed. This is what happens on every deploy.
     db_mod._seed_official_collections()
 
     with Session(db_mod.engine) as s:
         col = s.exec(select(db_mod.Collection)
-                     .where(db_mod.Collection.slug == "berlin-nachrichten")).one()
+                     .where(db_mod.Collection.slug == "test-seed-alpha")).one()
         urls_now = {r for r in s.exec(
             select(db_mod.Feed.url)
             .join(db_mod.CollectionFeed, db_mod.CollectionFeed.feed_id == db_mod.Feed.id)
@@ -850,7 +883,7 @@ def test_re_adding_feed_clears_tombstone(monkeypatch):
 
     with Session(db_mod.engine) as s:
         col = s.exec(select(db_mod.Collection)
-                     .where(db_mod.Collection.slug == "berlin-nachrichten")).one()
+                     .where(db_mod.Collection.slug == "test-seed-alpha")).one()
         cf = s.exec(select(db_mod.CollectionFeed)
                     .where(db_mod.CollectionFeed.collection_id == col.id)
                     .order_by(db_mod.CollectionFeed.sort_order)
@@ -858,14 +891,14 @@ def test_re_adding_feed_clears_tombstone(monkeypatch):
         feed = s.get(db_mod.Feed, cf.feed_id)
         col_id, feed_url = col.id, feed.url
 
-    admin.post(f"/collections/berlin-nachrichten/remove/{feed.id}")
+    admin.post(f"/collections/test-seed-alpha/remove/{feed.id}")
 
     def fake_resolve(url):
         return {"title": "Re-added", "site_url": "", "favicon_url": "", "is_feed": True}
     monkeypatch.setattr(collections_mod, "resolve_feed", fake_resolve, raising=False)
     monkeypatch.setattr(app.feeds, "resolve_feed", fake_resolve)
 
-    r = admin.post("/collections/berlin-nachrichten/add-feed",
+    r = admin.post("/collections/test-seed-alpha/add-feed",
                    data={"feed_url": feed_url}, follow_redirects=False)
     assert r.status_code == 303
 
@@ -916,7 +949,7 @@ def test_collection_stream_view_renders_items_newest_first():
 
     with Session(db_mod.engine) as s:
         col = s.exec(select(db_mod.Collection)
-                     .where(db_mod.Collection.slug == "berlin-nachrichten")).one()
+                     .where(db_mod.Collection.slug == "test-seed-alpha")).one()
         cfs = s.exec(select(db_mod.CollectionFeed)
                      .where(db_mod.CollectionFeed.collection_id == col.id)
                      .limit(2)).all()
@@ -938,7 +971,7 @@ def test_collection_stream_view_renders_items_newest_first():
         ))
         s.commit()
 
-    r = _client().get("/collections/berlin-nachrichten?view=stream")
+    r = _client().get("/collections/test-seed-alpha?view=stream")
     assert r.status_code == 200
     body = r.text
     assert "NEW item" in body
@@ -960,7 +993,7 @@ def test_collection_stream_view_paginates_at_30():
 
     with Session(db_mod.engine) as s:
         col = s.exec(select(db_mod.Collection)
-                     .where(db_mod.Collection.slug == "berlin-nachrichten")).one()
+                     .where(db_mod.Collection.slug == "test-seed-alpha")).one()
         cf = s.exec(select(db_mod.CollectionFeed)
                     .where(db_mod.CollectionFeed.collection_id == col.id)
                     .limit(1)).one()
@@ -973,7 +1006,7 @@ def test_collection_stream_view_paginates_at_30():
             ))
         s.commit()
 
-    r = _client().get("/collections/berlin-nachrichten?view=stream")
+    r = _client().get("/collections/test-seed-alpha?view=stream")
     assert r.status_code == 200
     body = r.text
     # 30 rows rendered → item-29 is present, item-30 is not (paged out).
@@ -986,7 +1019,7 @@ def test_collection_stream_view_paginates_at_30():
 
     # Fetch page 2 as an HTMX partial.
     r2 = _client().get(
-        "/collections/berlin-nachrichten?view=stream&offset=30",
+        "/collections/test-seed-alpha?view=stream&offset=30",
         headers={"HX-Request": "true"},
     )
     assert r2.status_code == 200
@@ -998,7 +1031,7 @@ def test_collection_stream_view_paginates_at_30():
 
 
 def test_collection_default_view_is_feeds_not_stream():
-    r = _client().get("/collections/berlin-nachrichten")
+    r = _client().get("/collections/test-seed-alpha")
     assert r.status_code == 200
     # Feeds view has the card list (details/summary); stream view has
     # the .stream-row class only.

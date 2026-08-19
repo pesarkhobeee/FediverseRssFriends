@@ -63,7 +63,7 @@ def test_add_personal_feed_direct(monkeypatch):
     c = _client()
     _login(c, "farid@e.com")
     r = c.post("/personal-feeds", data={
-        "url": "https://hachyderm.io/@pesarkhobeee.rss",
+        "url": "https://mastodon.example/@farid.rss",
         "label": "Mastodon",
     })
     assert r.status_code == 200

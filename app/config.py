@@ -61,7 +61,7 @@ SUGGESTION_NOTIFY_ENABLED: bool = (
 # first-registered user on the instance is the de-facto admin (matches
 # the pattern already used by _can_moderate for system-curated cols).
 #
-# Example: RSSFRIENDS_ADMIN_HANDLES=ahmadian-farid-1988,pesarkhobeee
+# Example: RSSFRIENDS_ADMIN_HANDLES=alice,bob
 ADMIN_HANDLES: list[str] = [
     h.strip() for h in os.getenv("RSSFRIENDS_ADMIN_HANDLES", "").split(",")
     if h.strip()

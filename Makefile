@@ -37,18 +37,19 @@ restore:
 
 # --- Deploy -----------------------------------------------------------
 #
-# Deploy target = rsync the repo to pathseeker + rebuild the Docker
+# Deploy target = rsync the repo to your server + rebuild the Docker
 # image + restart the container + smoke-test /version. The rsync
-# exclude list is CRITICAL — omitting --exclude=.env once wiped the
-# production env file (recovered from the running container's env,
-# but scary).
+# exclude list is CRITICAL — omitting --exclude=.env would wipe the
+# production env file.
 #
-# Override the host with `make deploy DEPLOY_HOST=user@example.com`.
+# Set these on the command line or in a local Makefile.local override:
+#   make deploy DEPLOY_HOST=user@your-server DEPLOY_PATH=/srv/rssfriends \
+#               HEALTHCHECK_URL=https://your-domain.example/version
 
-DEPLOY_HOST     ?= root@pathseeker
+DEPLOY_HOST     ?=
 DEPLOY_PATH     ?= /srv/rssfriends
-DEPLOY_COMPOSE  ?= docker-compose.pathseeker.yml
-HEALTHCHECK_URL ?= https://rssfriends.com/version
+DEPLOY_COMPOSE  ?= docker-compose.prod.yml
+HEALTHCHECK_URL ?=
 
 RSYNC_EXCLUDES = \
   --exclude=.venv --exclude=__pycache__ --exclude=data --exclude=backups \
@@ -66,6 +67,12 @@ deploy-check:
 # Full deploy: tests + lint + rsync + rebuild + smoke-test.
 # Fails fast at each step so a broken commit never reaches prod.
 deploy:
+	@if [ -z "$(DEPLOY_HOST)" ] || [ -z "$(HEALTHCHECK_URL)" ]; then \
+	  echo "❌ DEPLOY_HOST and HEALTHCHECK_URL must be set. e.g.:"; \
+	  echo "   make deploy DEPLOY_HOST=user@your-server \\"; \
+	  echo "               HEALTHCHECK_URL=https://your-domain.example/version"; \
+	  exit 2; \
+	fi
 	@echo "→ Running tests + lint before deploy…"
 	@$(MAKE) --no-print-directory test
 	@$(MAKE) --no-print-directory lint
