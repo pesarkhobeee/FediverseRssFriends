@@ -54,22 +54,62 @@
     }
   }
 
+  // Trigger: mark seen only when a row has scrolled OFF the top of
+  // the viewport after having been at least half-visible. That matches
+  // "you've read past it" — a fast quick scroll where the row never
+  // reached 50% doesn't count. Two-phase: threshold=0.5 sets
+  // wasSeen=1; threshold=0 + boundingClientRect.top<0 fires the mark.
+  function markAsJustSeen(row) {
+    var id = row.dataset.itemId;
+    if (!id || seen.has(id)) return;
+    seen.add(id);
+    dirty = true;
+    scheduleFlush();
+    row.classList.add("stream-row-just-seen");
+    bumpCounter();
+    // After a moment showing the "just seen" state, either collapse
+    // the row (default) or leave it visible & dimmed (Show-seen on).
+    setTimeout(function () {
+      if (showingSeen) {
+        // Show-seen mode: row stays visible, keep the seen class so
+        // it renders dimmed via the existing rule.
+        row.classList.remove("stream-row-just-seen");
+        row.classList.add("stream-row-seen");
+        refreshChrome();
+        return;
+      }
+      // Collapse animation: pin current height so max-height can
+      // transition to zero, then swap to the persistent hidden class.
+      var h = row.getBoundingClientRect().height;
+      row.style.maxHeight = h + "px";
+      requestAnimationFrame(function () {
+        row.classList.add("stream-row-collapsing");
+      });
+      setTimeout(function () {
+        row.classList.remove("stream-row-just-seen", "stream-row-collapsing");
+        row.classList.add("stream-row-seen");
+        row.style.maxHeight = "";
+        refreshChrome();
+      }, 380);
+    }, 550);
+  }
+
   var observer = null;
   if ("IntersectionObserver" in window) {
     observer = new IntersectionObserver(function (entries) {
       for (var i = 0; i < entries.length; i++) {
         var entry = entries[i];
-        if (!entry.isIntersecting) continue;
-        var id = entry.target.dataset.itemId;
-        if (id && !seen.has(id)) {
-          seen.add(id);
-          dirty = true;
+        var row = entry.target;
+        if (entry.isIntersecting && entry.intersectionRatio >= 0.5) {
+          row.dataset.wasSeen = "1";
+        } else if (!entry.isIntersecting
+                   && row.dataset.wasSeen === "1"
+                   && entry.boundingClientRect.top < 0) {
+          markAsJustSeen(row);
+          observer.unobserve(row);
         }
-        // One-shot: once we've marked it, stop watching.
-        observer.unobserve(entry.target);
       }
-      if (dirty) scheduleFlush();
-    }, { threshold: 0.5 });
+    }, { threshold: [0, 0.5] });
   }
   function observeFresh(root) {
     if (!observer) return;
@@ -86,6 +126,23 @@
   var toggle = document.getElementById("stream-show-seen");
   var allSeenBanner = document.getElementById("stream-all-seen");
   var showingSeen = false;
+
+  // Small bounce on the toggle every time a fresh mark lands, so the
+  // reader gets confirmation that their scroll actually did something.
+  var bumpTimer = null;
+  function bumpCounter() {
+    refreshChrome();
+    if (!toggle || toggle.hidden) return;
+    toggle.classList.remove("bumped");
+    // Reflow so the animation restarts on rapid successive marks.
+    void toggle.offsetWidth;
+    toggle.classList.add("bumped");
+    if (bumpTimer) clearTimeout(bumpTimer);
+    bumpTimer = setTimeout(function () {
+      toggle.classList.remove("bumped");
+      bumpTimer = null;
+    }, 420);
+  }
 
   function visibleFreshRowCount() {
     // Number of non-hidden rows currently in the list.
