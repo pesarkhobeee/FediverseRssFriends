@@ -1,0 +1,151 @@
+{# Per-viewer "seen" tracking for the stream view. Purely client-side:
+   an IntersectionObserver adds each row's item id to a Set in
+   localStorage as the row is first scrolled into view. On subsequent
+   loads (including HTMX Load-more swaps) already-seen rows get hidden
+   via CSS. A "Show seen" toggle in the header flips visibility.
+
+   Storage key is scoped per-owner so viewing /u/a and /u/b keeps
+   separate sets. Bounded at 5000 ids to keep localStorage small.
+
+   No cross-device sync — that would be Option 3 (server-side). #}
+<script>
+(function () {
+  var list = document.getElementById("stream-list");
+  if (!list) return;
+  var owner = list.dataset.ownerHandle || "unknown";
+  var STORAGE_KEY = "stream-seen:" + owner;
+  var CAP = 5000;
+
+  function loadSeen() {
+    try {
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return new Set();
+      var arr = JSON.parse(raw);
+      return new Set(Array.isArray(arr) ? arr : []);
+    } catch (e) { return new Set(); }
+  }
+  function saveSeen(set) {
+    // Newest additions live at the end of the array; when we exceed
+    // the cap we drop from the front (oldest first).
+    var arr = Array.from(set);
+    if (arr.length > CAP) arr = arr.slice(arr.length - CAP);
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(arr)); }
+    catch (e) { /* quota — silently drop */ }
+  }
+
+  var seen = loadSeen();
+  var dirty = false;
+  var flushTimer = null;
+  function scheduleFlush() {
+    if (flushTimer) return;
+    flushTimer = setTimeout(function () {
+      flushTimer = null;
+      if (dirty) { saveSeen(seen); dirty = false; }
+    }, 400);
+  }
+
+  function markHidden(row) {
+    row.classList.add("stream-row-seen");
+  }
+  function applyHide(root) {
+    var rows = root.querySelectorAll(".stream-row[data-item-id]");
+    for (var i = 0; i < rows.length; i++) {
+      if (seen.has(rows[i].dataset.itemId)) markHidden(rows[i]);
+    }
+  }
+
+  var observer = null;
+  if ("IntersectionObserver" in window) {
+    observer = new IntersectionObserver(function (entries) {
+      for (var i = 0; i < entries.length; i++) {
+        var entry = entries[i];
+        if (!entry.isIntersecting) continue;
+        var id = entry.target.dataset.itemId;
+        if (id && !seen.has(id)) {
+          seen.add(id);
+          dirty = true;
+        }
+        // One-shot: once we've marked it, stop watching.
+        observer.unobserve(entry.target);
+      }
+      if (dirty) scheduleFlush();
+    }, { threshold: 0.5 });
+  }
+  function observeFresh(root) {
+    if (!observer) return;
+    var rows = root.querySelectorAll(".stream-row[data-item-id]");
+    for (var i = 0; i < rows.length; i++) {
+      // Don't re-observe rows already known to be seen — they're
+      // hidden and won't fire an intersection anyway.
+      if (!rows[i].classList.contains("stream-row-seen")) {
+        observer.observe(rows[i]);
+      }
+    }
+  }
+
+  var toggle = document.getElementById("stream-show-seen");
+  var allSeenBanner = document.getElementById("stream-all-seen");
+  var showingSeen = false;
+
+  function visibleFreshRowCount() {
+    // Number of non-hidden rows currently in the list.
+    return list.querySelectorAll(".stream-row:not(.stream-row-seen)").length;
+  }
+  function totalRowCount() {
+    return list.querySelectorAll(".stream-row[data-item-id]").length;
+  }
+  function refreshChrome() {
+    var total = totalRowCount();
+    var fresh = visibleFreshRowCount();
+    var hiddenCount = total - fresh;
+    if (toggle) {
+      toggle.hidden = hiddenCount === 0;
+      if (!showingSeen) {
+        toggle.textContent = hiddenCount > 0
+          ? ("Show seen (" + hiddenCount + ")")
+          : "Show seen";
+      }
+    }
+    if (allSeenBanner) {
+      // Banner only relevant when the whole page is seen AND the
+      // toggle is currently off. When Show-seen is on, everything is
+      // visible — no need for the banner.
+      allSeenBanner.hidden = !(total > 0 && fresh === 0 && !showingSeen);
+    }
+  }
+
+  if (toggle) {
+    toggle.addEventListener("click", function (e) {
+      e.preventDefault();
+      showingSeen = !showingSeen;
+      list.classList.toggle("stream-show-seen", showingSeen);
+      toggle.setAttribute("aria-pressed", showingSeen ? "true" : "false");
+      toggle.textContent = showingSeen ? "Hide seen" : "Show seen";
+      refreshChrome();
+    });
+  }
+
+  // Flush pending marks when the user leaves the tab / page — otherwise
+  // fast scrollers who close the tab quickly lose the last few marks.
+  window.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "hidden" && dirty) {
+      saveSeen(seen); dirty = false;
+    }
+  });
+
+  // Initial pass.
+  applyHide(list);
+  observeFresh(list);
+  refreshChrome();
+
+  // HTMX "Load more" swaps in more rows. Re-run against the new
+  // additions only (the pre-existing rows already got observed above).
+  document.body.addEventListener("htmx:afterSwap", function (ev) {
+    // Only react when the swap target is inside our list.
+    if (!list.contains(ev.target) && ev.target !== list) return;
+    applyHide(list);
+    observeFresh(list);
+    refreshChrome();
+  });
+})();
+</script>

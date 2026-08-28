@@ -10,7 +10,7 @@
    Item rows carry the .item-clickable class from 0.4.5 so the whole
    card is a tap target. #}
 {% for row in stream_rows %}
-  <li class="fav-item item-clickable stream-row">
+  <li class="fav-item item-clickable stream-row" data-item-id="{{ row.item.id }}">
     <div class="fav-head">
       {% if row.feed.favicon_url %}
         <img class="favicon stream-row-favicon" src="{{ row.feed.favicon_url }}" alt="" loading="lazy" />

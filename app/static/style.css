@@ -2162,6 +2162,34 @@ img.favicon {
   font-weight: 600;
 }
 
+/* 0.11.48: seen-item tracking. Rows that have been scrolled past on a
+   prior visit get the .stream-row-seen class from JS on load; CSS
+   hides them until the viewer flips the Show-seen toggle, which adds
+   .stream-show-seen to the list to reveal them (dimmed). */
+.stream-controls {
+  display: flex; justify-content: flex-end;
+  margin: 8px 0 0;
+}
+.stream-show-seen-btn {
+  font-size: 12.5px;
+  padding: 4px 10px;
+  border-radius: 99px;
+}
+.stream-all-seen {
+  padding: 12px 14px;
+  margin-top: 8px;
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  font-size: 13.5px;
+  text-align: center;
+}
+.stream-row-seen { display: none; }
+.stream-list.stream-show-seen .stream-row-seen {
+  display: list-item;
+  opacity: 0.55;
+}
+.stream-list.stream-show-seen .stream-row-seen:hover { opacity: 0.85; }
+
 @media (max-width: 540px) {
   .stream-row-title { font-size: 14.5px; }
   .stream-row-favicon { width: 28px !important; height: 28px !important; flex: 0 0 28px !important; }
