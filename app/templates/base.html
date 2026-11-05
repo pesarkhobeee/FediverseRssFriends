@@ -31,7 +31,7 @@
     (function () {
       try {
         var saved = localStorage.getItem("rssfriends-theme");
-        if (saved === "dark" || saved === "light") {
+        if (saved === "dark" || saved === "light" || saved === "ereader") {
           document.documentElement.setAttribute("data-theme", saved);
         }
       } catch (_) {}
@@ -44,7 +44,7 @@
       if (!cur) {
         cur = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
       }
-      var next = cur === "dark" ? "light" : "dark";
+      var next = { light: "dark", dark: "ereader", ereader: "light" }[cur] || "light";
       root.setAttribute("data-theme", next);
       try { localStorage.setItem("rssfriends-theme", next); } catch (_) {}
     }
@@ -98,9 +98,10 @@
         {% endif %}
       {% endif %}
       <button type="button" class="nav-theme-toggle" onclick="toggleTheme()"
-              aria-label="Toggle light / dark theme" title="Toggle light / dark theme">
+              aria-label="Switch theme: light / dark / e-reader" title="Switch theme: light / dark / e-reader">
         <span class="theme-icon-light" aria-hidden="true">☀️</span>
         <span class="theme-icon-dark" aria-hidden="true">🌙</span>
+        <span class="theme-icon-ereader" aria-hidden="true">📖</span>
       </button>
     </nav>
   </header>

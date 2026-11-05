@@ -98,10 +98,37 @@ def can_view(viewer: User | None, target: User, db: Session | None = None) -> bo
     return False
 
 
+def _load_linked_categories(db: Session, viewer: User) -> list[dict]:
+    """Private-radar categories the viewer follows, for rendering live
+    on the viewer's OWN /u/{handle} only. Re-checks can_view() per
+    owner on every call so a revoke hides the category immediately.
+    Never feed this into OPML, RSS, activity or the AP outbox."""
+    from .db import CategoryFollow
+
+    rows = db.exec(
+        select(Category, User)
+        .join(CategoryFollow, CategoryFollow.category_id == Category.id)
+        .join(User, User.id == Category.user_id)
+        .where(CategoryFollow.follower_id == viewer.id)
+        .where(User.visibility == "private")
+        .order_by(User.handle, Category.sort_order, Category.id)
+    ).all()
+    return [
+        {"category": cat, "owner": owner}
+        for cat, owner in rows
+        if can_view(viewer, owner, db=db)
+    ]
+
+
 def _load_public_radar(
-    db: Session, owner: User, category_filter: str | None, viewer: User | None = None
+    db: Session,
+    owner: User,
+    category_filter: str | None,
+    viewer: User | None = None,
+    category_id: int | None = None,
 ) -> dict:
-    """Categories → subs → feed → recent items. Filters by category name if given."""
+    """Categories → subs → feed → recent items. Filters by category name
+    (or id) if given."""
     categories = db.exec(
         select(Category)
         .where(Category.user_id == owner.id)
@@ -109,6 +136,8 @@ def _load_public_radar(
     ).all()
     if category_filter:
         categories = [c for c in categories if c.name.lower() == category_filter.lower()]
+    if category_id is not None:
+        categories = [c for c in categories if c.id == category_id]
 
     cat_ids = [c.id for c in categories]
     subs_rows = []
@@ -560,6 +589,7 @@ def user_radar(
     cat: str | None = None,
     view: str = "feeds",
     offset: int = 0,
+    linked: int | None = None,
     viewer: User | None = Depends(current_user),
     db: Session = Depends(get_session),
 ):
@@ -652,6 +682,31 @@ def user_radar(
     ctx["reading_rss_url"] = _signed_url(f"/u/{owner.handle}.rss")
     ctx["activity_rss_url"] = _signed_url(f"/u/{owner.handle}/activity.rss")
     ctx["view"] = view
+
+    linked_categories = (
+        _load_linked_categories(db, viewer) if ctx["is_owner"] else []
+    )
+    ctx["linked_categories"] = linked_categories
+    ctx["active_linked"] = None
+    if linked is not None:
+        # Only ids from the can_view-filtered list are honored; a
+        # hand-edited ?linked=<id> for anything else renders nothing.
+        match = next(
+            (lc for lc in linked_categories if lc["category"].id == linked), None
+        )
+        if match is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "linked category not found")
+        link_ctx = _load_public_radar(
+            db, match["owner"], None, viewer=viewer, category_id=linked
+        )
+        ctx["active_linked"] = {
+            **match,
+            "subs": link_ctx["categories_view"][0]["subs"]
+            if link_ctx["categories_view"] else [],
+        }
+        ctx["viewer_bookmarks"] = link_ctx["viewer_bookmarks"]
+        view = ctx["view"] = "feeds"
+
     if view == "stream":
         stream_rows, has_more = _load_stream(db, owner, cat, offset=max(0, offset))
         ctx["stream_rows"] = stream_rows
@@ -667,7 +722,12 @@ def user_radar(
                 .where(Bookmark.feed_item_id.in_(item_ids))
             ).all())
         ctx["viewer_bookmarks"] = viewer_bookmarks
-    return templates.TemplateResponse(request, "user_radar.html", ctx)
+    response = templates.TemplateResponse(request, "user_radar.html", ctx)
+    if linked_categories:
+        # Page now carries another user's private categories; keep it
+        # out of Cloudflare / shared caches.
+        response.headers["Cache-Control"] = "private, no-store"
+    return response
 
 
 @router.post("/settings/visibility")

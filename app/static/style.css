@@ -13,6 +13,8 @@
      - [data-theme="dark"] = dark override, set by the JS toggle.
      - @media prefers-color-scheme: dark → auto-dark when no explicit choice.
      - [data-theme="light"] pins light even in a dark-preferring OS.
+     - [data-theme="ereader"] = pure black on white, no motion or shadows,
+       for e-ink screens (Kaleido color panels wash out mid-tones).
    When changing tokens, update docs/design-language.md too.
 */
 :root {
@@ -91,7 +93,7 @@
   --fedi-border: #4A3F70;
 }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
+  :root:not([data-theme="light"]):not([data-theme="ereader"]) {
     --fg: #F0E8D8;
     --muted: #A69B87;
     --visited: #7F7566;
@@ -123,6 +125,48 @@
     --toast-border: #4A3F30;
   }
 }
+
+[data-theme="ereader"] {
+  --fg: #000000;
+  --muted: #333333;
+  --visited: #777777;
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --card: #ffffff;
+  --card-hover: #ffffff;
+  --border: #000000;
+  --accent: #000000;
+  --accent-fg: #ffffff;
+  --accent-bg: #ffffff;
+  --accent-hover: #000000;
+  --link: #000000;
+  --link-hover: #000000;
+  --danger: #000000;
+  --danger-fg: #ffffff;
+  --danger-bg: #ffffff;
+  --danger-border: #000000;
+  --star: #000000;
+  --warn-bg: #ffffff;
+  --warn-fg: #000000;
+  --warn-border: #000000;
+  --fedi:        #000000;
+  --fedi-fg:     #000000;
+  --fedi-bg:     #ffffff;
+  --fedi-border: #000000;
+  --toast-bg: #ffffff;
+  --toast-fg: #000000;
+  --toast-border: #000000;
+}
+[data-theme="ereader"] *,
+[data-theme="ereader"] *::before,
+[data-theme="ereader"] *::after {
+  transition: none !important;
+  animation: none !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+}
+[data-theme="ereader"] body { -webkit-font-smoothing: auto; }
+[data-theme="ereader"] a { text-decoration: underline; }
 
 * { box-sizing: border-box; }
 
@@ -275,16 +319,18 @@ nav a.nav-user { color: var(--fg); font-weight: 600; }
   color: inherit;
 }
 .nav-theme-toggle:hover { background: var(--card); }
-/* Icon shown = what clicking will DO:
-   - In light theme: show 🌙 (click → switch to dark).
-   - In dark theme:  show ☀️ (click → switch to light). */
-.nav-theme-toggle .theme-icon-light { display: none; }
-.nav-theme-toggle .theme-icon-dark { display: inline; }
-[data-theme="dark"] .nav-theme-toggle .theme-icon-light { display: inline; }
-[data-theme="dark"] .nav-theme-toggle .theme-icon-dark { display: none; }
+/* Icon shown = the current theme (☀️ light, 🌙 dark, 📖 e-reader).
+   Clicking cycles light → dark → e-reader. */
+.nav-theme-toggle .theme-icon-dark,
+.nav-theme-toggle .theme-icon-ereader { display: none; }
+.nav-theme-toggle .theme-icon-light { display: inline; }
+[data-theme="dark"] .nav-theme-toggle .theme-icon-light,
+[data-theme="ereader"] .nav-theme-toggle .theme-icon-light { display: none; }
+[data-theme="dark"] .nav-theme-toggle .theme-icon-dark { display: inline; }
+[data-theme="ereader"] .nav-theme-toggle .theme-icon-ereader { display: inline; }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .nav-theme-toggle .theme-icon-light { display: inline; }
-  :root:not([data-theme="light"]) .nav-theme-toggle .theme-icon-dark { display: none; }
+  :root:not([data-theme]) .nav-theme-toggle .theme-icon-light { display: none; }
+  :root:not([data-theme]) .nav-theme-toggle .theme-icon-dark { display: inline; }
 }
 
 /* Layout */

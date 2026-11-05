@@ -17,3 +17,5 @@ dist/
 build/
 *.egg-info/
 .DS_Store
+instance/*
+!instance/README.md

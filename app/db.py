@@ -1,5 +1,6 @@
 from collections.abc import Iterator
 from datetime import UTC, datetime
+from pathlib import Path
 
 from sqlalchemy import UniqueConstraint
 from sqlmodel import Field, Session, SQLModel, create_engine, select
@@ -740,28 +741,27 @@ def init_db() -> None:
     _seed_official_collections()
 
 
+# ─── Seed collections ─────────────────────────────────────────────────
+# Instance-specific data, not code: loaded from a JSON list of seed
+# dicts (slug, name, description, language, locale, is_official,
+# curator_handle, feeds=[[url, title, site_url, favicon_url, note]]).
+# Default path is instance/collections.json; override with
+# RSSFRIENDS_SEED_FILE. A missing file means no seed collections.
 
-# ─── Seed community-curated collections ──────────────────────────────
-#
-# Add dictionaries here to auto-provision Collection rows on every
-# startup. Each dict follows the shape below; _seed_official_collections
-# is idempotent, so listing a seed is safe across restarts. This fork
-# ships empty on purpose — self-hosters populate their own.
-#
-#   EXAMPLE_SEED = {
-#       "slug": "example-tech",
-#       "name": "Example — Tech",
-#       "description": "…one-sentence blurb…",
-#       "language": "en",
-#       "locale": "Global",
-#       "is_official": True,
-#       "curator_handle": None,   # or a handle string; falls back to NULL if missing
-#       "feeds": [ (url, title, site_url, favicon_url, note), … ],
-#   }
-
-ALL_SEED_COLLECTIONS: tuple[dict, ...] = ()
+_DEFAULT_SEED_FILE = Path(__file__).resolve().parent.parent / "instance" / "collections.json"
 
 
+def _load_seed_collections() -> tuple[dict, ...]:
+    import json
+    import os
+
+    path = Path(os.environ.get("RSSFRIENDS_SEED_FILE") or _DEFAULT_SEED_FILE)
+    if not path.is_file():
+        return ()
+    return tuple(json.loads(path.read_text(encoding="utf-8")))
+
+
+ALL_SEED_COLLECTIONS = _load_seed_collections()
 
 
 def _seed_official_collections() -> None:
@@ -823,7 +823,7 @@ def _seed_official_collections() -> None:
             ).all())
             # Honor tombstones: a URL a curator explicitly removed via
             # the UI must stay removed across deploys, even though it's
-            # still in the seed dict below.
+            # still in the seed list.
             tombstoned_urls = set(db.exec(
                 select(CollectionFeedTombstone.feed_url)
                 .where(CollectionFeedTombstone.collection_id == col.id)

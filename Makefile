@@ -1,5 +1,5 @@
 .PHONY: install dev test lint fmt up down clean backup restore \
-        deploy-check deploy version
+        deploy-check deploy version require-deploy-config
 
 # --- Local ------------------------------------------------------------
 
@@ -39,12 +39,16 @@ restore:
 #
 # Deploy target = rsync the repo to your server + rebuild the Docker
 # image + restart the container + smoke-test /version. The rsync
-# exclude list is CRITICAL — omitting --exclude=.env would wipe the
-# production env file.
+# exclude list is CRITICAL — omitting --exclude=.env once wiped the
+# production env file. DEPLOY_COMPOSE is excluded too: if it names the
+# wrong file, `--delete` removes the server's real compose file.
 #
-# Set these on the command line or in a local Makefile.local override:
-#   make deploy DEPLOY_HOST=user@your-server DEPLOY_PATH=/srv/rssfriends \
+# Instance-specific values live in instance/deploy.mk (see
+# instance/README.md) or on the command line:
+#   make deploy DEPLOY_HOST=user@your-server \
 #               HEALTHCHECK_URL=https://your-domain.example/version
+
+-include instance/deploy.mk
 
 DEPLOY_HOST     ?=
 DEPLOY_PATH     ?= /srv/rssfriends
@@ -60,19 +64,19 @@ version:
 	@grep '^__version__' app/__init__.py | cut -d'"' -f2
 
 # Dry-run: show what rsync WOULD send, without touching production.
-deploy-check:
+deploy-check: require-deploy-config
 	@echo "→ dry-run rsync to $(DEPLOY_HOST):$(DEPLOY_PATH)"
 	rsync -avzn --delete $(RSYNC_EXCLUDES) ./ $(DEPLOY_HOST):$(DEPLOY_PATH)/
 
-# Full deploy: tests + lint + rsync + rebuild + smoke-test.
-# Fails fast at each step so a broken commit never reaches prod.
-deploy:
+require-deploy-config:
 	@if [ -z "$(DEPLOY_HOST)" ] || [ -z "$(HEALTHCHECK_URL)" ]; then \
-	  echo "❌ DEPLOY_HOST and HEALTHCHECK_URL must be set. e.g.:"; \
-	  echo "   make deploy DEPLOY_HOST=user@your-server \\"; \
-	  echo "               HEALTHCHECK_URL=https://your-domain.example/version"; \
+	  echo "❌ DEPLOY_HOST and HEALTHCHECK_URL must be set (instance/deploy.mk or command line)."; \
 	  exit 2; \
 	fi
+
+# Full deploy: tests + lint + rsync + rebuild + smoke-test.
+# Fails fast at each step so a broken commit never reaches prod.
+deploy: require-deploy-config
 	@echo "→ Running tests + lint before deploy…"
 	@$(MAKE) --no-print-directory test
 	@$(MAKE) --no-print-directory lint

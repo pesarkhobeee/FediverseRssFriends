@@ -178,60 +178,163 @@ def test_follow_category_idempotent():
     assert len(rows) == 1
 
 
-def test_follow_private_users_category_always_forbidden():
-    """0.2.44: private radars don't support category-follow at all,
-    even from approved whole-user followers. Reason: the auto-created
-    reader subscription (0.2.43) needs to refresh anonymously, and
-    private URLs 403 in that context. Blocking at the follow endpoint
-    keeps behavior consistent."""
+def _approve(follower: str, owner: str) -> None:
+    from datetime import UTC, datetime
+
+    import app.db as db_mod
+    with Session(db_mod.engine) as s:
+        follow = s.get(db_mod.Follow, (_uid(follower), _uid(owner)))
+        follow.approved_at = datetime.now(UTC)
+        s.add(follow)
+        s.commit()
+
+
+def _private_owner_with_linked_fan():
+    """pesarkhobeee (private) has a 'Twitter' category; farid is an
+    approved follower who linked it. Returns (owner, fan, cat_id)."""
+    owner = _client()
+    _login(owner, "pesarkhobeee@e.com")
+    owner.post("/settings/visibility", data={"visibility": "private"}, follow_redirects=False)
+    cat_id, _, _ = _seed_category_with_feed(
+        "pesarkhobeee", "Twitter", "https://secret.example/rss"
+    )
+    fan = _client()
+    _login(fan, "farid@e.com")
+    fan.post("/u/pesarkhobeee/follow")
+    _approve("farid", "pesarkhobeee")
+    r = fan.post(f"/u/pesarkhobeee/c/{cat_id}/follow")
+    assert r.status_code == 200
+    return owner, fan, cat_id
+
+
+def test_follow_private_category_requires_approved_follow():
     owner = _client()
     _login(owner, "farid@e.com")
     owner.post("/settings/visibility", data={"visibility": "private"}, follow_redirects=False)
     cat_id, _, _ = _seed_category_with_feed("farid", "Secret", "https://a.example/rss")
 
-    # Random visitor: rejected.
     fan = _client()
     _login(fan, "bob@e.com")
-    r = fan.post(f"/u/farid/c/{cat_id}/follow")
-    assert r.status_code == 403
-    assert "private" in r.text.lower()
+    assert fan.post(f"/u/farid/c/{cat_id}/follow").status_code == 403
 
-    # Even after approved whole-user follow: still rejected on private.
-    fan.post("/u/farid/follow")  # sends a pending request
-    # Auto-approve for the sake of the test: bump the row's approved_at.
-    from datetime import UTC, datetime
+    fan.post("/u/farid/follow")  # pending
+    assert fan.post(f"/u/farid/c/{cat_id}/follow").status_code == 403
 
+
+def test_follow_private_category_creates_no_subscription():
+    _owner, _fan, _cat_id = _private_owner_with_linked_fan()
     import app.db as db_mod
     with Session(db_mod.engine) as s:
-        follow = s.get(db_mod.Follow, (_uid("bob"), _uid("farid")))
-        follow.approved_at = datetime.now(UTC)
-        s.add(follow)
-        s.commit()
-    r2 = fan.post(f"/u/farid/c/{cat_id}/follow")
-    assert r2.status_code == 403
+        assert len(s.exec(select(db_mod.CategoryFollow)).all()) == 1
+        farid_subs = s.exec(
+            select(db_mod.Subscription).where(db_mod.Subscription.user_id == _uid("farid"))
+        ).all()
+    assert farid_subs == []
 
 
-def test_follow_category_button_hidden_on_private_radar():
+def test_follow_category_button_shows_for_approved_follower_on_private_radar():
     owner = _client()
     _login(owner, "farid@e.com")
     _seed_category_with_feed("farid", "News", "https://a.example/rss")
     owner.post("/settings/visibility", data={"visibility": "private"}, follow_redirects=False)
-    # Approve a follower so they can VIEW the radar; button still hidden.
     fan = _client()
     _login(fan, "bob@e.com")
     fan.post("/u/farid/follow")
-    from datetime import UTC, datetime
-
-    import app.db as db_mod
-    with Session(db_mod.engine) as s:
-        follow = s.get(db_mod.Follow, (_uid("bob"), _uid("farid")))
-        follow.approved_at = datetime.now(UTC)
-        s.add(follow)
-        s.commit()
+    _approve("bob", "farid")
 
     r = fan.get("/u/farid?cat=News")
     assert r.status_code == 200
-    assert "🔔 Follow category" not in r.text
+    assert "🔔 Follow category" in r.text
+    assert "/u/farid/c/News.rss" not in r.text
+
+
+def test_linked_category_visible_only_to_follower_on_own_radar():
+    _owner, fan, cat_id = _private_owner_with_linked_fan()
+
+    r = fan.get("/u/farid")
+    assert "🔒 @pesarkhobeee · Twitter" in r.text
+    assert r.headers["cache-control"] == "private, no-store"
+
+    r = fan.get(f"/u/farid?linked={cat_id}")
+    assert r.status_code == 200
+    assert "https://secret.example/rss" in r.text
+
+    anon = _client().get("/u/farid")
+    assert "@pesarkhobeee" not in anon.text
+    assert _client().get(f"/u/farid?linked={cat_id}").status_code == 404
+
+    other = _client()
+    _login(other, "alice@e.com")
+    assert "@pesarkhobeee" not in other.get("/u/farid").text
+    assert other.get(f"/u/farid?linked={cat_id}").status_code == 404
+
+
+def test_linked_category_absent_from_follower_exports():
+    _owner, fan, _cat_id = _private_owner_with_linked_fan()
+    for path in ("/u/farid.opml", "/u/farid.rss", "/u/farid/activity"):
+        r = fan.get(path)
+        assert "secret.example" not in r.text, path
+        assert "Twitter" not in r.text, path
+
+
+def test_linked_category_card_has_no_copy_or_bookmark_actions():
+    _owner, fan, cat_id = _private_owner_with_linked_fan()
+    r = fan.get(f"/u/farid?linked={cat_id}")
+    assert "/items/" not in r.text
+    assert "/f/" not in r.text
+    assert "/subscriptions/" not in r.text
+
+
+def test_linked_category_id_not_followed_is_404():
+    owner, fan, _cat_id = _private_owner_with_linked_fan()
+    other_cat, _, _ = _seed_category_with_feed(
+        "pesarkhobeee", "Hidden", "https://hidden.example/rss"
+    )
+    assert fan.get(f"/u/farid?linked={other_cat}").status_code == 404
+
+
+def test_revoke_hides_linked_category_and_drops_row():
+    owner, fan, cat_id = _private_owner_with_linked_fan()
+    r = owner.post(f"/followers/{_uid('farid')}/revoke")
+    assert r.status_code == 200
+
+    assert "@pesarkhobeee" not in fan.get("/u/farid").text
+    assert fan.get(f"/u/farid?linked={cat_id}").status_code == 404
+    import app.db as db_mod
+    with Session(db_mod.engine) as s:
+        assert s.exec(select(db_mod.CategoryFollow)).all() == []
+
+
+def test_unfollow_private_owner_drops_linked_category():
+    _owner, fan, _cat_id = _private_owner_with_linked_fan()
+    fan.delete("/u/pesarkhobeee/follow")
+    assert "@pesarkhobeee" not in fan.get("/u/farid").text
+    import app.db as db_mod
+    with Session(db_mod.engine) as s:
+        assert s.exec(select(db_mod.CategoryFollow)).all() == []
+
+
+def test_timeline_ignores_category_follow_after_access_lost():
+    """A leftover CategoryFollow row must not leak a private owner's
+    activity once the Follow is gone."""
+    _owner, fan, _cat_id = _private_owner_with_linked_fan()
+    import app.db as db_mod
+    from app import activity as activity_mod
+    with Session(db_mod.engine) as s:
+        owner_user = s.get(db_mod.User, _uid("pesarkhobeee"))
+        feed = s.exec(
+            select(db_mod.Feed).where(db_mod.Feed.url == "https://secret.example/rss")
+        ).one()
+        activity_mod.record(
+            s, owner_user, "subscribed", "SecretFeedTitle",
+            subject_url=feed.url, ref_type="feed", ref_id=feed.id,
+        )
+        s.delete(s.get(db_mod.Follow, (_uid("farid"), _uid("pesarkhobeee"))))
+        s.commit()
+
+    r = fan.get("/feed")
+    assert r.status_code == 200
+    assert "SecretFeedTitle" not in r.text
 
 
 def test_follow_unknown_category_404s():

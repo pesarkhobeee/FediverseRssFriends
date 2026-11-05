@@ -16,6 +16,7 @@ COPY pyproject.toml uv.lock README.md ./
 RUN uv sync --frozen --no-install-project --no-dev
 
 COPY app ./app
+COPY instance ./instance
 RUN uv sync --frozen --no-dev
 
 ENV RSSFRIENDS_DATA_DIR=/data

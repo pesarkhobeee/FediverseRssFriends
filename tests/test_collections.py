@@ -1048,3 +1048,19 @@ def test_duplicate_request_from_same_user_returns_409():
     r = c.post("/collections/request", data={"name": "Dup Name"},
                follow_redirects=False)
     assert r.status_code == 409
+
+
+def test_seed_file_loader(tmp_path, monkeypatch):
+    import json
+
+    import app.db as db_mod
+
+    seed_file = tmp_path / "collections.json"
+    seed_file.write_text(json.dumps([TEST_SEED_ALPHA]), encoding="utf-8")
+    monkeypatch.setenv("RSSFRIENDS_SEED_FILE", str(seed_file))
+    loaded = db_mod._load_seed_collections()
+    assert [s["slug"] for s in loaded] == ["test-seed-alpha"]
+    assert len(loaded[0]["feeds"]) == 3
+
+    monkeypatch.setenv("RSSFRIENDS_SEED_FILE", str(tmp_path / "missing.json"))
+    assert db_mod._load_seed_collections() == ()

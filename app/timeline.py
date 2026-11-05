@@ -50,6 +50,21 @@ def _aware(dt: datetime | None) -> datetime:
     return dt if dt.tzinfo is not None else dt.replace(tzinfo=UTC)
 
 
+def _visible_category_follows(db: Session, user: User) -> list[tuple[CategoryFollow, Category]]:
+    """CategoryFollow rows whose category owner the user can still view.
+    Without this, a revoked follower of a private radar would keep
+    seeing that owner's activity through a leftover category follow."""
+    from .public import can_view
+
+    rows = db.exec(
+        select(CategoryFollow, Category, User)
+        .join(Category, Category.id == CategoryFollow.category_id)
+        .join(User, User.id == Category.user_id)
+        .where(CategoryFollow.follower_id == user.id)
+    ).all()
+    return [(cf, cat) for cf, cat, owner in rows if can_view(user, owner, db=db)]
+
+
 def _load_timeline(
     db: Session, user: User, before: datetime | None = None
 ) -> dict:
@@ -95,11 +110,7 @@ def _load_timeline(
     # category on the followee's own radar. Person-scoped kinds
     # (followed/forked/created_category/posted) don't fit a category
     # scope and only reach the viewer via whole-user Follow.
-    cat_follow_rows = db.exec(
-        select(CategoryFollow, Category)
-        .join(Category, Category.id == CategoryFollow.category_id)
-        .where(CategoryFollow.follower_id == user.id)
-    ).all()
+    cat_follow_rows = _visible_category_follows(db, user)
     n_cat_follows = len(cat_follow_rows)
     for _cf, cat in cat_follow_rows:
         # Feed ids in that category, on the category owner's radar.
@@ -290,11 +301,7 @@ def _source_totals(db: Session, user: User, cutoff: datetime) -> tuple[int, int]
             .where(Activity.user_id.in_(followee_ids))
             .where(Activity.created_at >= cutoff)
         ).all())
-    cat_follow_rows = db.exec(
-        select(CategoryFollow, Category)
-        .join(Category, Category.id == CategoryFollow.category_id)
-        .where(CategoryFollow.follower_id == user.id)
-    ).all()
+    cat_follow_rows = _visible_category_follows(db, user)
     for _cf, cat in cat_follow_rows:
         feed_ids = list(db.exec(
             select(Subscription.feed_id)

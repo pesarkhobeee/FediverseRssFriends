@@ -1,5 +1,8 @@
 {# Feed card on the public radar. Expects `it` (dict from _load_public_radar).
-   Optional: `show_category` (bool) — render the category chip in the summary. #}
+   Optional: `show_category` (bool) — render the category chip in the summary.
+   Optional: `linked` (bool) — card from another user's private category
+   shown on the viewer's own radar: read-only, no actions that copy,
+   share or log it (bookmark writes a public Activity). #}
 <details class="feed-card">
   <summary>
     {% if it.feed.favicon_url %}
@@ -9,11 +12,11 @@
     {% endif %}
     <span class="title">{{ it.feed.title }}</span>
     {# 0.11.3: private per-user note shown only on the owner's own view #}
-    {% if is_owner and it.sub.note %}
+    {% if is_owner and not linked and it.sub.note %}
       <span class="feed-note muted" title="Your private note">— {{ it.sub.note }}</span>
     {% endif %}
     {% if it.is_new %}<span class="badge-new">New</span>{% endif %}
-    {% if show_category and it.category_name %}
+    {% if show_category and not linked and it.category_name %}
       <a class="chip small" href="/u/{{ owner.handle }}?cat={{ it.category_name }}"
          onclick="event.stopPropagation()">{{ it.category_name }}</a>
     {% endif %}
@@ -35,6 +38,7 @@
         <a class="btn-ghost" href="{{ it.feed.site_url }}" target="_blank" rel="noopener">Visit Website</a>
       {% endif %}
       <a class="btn-ghost" href="{{ it.feed.url }}" target="_blank" rel="noopener">Feed XML</a>
+      {% if not linked %}
       <a class="btn-ghost" href="/f/{{ it.feed.id }}">📄 Feed page</a>
       <button type="button" class="btn-ghost"
               data-copy-url="/f/{{ it.feed.id }}"
@@ -55,12 +59,13 @@
           {% include "_feed_cta.html" %}
         {% endwith %}
       {% endif %}
+      {% endif %}
     </p>
     {% if it.entries %}
       <ul class="item-list">
         {% for item in it.entries %}
           <li class="item">
-            {% if user %}
+            {% if user and not linked %}
               {% with item_id=item.id, is_bookmarked=(item.id in viewer_bookmarks) %}
                 {% include "_bookmark.html" %}
               {% endwith %}

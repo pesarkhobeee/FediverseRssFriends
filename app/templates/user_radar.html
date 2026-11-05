@@ -82,13 +82,20 @@
 </section>
 
 {% set view_qs = "&view=" ~ view if view == "stream" else "" %}
-{% if all_categories %}
+{% if all_categories or linked_categories %}
 <div class="radar-chips" role="tablist" aria-label="Categories">
-  <a class="radar-chip {% if not active_cat %}radar-chip-active{% endif %}"
+  <a class="radar-chip {% if not active_cat and not active_linked %}radar-chip-active{% endif %}"
      href="/u/{{ owner.handle }}{% if view == 'stream' %}?view=stream{% endif %}">All</a>
   {% for c in all_categories %}
     <a class="radar-chip {% if active_cat.lower() == c.name.lower() %}radar-chip-active{% endif %}"
        href="/u/{{ owner.handle }}?cat={{ c.name }}{{ view_qs }}">{{ c.name }}</a>
+  {% endfor %}
+  {# Linked categories: other users' private categories, rendered live
+     for the signed-in owner only. Never copied into this radar. #}
+  {% for lc in linked_categories %}
+    <a class="radar-chip radar-chip-linked {% if active_linked and active_linked.category.id == lc.category.id %}radar-chip-active{% endif %}"
+       href="/u/{{ owner.handle }}?linked={{ lc.category.id }}"
+       title="Only you can see this — from @{{ lc.owner.handle }}'s private radar">🔒 @{{ lc.owner.handle }} · {{ lc.category.name }}</a>
   {% endfor %}
 </div>
 {% endif %}
@@ -99,7 +106,14 @@
 {# Per-category RSS pill — appears only when a category filter is active.
    Whole-radar RSS is already in the header meta strip. Per-category
    RSS is disabled for private radars (0.2.44). #}
-{% if active_category and owner.visibility != "private" %}
+{% if active_category and owner.visibility == "private" and user and user.id != owner.id %}
+  <div class="radar-category-rss">
+    <span class="radar-category-rss-label">Show “{{ active_category.name }}” on your own radar — only you will see it</span>
+    {% with category=active_category, owner_handle=owner.handle, state=category_follow_states.get(active_category.id, "none") %}
+      {% include "_category_follow_button.html" %}
+    {% endwith %}
+  </div>
+{% elif active_category and owner.visibility != "private" %}
   {% set rss_path = "/u/" ~ owner.handle ~ "/c/" ~ active_category.name ~ ".rss" %}
   {% set rss_short = instance_host ~ "/u/" ~ owner.handle ~ "/c/" ~ active_category.name ~ ".rss" %}
   <div class="radar-category-rss">
@@ -150,7 +164,20 @@
   {% include "_stream_seen.html" %}
 {% else %}
   <div class="stack" style="margin-top:1rem">
-    {% if not active_cat %}
+    {% if active_linked %}
+      <p class="muted">
+        🔒 Live from <a href="/u/{{ active_linked.owner.handle }}?cat={{ active_linked.category.name }}">@{{ active_linked.owner.handle }}'s “{{ active_linked.category.name }}”</a>.
+        Only you can see this here; it's not part of your radar's OPML or RSS.
+      </p>
+      {% for it in active_linked.subs %}
+        {% with linked=True %}
+          {% include "_public_feed_card.html" %}
+        {% endwith %}
+      {% endfor %}
+      {% if not active_linked.subs %}
+        <p class="muted">Nothing under “{{ active_linked.category.name }}” yet.</p>
+      {% endif %}
+    {% elif not active_cat %}
       {# Flat view — every feed on the radar sorted by newest item. #}
       {% for it in flat_subs %}
         {% with show_category=True %}

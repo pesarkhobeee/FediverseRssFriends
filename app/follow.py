@@ -125,8 +125,22 @@ def unfollow(
     row = db.get(Follow, (viewer.id, target.id))
     if row:
         db.delete(row)
+        if target.visibility == "private":
+            _drop_private_category_follows(db, viewer.id, target.id)
         db.commit()
     return _button_partial(request, target, "none")
+
+
+def _drop_private_category_follows(db: Session, follower_id: int, owner_id: int) -> None:
+    """Remove follower's CategoryFollow rows on owner's categories.
+    can_view() already hides them once the Follow is gone; this keeps
+    stale links from reappearing if the follower is approved again."""
+    owner_cat_ids = select(Category.id).where(Category.user_id == owner_id)
+    db.exec(
+        CategoryFollow.__table__.delete()
+        .where(CategoryFollow.follower_id == follower_id)
+        .where(CategoryFollow.category_id.in_(owner_cat_ids))
+    )
 
 
 # ---------- Category follows ----------
@@ -162,12 +176,16 @@ def follow_category(
     viewer: User = Depends(login_required),
     db: Session = Depends(get_session),
 ):
-    """Follow one specific category on someone else's radar. Only
-    supported for public + unlisted radars. Private users' categories
-    can't be followed even by approved followers — the auto-created
-    reader subscription (0.2.43) needs to refresh anonymously, and a
-    private URL 403s in that context. Refusing at the follow endpoint
-    keeps behavior consistent."""
+    """Follow one specific category on someone else's radar.
+
+    Public/unlisted owners: the category's RSS URL is also added as a
+    Subscription on the follower's radar (0.2.43).
+
+    Private owners (approved followers only): no Subscription is
+    created — the private RSS URL would 403 on anonymous refresh, and a
+    copy would leak into the follower's OPML/RSS/outbox. Instead the
+    category is rendered live on the follower's own /u/{handle}, gated
+    by can_view() on every request (see public._load_linked_categories)."""
     from .public import can_view
 
     owner = resolve_handle(db, handle)
@@ -175,13 +193,8 @@ def follow_category(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "user not found")
     if owner.id == viewer.id:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "can't follow your own category")
-    if owner.visibility == "private":
-        raise HTTPException(
-            status.HTTP_403_FORBIDDEN,
-            "category follow isn't available on private radars",
-        )
     if not can_view(viewer, owner, db=db):
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "no access to this radar")
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "no access to this private radar")
 
     cat = db.get(Category, cat_id)
     if not cat or cat.user_id != owner.id:
@@ -194,10 +207,11 @@ def follow_category(
     ).first()
     if not existing:
         db.add(CategoryFollow(follower_id=viewer.id, category_id=cat_id))
-    # Also add the category's RSS URL as a Subscription on the
-    # follower's radar so they can actually READ what they're
-    # following, not just see the social signals. Idempotent.
-    _ensure_category_subscription(db, request, viewer, owner, cat)
+    if owner.visibility != "private":
+        # Also add the category's RSS URL as a Subscription on the
+        # follower's radar so they can actually READ what they're
+        # following, not just see the social signals. Idempotent.
+        _ensure_category_subscription(db, request, viewer, owner, cat)
     db.commit()
     return _category_follow_partial(request, cat, owner.handle, "following")
 
@@ -354,6 +368,8 @@ def revoke_follower(
     if not row or row.approved_at is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "not an approved follower")
     db.delete(row)
+    if user.visibility == "private":
+        _drop_private_category_follows(db, follower_id, user.id)
     db.commit()
     return HTMLResponse("")
 
