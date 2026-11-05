@@ -34,7 +34,7 @@ make restore FROM=backups/rssfriends-<ts>.sqlite.gz
 Two compose files:
 - `docker-compose.yml` — plain dev.
 - `docker-compose.prod.yml` — with a Caddy sidecar for TLS.
-- On the shared `pathseeker` host we use `docker-compose.pathseeker.yml` (bound to `127.0.0.1:8300`, TLS handled by the host's nginx; that file is NOT in git). Deploy via `make deploy` — runs tests + lint, `rsync`s to `root@pathseeker:/srv/rssfriends/`, rebuilds the container, and verifies `/version`. Use `make deploy-check` for a dry-run. See `docs/deploy.md` for the manual/first-time setup. **Never call `rsync --delete` by hand** — the Makefile's exclude list has trip-wire history (once wiped prod `.env`).
+- Instance-specific deploy settings (`DEPLOY_HOST`, `DEPLOY_PATH`, `DEPLOY_COMPOSE`, `HEALTHCHECK_URL`) live in `instance/deploy.mk` (gitignored) or on the command line; seed collections in `instance/collections.json`. See `instance/README.md`. Deploy via `make deploy` — runs tests + lint, `rsync`s to `$DEPLOY_HOST:$DEPLOY_PATH`, rebuilds the container, and verifies `/version`. Use `make deploy-check` for a dry-run. See `docs/self-host.md` for first-time setup. **Never call `rsync --delete` by hand** — the Makefile's exclude list has trip-wire history (once wiped prod `.env`). `DEPLOY_COMPOSE` is also excluded; pointing it at the wrong file makes `--delete` remove the server's real compose file.
 
 ## Architecture
 
