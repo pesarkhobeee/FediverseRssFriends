@@ -230,5 +230,10 @@ make deploy \
   HEALTHCHECK_URL=https://rss.mydomain.com/version
 ```
 
+To avoid typing these every time, put them in `instance/deploy.mk`
+(gitignored, see [`instance/README.md`](../instance/README.md)).
+`make deploy` refuses to run if `DEPLOY_HOST` or `HEALTHCHECK_URL`
+is missing.
+
 This is optional — plain `git pull && docker compose up -d --build`
 works fine for most instances.

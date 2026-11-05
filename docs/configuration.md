@@ -48,6 +48,14 @@ Every knob is an environment variable read at startup. Set them in `.env`
 - `RSSFRIENDS_FEED_ITEM_KEEP` — max items retained per feed
   (default `100`)
 
+## Seed collections
+
+- `RSSFRIENDS_SEED_FILE` — JSON file of official collections created
+  and synced on startup (default `instance/collections.json`; missing
+  file = no seed collections). Format: [`instance/README.md`](../instance/README.md)
+- `RSSFRIENDS_SEED_COLLECTIONS` — `0` skips seeding entirely
+  (default `1`)
+
 ## Instance identity
 
 See [`docs/instance-config.md`](instance-config.md) for the full list

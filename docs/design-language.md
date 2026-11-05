@@ -95,6 +95,17 @@ values in components.
 | `--link`        | `#E97A3E` |
 | `--link-hover`  | `#F09553` |
 
+### E-reader (`[data-theme="ereader"]`)
+
+Third step of the nav toggle (light → dark → e-reader). Built for e-ink
+(e.g. Onyx Boox Kaleido color panels), where mid-tones and pale tints
+wash out and animations ghost.
+
+- Every color token is `#000000` or `#ffffff`, except `--muted` (`#333333`)
+  and `--visited` (`#777777`).
+- All transitions, animations, box- and text-shadows are disabled.
+- Links are always underlined (color alone can't carry meaning).
+
 **Rules:**
 - Text on `--bg` must be `--fg` or `--muted`. Never other grays.
 - The accent is legal on either `--bg` or `--fg`. Nowhere else.

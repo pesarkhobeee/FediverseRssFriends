@@ -54,6 +54,7 @@ Full guide with DNS, Caddy, backups, and federation checks:
 - [`docs/wallabag.md`](docs/wallabag.md) — optional Wallabag save-later integration
 - [`docs/design-language.md`](docs/design-language.md) — colors and visual style
 - [`docs/deploy.md`](docs/deploy.md) — how the deploy pipeline works
+- [`instance/README.md`](instance/README.md) — seed collections + deploy settings for your instance
 - [`KNOWN_ISSUES.md`](KNOWN_ISSUES.md) · [`SECURITY.md`](SECURITY.md)
 
 ## Develop
