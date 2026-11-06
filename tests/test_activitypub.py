@@ -315,6 +315,56 @@ def test_inbox_key_id_owner_must_match_actor():
     assert r.status_code == 401
 
 
+def test_inbox_logs_rejections(monkeypatch, caplog):
+    """Every 401/502 from the inbox is logged with activity type,
+    sender and recipient so prod rejections can be diagnosed."""
+    import httpx
+
+    import app.activitypub as ap
+
+    c = _client()
+    _login(c, "alice@example.com")
+
+    def _gone(*_a, **_kw):
+        raise httpx.HTTPStatusError(
+            "410 Gone", request=httpx.Request("GET", "https://gone.example/users/x"),
+            response=httpx.Response(410),
+        )
+    monkeypatch.setattr(ap, "_fetch_remote_actor_doc", _gone)
+
+    with caplog.at_level("WARNING", logger="app.activitypub"):
+        r = _client().post(
+            "/u/alice/inbox",
+            content=json.dumps({
+                "type": "Delete",
+                "actor": "https://gone.example/users/x",
+                "id": "https://gone.example/users/x#delete",
+            }),
+            headers={
+                "Content-Type": "application/activity+json",
+                "Signature": 'keyId="https://gone.example/users/x#main-key",algorithm="rsa-sha256",headers="date",signature="AAAA"',
+            },
+        )
+        assert r.status_code == 502
+
+        r = _client().post(
+            "/u/alice/inbox",
+            content=json.dumps({
+                "type": "Follow",
+                "actor": "https://mastodon.example/users/foo",
+                "id": "https://mastodon.example/users/foo/follows/1",
+            }),
+            headers={"Content-Type": "application/activity+json"},
+        )
+        assert r.status_code == 401
+
+    lines = [rec.getMessage() for rec in caplog.records if "AP inbox reject" in rec.getMessage()]
+    assert len(lines) == 2
+    assert "502 type=Delete actor=https://gone.example/users/x to=alice" in lines[0]
+    assert "410 Gone" in lines[0]
+    assert "401 type=Follow actor=https://mastodon.example/users/foo to=alice" in lines[1]
+
+
 def test_inbox_accepts_follow_with_valid_signature(monkeypatch):
     """End-to-end: mint a fake remote actor + keypair, sign a Follow,
     POST it, assert we recorded the RemoteFollow row and attempted an

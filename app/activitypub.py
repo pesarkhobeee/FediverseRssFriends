@@ -39,6 +39,7 @@ import logging
 import re
 import threading
 from datetime import UTC, datetime
+from typing import NoReturn
 from urllib.parse import unquote, urlparse
 
 import httpx
@@ -964,6 +965,16 @@ def admin_backfill(
     )
 
 
+def _reject_inbox(
+    code: int, reason: str, kind, sender_url: str, our_user: User,
+) -> NoReturn:
+    log.warning(
+        "AP inbox reject %d type=%s actor=%s to=%s: %s",
+        code, kind, sender_url, our_user.handle, reason[:200],
+    )
+    raise HTTPException(code, reason)
+
+
 @router.post("/u/{handle}/inbox")
 async def inbox(
     handle: str,
@@ -1002,21 +1013,26 @@ async def inbox(
 
     # keyId in the Signature must belong to the same actor — prevents
     # Actor A signing a message that claims to come from Actor B.
+    kind = activity.get("type")
     sig_hdr = request.headers.get("signature") or ""
     key_id = _parse_signature_header(sig_hdr).get("keyId") or ""
     if _key_id_owner(key_id) != sender_url:
-        raise HTTPException(
+        _reject_inbox(
             status.HTTP_401_UNAUTHORIZED,
             "Signature keyId doesn't match message actor.",
+            kind, sender_url, our_user,
         )
 
-    remote_actor = get_or_cache_remote_actor(db, sender_url, as_user=our_user)
+    try:
+        remote_actor = get_or_cache_remote_actor(db, sender_url, as_user=our_user)
+    except HTTPException as e:
+        _reject_inbox(e.status_code, str(e.detail), kind, sender_url, our_user)
     if not _verify_http_signature(request, body, remote_actor.public_key_pem):
-        raise HTTPException(
+        _reject_inbox(
             status.HTTP_401_UNAUTHORIZED, "HTTP Signature verification failed.",
+            kind, sender_url, our_user,
         )
 
-    kind = activity.get("type")
     if kind == "Follow":
         _handle_follow(db, activity, our_user, remote_actor)
     elif kind == "Undo":
