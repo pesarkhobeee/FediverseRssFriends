@@ -182,33 +182,13 @@ def test_stream_row_stays_compact_when_no_summary():
     assert "stream-row-summary" not in r.text
 
 
-def test_stream_row_carries_item_id_hook_for_seen_tracking():
-    """0.11.48: each stream row must expose data-item-id so the
-    IntersectionObserver can key its Set by real item ids. Also the
-    Show-seen toggle + JS partial must be present on the stream page."""
+def test_stream_has_no_seen_tracking():
+    """0.11.56: the Show/Hide-seen feature was removed."""
     _seed_owner_with_items(item_count=2)
     r = _client().get("/u/owner?view=stream")
     assert r.status_code == 200
-    body = r.text
-    # data-item-id present on every stream row.
-    assert body.count('data-item-id=') >= 2
-    # Show-seen toggle button hooked up.
-    assert 'id="stream-show-seen"' in body
-    # Storage-key input (owner handle) exposed to JS.
-    assert 'data-owner-handle="owner"' in body
-    # JS partial included.
-    assert "stream-seen:" in body
-    # All-seen banner in DOM (hidden by default).
-    assert 'id="stream-all-seen"' in body
-
-
-def test_stream_seen_hook_absent_from_feeds_view():
-    """The seen-tracking chrome is only rendered in ?view=stream."""
-    _seed_owner_with_items(item_count=1)
-    r = _client().get("/u/owner")   # default = feeds view
-    assert r.status_code == 200
-    assert 'id="stream-show-seen"' not in r.text
-    assert 'id="stream-all-seen"' not in r.text
+    assert "stream-show-seen" not in r.text
+    assert "stream-seen:" not in r.text
 
 
 def test_anonymous_nav_hides_signin_on_landing_only():

@@ -133,23 +133,7 @@
 {% endif %}
 
 {% if view == "stream" %}
-  {# 0.11.48: local "seen" tracking — as rows scroll into view they
-     get added to a per-owner Set in localStorage, so on next visit
-     they're hidden by default. The toggle below flips visibility
-     without touching the store. Zero server state. #}
-  <div class="stream-controls">
-    <button type="button"
-            id="stream-show-seen"
-            class="btn-ghost stream-show-seen-btn"
-            aria-pressed="false"
-            hidden>Show seen</button>
-  </div>
-  <div id="stream-all-seen" class="stream-all-seen muted" hidden>
-    Every item on this page has been seen already.
-    Use “Show seen” above to reveal them, or scroll down to load older items.
-  </div>
-  <ul class="stream-list fav-list" id="stream-list"
-      data-owner-handle="{{ owner.handle }}">
+  <ul class="stream-list fav-list" id="stream-list">
     {% include "_stream_page.html" %}
     {% if not stream_rows %}
       <li class="muted" style="padding:1rem 0">
@@ -161,7 +145,6 @@
       </li>
     {% endif %}
   </ul>
-  {% include "_stream_seen.html" %}
 {% else %}
   <div class="stack" style="margin-top:1rem">
     {% if active_linked %}
