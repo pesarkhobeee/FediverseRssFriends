@@ -7,6 +7,7 @@ route, Outbox mapping of Activity rows to AS 2.0 Notes, and the
 
 import json
 import os
+from datetime import UTC, datetime
 
 import pytest
 from fastapi.testclient import TestClient
@@ -315,54 +316,103 @@ def test_inbox_key_id_owner_must_match_actor():
     assert r.status_code == 401
 
 
+def _gone_fetch(*_a, **_kw):
+    import httpx
+    raise httpx.HTTPStatusError(
+        "410 Gone", request=httpx.Request("GET", "https://gone.example/users/x"),
+        response=httpx.Response(410),
+    )
+
+
+def _post_inbox(activity: dict, key_actor: str | None = None):
+    headers = {"Content-Type": "application/activity+json"}
+    if key_actor:
+        headers["Signature"] = (
+            f'keyId="{key_actor}#main-key",algorithm="rsa-sha256",'
+            'headers="date",signature="AAAA"'
+        )
+    return _client().post("/u/alice/inbox", content=json.dumps(activity), headers=headers)
+
+
 def test_inbox_logs_rejections(monkeypatch, caplog):
     """Every 401/502 from the inbox is logged with activity type,
     sender and recipient so prod rejections can be diagnosed."""
-    import httpx
-
     import app.activitypub as ap
 
     c = _client()
     _login(c, "alice@example.com")
-
-    def _gone(*_a, **_kw):
-        raise httpx.HTTPStatusError(
-            "410 Gone", request=httpx.Request("GET", "https://gone.example/users/x"),
-            response=httpx.Response(410),
-        )
-    monkeypatch.setattr(ap, "_fetch_remote_actor_doc", _gone)
+    monkeypatch.setattr(ap, "_fetch_remote_actor_doc", _gone_fetch)
 
     with caplog.at_level("WARNING", logger="app.activitypub"):
-        r = _client().post(
-            "/u/alice/inbox",
-            content=json.dumps({
-                "type": "Delete",
-                "actor": "https://gone.example/users/x",
-                "id": "https://gone.example/users/x#delete",
-            }),
-            headers={
-                "Content-Type": "application/activity+json",
-                "Signature": 'keyId="https://gone.example/users/x#main-key",algorithm="rsa-sha256",headers="date",signature="AAAA"',
-            },
-        )
+        r = _post_inbox({
+            "type": "Like",
+            "actor": "https://gone.example/users/x",
+            "id": "https://gone.example/users/x#like",
+        }, key_actor="https://gone.example/users/x")
         assert r.status_code == 502
 
-        r = _client().post(
-            "/u/alice/inbox",
-            content=json.dumps({
-                "type": "Follow",
-                "actor": "https://mastodon.example/users/foo",
-                "id": "https://mastodon.example/users/foo/follows/1",
-            }),
-            headers={"Content-Type": "application/activity+json"},
-        )
+        r = _post_inbox({
+            "type": "Follow",
+            "actor": "https://mastodon.example/users/foo",
+            "id": "https://mastodon.example/users/foo/follows/1",
+        })
         assert r.status_code == 401
 
     lines = [rec.getMessage() for rec in caplog.records if "AP inbox reject" in rec.getMessage()]
     assert len(lines) == 2
-    assert "502 type=Delete actor=https://gone.example/users/x to=alice" in lines[0]
+    assert "502 type=Like actor=https://gone.example/users/x to=alice" in lines[0]
     assert "410 Gone" in lines[0]
     assert "401 type=Follow actor=https://mastodon.example/users/foo to=alice" in lines[1]
+
+
+def test_inbox_accepts_delete_from_unknown_actor_without_fetching(monkeypatch):
+    """Mastodon fans out Delete for removed accounts; the actor is gone,
+    so we must not fetch it — just 202 so the sender stops retrying."""
+    import app.activitypub as ap
+
+    c = _client()
+    _login(c, "alice@example.com")
+    fetched = []
+    monkeypatch.setattr(
+        ap, "_fetch_remote_actor_doc", lambda *a, **kw: fetched.append(a) or _gone_fetch()
+    )
+
+    r = _post_inbox({
+        "type": "Delete",
+        "actor": "https://gone.example/users/x",
+        "object": "https://gone.example/users/x",
+        "id": "https://gone.example/users/x#delete",
+    }, key_actor="https://gone.example/users/x")
+    assert r.status_code == 202
+    assert fetched == []
+
+
+def test_inbox_delete_from_known_actor_still_verifies_signature(monkeypatch):
+    """A known actor's Delete can remove cached content, so it must still
+    pass signature verification — a forged Delete gets 401."""
+    import app.activitypub as ap
+    import app.db as db_mod
+
+    c = _client()
+    _login(c, "alice@example.com")
+    with Session(db_mod.engine) as s:
+        s.add(db_mod.RemoteActor(
+            actor_url="https://mastodon.example/users/foo",
+            inbox_url="https://mastodon.example/users/foo/inbox",
+            public_key_pem="-----BEGIN PUBLIC KEY-----\nAAAA\n-----END PUBLIC KEY-----",
+            preferred_username="foo",
+            fetched_at=datetime.now(UTC),
+        ))
+        s.commit()
+    monkeypatch.setattr(ap, "_verify_http_signature", lambda *a, **kw: False)
+
+    r = _post_inbox({
+        "type": "Delete",
+        "actor": "https://mastodon.example/users/foo",
+        "object": "https://mastodon.example/users/foo/statuses/1",
+        "id": "https://mastodon.example/users/foo/statuses/1#delete",
+    }, key_actor="https://mastodon.example/users/foo")
+    assert r.status_code == 401
 
 
 def test_inbox_accepts_follow_with_valid_signature(monkeypatch):

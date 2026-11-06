@@ -1023,6 +1023,15 @@ async def inbox(
             kind, sender_url, our_user,
         )
 
+    # Mastodon fans out Delete for removed accounts to every instance it
+    # knows; the actor is usually gone (410), so fetching it to verify the
+    # signature can only fail. Nothing of an unknown actor is stored here,
+    # so there is nothing to delete — accept so the sender stops retrying.
+    if kind == "Delete" and not db.exec(
+        select(RemoteActor.id).where(RemoteActor.actor_url == sender_url)
+    ).first():
+        return Response(status_code=status.HTTP_202_ACCEPTED)
+
     try:
         remote_actor = get_or_cache_remote_actor(db, sender_url, as_user=our_user)
     except HTTPException as e:
