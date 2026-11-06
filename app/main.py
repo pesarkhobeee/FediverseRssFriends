@@ -57,7 +57,15 @@ async def lifespan(_: FastAPI):
             scheduler.shutdown(wait=False)
 
 
-app = FastAPI(lifespan=lifespan, version=__version__)
+# Auto-generated docs would publish every internal HTMX route. The
+# public schema lives on the /api/v1 sub-app (docs/public-api.md).
+app = FastAPI(
+    lifespan=lifespan,
+    version=__version__,
+    docs_url=None,
+    redoc_url=None,
+    openapi_url=None,
+)
 app.add_middleware(SessionMiddleware, secret_key=config.SESSION_SECRET, same_site="lax")
 app.mount("/static", StaticFiles(directory=APP_DIR / "static"), name="static")
 

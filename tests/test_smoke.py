@@ -29,6 +29,12 @@ def test_version_endpoint():
     assert r.json() == {"version": __version__}
 
 
+def test_internal_route_schema_not_published():
+    c = _client()
+    for path in ("/docs", "/redoc", "/openapi.json"):
+        assert c.get(path).status_code == 404, path
+
+
 def test_help_page_open_to_everyone():
     r = _client().get("/help")
     assert r.status_code == 200
