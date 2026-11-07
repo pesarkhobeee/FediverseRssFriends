@@ -1,0 +1,415 @@
+{
+  "components": {
+    "schemas": {
+      "CategoryList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CategoryOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "CategoryList",
+        "type": "object"
+      },
+      "CategoryOut": {
+        "properties": {
+          "feeds": {
+            "title": "Feeds",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "feeds"
+        ],
+        "title": "CategoryOut",
+        "type": "object"
+      },
+      "FeedList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/FeedOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "FeedList",
+        "type": "object"
+      },
+      "FeedOut": {
+        "properties": {
+          "category": {
+            "title": "Category",
+            "type": "string"
+          },
+          "favicon_url": {
+            "title": "Favicon Url",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "page_url": {
+            "title": "Page Url",
+            "type": "string"
+          },
+          "site_url": {
+            "title": "Site Url",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "url",
+          "site_url",
+          "favicon_url",
+          "category",
+          "page_url"
+        ],
+        "title": "FeedOut",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "Instance": {
+        "properties": {
+          "api_version": {
+            "title": "Api Version",
+            "type": "string"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "feeds": {
+            "title": "Feeds",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "users": {
+            "title": "Users",
+            "type": "integer"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "description",
+          "version",
+          "api_version",
+          "users",
+          "feeds"
+        ],
+        "title": "Instance",
+        "type": "object"
+      },
+      "UserProfile": {
+        "properties": {
+          "categories": {
+            "title": "Categories",
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "feeds": {
+            "title": "Feeds",
+            "type": "integer"
+          },
+          "handle": {
+            "title": "Handle",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          },
+          "visibility": {
+            "title": "Visibility",
+            "type": "string"
+          }
+        },
+        "required": [
+          "handle",
+          "url",
+          "visibility",
+          "created_at",
+          "categories",
+          "feeds"
+        ],
+        "title": "UserProfile",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "description": "Read-only data that is already public on the HTML pages.",
+    "title": "rssFriends public API",
+    "version": "1"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/instance": {
+      "get": {
+        "operationId": "instance_instance_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Instance"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Instance"
+      }
+    },
+    "/users/{handle}": {
+      "get": {
+        "operationId": "user_profile_users__handle__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "handle",
+            "required": true,
+            "schema": {
+              "title": "Handle",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserProfile"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "User Profile"
+      }
+    },
+    "/users/{handle}/categories": {
+      "get": {
+        "operationId": "user_categories_users__handle__categories_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "handle",
+            "required": true,
+            "schema": {
+              "title": "Handle",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CategoryList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "User Categories"
+      }
+    },
+    "/users/{handle}/feeds": {
+      "get": {
+        "operationId": "user_feeds_users__handle__feeds_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "handle",
+            "required": true,
+            "schema": {
+              "title": "Handle",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "category",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Category"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeedList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "User Feeds"
+      }
+    }
+  },
+  "servers": [
+    {
+      "url": "/api/v1"
+    }
+  ]
+}

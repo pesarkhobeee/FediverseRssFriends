@@ -12,6 +12,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from . import __version__, config, mail
 from .activitypub import router as activitypub_router
+from .api import api as public_api
 from .auth import consume_token, current_user, issue_magic_link, peek_token
 from .bookmarks import router as bookmarks_router
 from .collections import router as collections_router
@@ -68,6 +69,7 @@ app = FastAPI(
 )
 app.add_middleware(SessionMiddleware, secret_key=config.SESSION_SECRET, same_site="lax")
 app.mount("/static", StaticFiles(directory=APP_DIR / "static"), name="static")
+app.mount("/api/v1", public_api)
 
 
 @app.middleware("http")

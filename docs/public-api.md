@@ -1,6 +1,8 @@
 # Public read API (`/api/v1`)
 
-Status: planned. Slice 1 shipped in 0.11.53.
+Status: slices 1–2 shipped (0.11.53, 0.11.57). Live endpoints:
+`/instance`, `/users/{handle}`, `/users/{handle}/categories`,
+`/users/{handle}/feeds`; interactive docs at `/api/v1/docs`.
 
 ## Goal
 
@@ -80,8 +82,8 @@ categories (0.11.52).
 
 ## Slices
 
-1. Turn off main-app `/docs`, `/redoc`, `/openapi.json`.
-2. `/api/v1` sub-app: `instance`, `users/{handle}`, `categories`,
+1. ✅ Turn off main-app `/docs`, `/redoc`, `/openapi.json`.
+2. ✅ `/api/v1` sub-app (`app/api.py`): `instance`, `users/{handle}`, `categories`,
    `feeds` + leak tests (private 404, unlisted not listed, no
    forbidden fields in any response) + schema snapshot test.
 3. `items`, `bookmarks`, `activity`, `collections`, cursor pagination.
@@ -103,6 +105,9 @@ categories (0.11.52).
 
 ```bash
 API=https://rssfriends.com/api/v1
+
+# Feeds of a radar, grouped by category (live since 0.11.57)
+curl -s "$API/users/farid/feeds" | jq -r '.items[] | "\(.category)\t\(.title)\t\(.url)"'
 
 # Newest 10 item titles + links from a radar
 curl -s "$API/users/farid/items?limit=10" | jq -r '.items[] | "\(.title)\t\(.link)"'
