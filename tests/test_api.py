@@ -147,6 +147,11 @@ def test_api_docs_published_under_api_prefix():
     assert c.get("/api/v1/openapi.json").status_code == 200
 
 
+def test_footer_links_to_api_docs():
+    r = _client().get("/help")
+    assert '<a href="/api/v1/docs">API</a>' in r.text
+
+
 def test_openapi_schema_matches_snapshot():
     """Any change to the API's fields fails here until the snapshot is
     regenerated on purpose: RSSFRIENDS_UPDATE_SNAPSHOTS=1 uv run pytest tests/test_api.py"""

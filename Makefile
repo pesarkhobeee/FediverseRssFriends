@@ -86,8 +86,11 @@ deploy: require-deploy-config
 	  echo "→ Rebuilding container on $(DEPLOY_HOST)"; \
 	  ssh $(DEPLOY_HOST) 'cd $(DEPLOY_PATH) && docker-compose -f $(DEPLOY_COMPOSE) up -d --build' | tail -6; \
 	  echo "→ Waiting for app to come up…"; \
-	  sleep 4; \
-	  LIVE=$$(curl -sf $(HEALTHCHECK_URL) || echo '{"version":"UNREACHABLE"}'); \
+	  for i in $$(seq 1 15); do \
+	    sleep 2; \
+	    LIVE=$$(curl -sf $(HEALTHCHECK_URL) || echo '{"version":"UNREACHABLE"}'); \
+	    echo "$$LIVE" | grep -q "\"$$V\"" && break; \
+	  done; \
 	  echo "→ /version says: $$LIVE"; \
 	  echo "$$LIVE" | grep -q "\"$$V\"" \
 	    && echo "✅ Deploy of v$$V verified." \
