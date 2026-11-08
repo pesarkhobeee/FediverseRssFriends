@@ -163,6 +163,22 @@ Restart the container after any change:
 docker compose -f docker-compose.prod.yml up -d
 ```
 
+### Cleaning up spam signups
+
+Block the domain first (`RSSFRIENDS_BLOCKED_EMAIL_DOMAINS`, above) so no
+new accounts arrive while you clean up, then take a backup and run:
+
+```bash
+docker compose -f docker-compose.prod.yml exec app \
+  python -m app.purge --domain spam.example --email someone+spam@gmail.com
+```
+
+That only prints what would go: the accounts (same removal as "Delete
+account") and the feeds only those accounts used, with their items.
+A feed any real user subscribes to, bookmarks from, or that sits in a
+collection is kept. Add `--apply` to delete. There is no undo besides
+restoring the backup.
+
 ## Federating with rssfriends.com (or any other instance)
 
 The follow flow works both ways:
