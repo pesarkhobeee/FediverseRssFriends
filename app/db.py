@@ -34,6 +34,10 @@ class User(SQLModel, table=True):
     # 0.9.0: handle-rename rate limit anchor. NULL = never renamed.
     # Users may rename at most once every RENAME_COOLDOWN_DAYS.
     last_renamed_at: datetime | None = Field(default=None)
+    # 0.11.63: counted when a magic link is used, not per visit — a
+    # session cookie lasts across visits. Admin-only; never rendered.
+    last_login_at: datetime | None = Field(default=None)
+    login_count: int = Field(default=0, sa_column_kwargs={"server_default": "0"})
     # 0.11.17: ActivityPub actor keypair. Empty until the user's Actor
     # JSON is first requested (or explicitly minted). PEM-encoded.
     # NEVER exposed publicly for the private key — the public key is
@@ -426,6 +430,15 @@ def _run_sqlite_migrations(conn) -> None:
         conn.exec_driver_sql(
             "ALTER TABLE user ADD COLUMN last_renamed_at TIMESTAMP"
         )
+
+    # 0.11.63: login tracking. No backfill — logins before this are unknown.
+    if _sqlite_column_exists(conn, "user", "id"):
+        if not _sqlite_column_exists(conn, "user", "last_login_at"):
+            conn.exec_driver_sql("ALTER TABLE user ADD COLUMN last_login_at TIMESTAMP")
+        if not _sqlite_column_exists(conn, "user", "login_count"):
+            conn.exec_driver_sql(
+                "ALTER TABLE user ADD COLUMN login_count INTEGER NOT NULL DEFAULT 0"
+            )
 
     # activity_secret was added after the initial schema — backfill it.
     if _sqlite_column_exists(conn, "user", "id") and not _sqlite_column_exists(

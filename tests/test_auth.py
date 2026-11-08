@@ -207,3 +207,28 @@ def test_existing_account_on_blocked_domain_locked_out(monkeypatch):
     _block(monkeypatch, "spam.example")
     _, token = _request_link(_client(), "bot@spam.example")
     assert token is None
+
+
+def test_each_used_link_counts_as_a_login():
+    from sqlmodel import Session, select
+
+    from app.db import User, engine
+
+    for _ in range(2):
+        client = _client()
+        _, token = _request_link(client, "carol@example.com")
+        client.post("/auth/verify", data={"token": token})
+    _request_link(_client(), "carol@example.com")  # requested, never used
+
+    with Session(engine) as db:
+        carol = db.exec(select(User).where(User.handle == "carol")).one()
+    assert carol.login_count == 2
+    assert carol.last_login_at is not None
+
+
+def test_login_stats_not_shown_on_public_pages():
+    client = _client()
+    _, token = _request_link(client, "dave@example.com")
+    client.post("/auth/verify", data={"token": token})
+    for path in ("/u/dave", "/u/dave/activity", "/api/v1/users/dave"):
+        assert "login_count" not in _client().get(path).text

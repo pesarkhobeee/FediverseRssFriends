@@ -38,4 +38,6 @@ def test_migration_adds_activity_secret_column_and_backfills():
     with Session(db_mod.engine) as s:
         user = s.exec(select(db_mod.User).where(db_mod.User.handle == "olduser")).one()
     assert user.activity_secret
+    assert user.login_count == 0
+    assert user.last_login_at is None
     assert len(user.activity_secret) >= 16

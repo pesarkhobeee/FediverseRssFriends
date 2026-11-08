@@ -128,6 +128,8 @@ def consume_token(db: Session, token: str) -> User:
     if not user:
         user = User(email=email, handle=_unique_handle(db, email))
         db.add(user)
+    user.login_count = (user.login_count or 0) + 1
+    user.last_login_at = _now()
 
     db.commit()
     if user.id is None:

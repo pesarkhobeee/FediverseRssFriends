@@ -121,7 +121,7 @@ def test_responses_never_contain_secret_fields():
         "/api/v1/users/alice/activity",
     )]
     for body in bodies:
-        for needle in ("email", "activity_secret", "ap_private_key", "note",
+        for needle in ("email", "activity_secret", "ap_private_key", "note", "login",
                        "secret owner note", user.email, user.activity_secret):
             assert needle not in body, (needle, body)
 
