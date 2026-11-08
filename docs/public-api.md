@@ -1,8 +1,8 @@
 # Public read API (`/api/v1`)
 
-Status: slices 1–2 shipped (0.11.53, 0.11.57). Live endpoints:
-`/instance`, `/users/{handle}`, `/users/{handle}/categories`,
-`/users/{handle}/feeds`; interactive docs at `/api/v1/docs`.
+Status: slices 1–3 shipped (0.11.53, 0.11.57, 0.11.59). Interactive
+docs at `/api/v1/docs`. Not built yet: `/users` listing,
+`/followers`/`/following`, `/feeds/{id}`, cache headers, rate limit.
 
 ## Goal
 
@@ -86,7 +86,10 @@ categories (0.11.52).
 2. ✅ `/api/v1` sub-app (`app/api.py`): `instance`, `users/{handle}`, `categories`,
    `feeds` + leak tests (private 404, unlisted not listed, no
    forbidden fields in any response) + schema snapshot test.
-3. `items`, `bookmarks`, `activity`, `collections`, cursor pagination.
+3. ✅ `items`, `bookmarks`, `activity`, `collections`, cursor pagination.
+   Keyset cursor on `(time, id)`: new items arriving between requests
+   never shift or repeat a page. `activity` drops `followed`/`forked`
+   rows that point at a private user.
 4. Cache headers + rate limit.
 5. Later: personal access tokens so a CLI can read the caller's own
    private radar. Read-only scope, stored hashed, revocable from

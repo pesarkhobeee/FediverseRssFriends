@@ -1,6 +1,149 @@
 {
   "components": {
     "schemas": {
+      "ActivityList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ActivityOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "ActivityList",
+        "type": "object"
+      },
+      "ActivityOut": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "subject": {
+            "title": "Subject",
+            "type": "string"
+          },
+          "subject_url": {
+            "title": "Subject Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "subject",
+          "subject_url",
+          "created_at"
+        ],
+        "title": "ActivityOut",
+        "type": "object"
+      },
+      "BookmarkList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/BookmarkOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "BookmarkList",
+        "type": "object"
+      },
+      "BookmarkOut": {
+        "properties": {
+          "bookmarked_at": {
+            "format": "date-time",
+            "title": "Bookmarked At",
+            "type": "string"
+          },
+          "feed_id": {
+            "title": "Feed Id",
+            "type": "integer"
+          },
+          "feed_title": {
+            "title": "Feed Title",
+            "type": "string"
+          },
+          "feed_url": {
+            "title": "Feed Url",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "link": {
+            "title": "Link",
+            "type": "string"
+          },
+          "published_at": {
+            "format": "date-time",
+            "title": "Published At",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "link",
+          "summary",
+          "published_at",
+          "feed_id",
+          "feed_title",
+          "feed_url",
+          "bookmarked_at"
+        ],
+        "title": "BookmarkOut",
+        "type": "object"
+      },
       "CategoryList": {
         "properties": {
           "items": {
@@ -44,6 +187,175 @@
           "feeds"
         ],
         "title": "CategoryOut",
+        "type": "object"
+      },
+      "CollectionDetail": {
+        "properties": {
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "feed_count": {
+            "title": "Feed Count",
+            "type": "integer"
+          },
+          "feeds": {
+            "items": {
+              "$ref": "#/components/schemas/CollectionFeedOut"
+            },
+            "title": "Feeds",
+            "type": "array"
+          },
+          "language": {
+            "title": "Language",
+            "type": "string"
+          },
+          "locale": {
+            "title": "Locale",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "official": {
+            "title": "Official",
+            "type": "boolean"
+          },
+          "slug": {
+            "title": "Slug",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "slug",
+          "name",
+          "description",
+          "language",
+          "locale",
+          "official",
+          "feed_count",
+          "url",
+          "feeds"
+        ],
+        "title": "CollectionDetail",
+        "type": "object"
+      },
+      "CollectionFeedOut": {
+        "properties": {
+          "favicon_url": {
+            "title": "Favicon Url",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "site_url": {
+            "title": "Site Url",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "url",
+          "site_url",
+          "favicon_url",
+          "note"
+        ],
+        "title": "CollectionFeedOut",
+        "type": "object"
+      },
+      "CollectionList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CollectionOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "CollectionList",
+        "type": "object"
+      },
+      "CollectionOut": {
+        "properties": {
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "feed_count": {
+            "title": "Feed Count",
+            "type": "integer"
+          },
+          "language": {
+            "title": "Language",
+            "type": "string"
+          },
+          "locale": {
+            "title": "Locale",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "official": {
+            "title": "Official",
+            "type": "boolean"
+          },
+          "slug": {
+            "title": "Slug",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "slug",
+          "name",
+          "description",
+          "language",
+          "locale",
+          "official",
+          "feed_count",
+          "url"
+        ],
+        "title": "CollectionOut",
         "type": "object"
       },
       "FeedList": {
@@ -167,6 +479,87 @@
         "title": "Instance",
         "type": "object"
       },
+      "RadarItemList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/RadarItemOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "RadarItemList",
+        "type": "object"
+      },
+      "RadarItemOut": {
+        "properties": {
+          "category": {
+            "title": "Category",
+            "type": "string"
+          },
+          "feed_id": {
+            "title": "Feed Id",
+            "type": "integer"
+          },
+          "feed_title": {
+            "title": "Feed Title",
+            "type": "string"
+          },
+          "feed_url": {
+            "title": "Feed Url",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "link": {
+            "title": "Link",
+            "type": "string"
+          },
+          "published_at": {
+            "format": "date-time",
+            "title": "Published At",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "link",
+          "summary",
+          "published_at",
+          "feed_id",
+          "feed_title",
+          "feed_url",
+          "category"
+        ],
+        "title": "RadarItemOut",
+        "type": "object"
+      },
       "UserProfile": {
         "properties": {
           "categories": {
@@ -255,6 +648,63 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/collections": {
+      "get": {
+        "operationId": "collections_collections_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CollectionList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Collections"
+      }
+    },
+    "/collections/{slug}": {
+      "get": {
+        "operationId": "collection_detail_collections__slug__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "title": "Slug",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CollectionDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Collection Detail"
+      }
+    },
     "/instance": {
       "get": {
         "operationId": "instance_instance_get",
@@ -310,6 +760,140 @@
           }
         },
         "summary": "User Profile"
+      }
+    },
+    "/users/{handle}/activity": {
+      "get": {
+        "operationId": "user_activity_users__handle__activity_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "handle",
+            "required": true,
+            "schema": {
+              "title": "Handle",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActivityList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "User Activity"
+      }
+    },
+    "/users/{handle}/bookmarks": {
+      "get": {
+        "operationId": "user_bookmarks_users__handle__bookmarks_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "handle",
+            "required": true,
+            "schema": {
+              "title": "Handle",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookmarkList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "User Bookmarks"
       }
     },
     "/users/{handle}/categories": {
@@ -404,6 +988,89 @@
           }
         },
         "summary": "User Feeds"
+      }
+    },
+    "/users/{handle}/items": {
+      "get": {
+        "operationId": "user_items_users__handle__items_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "handle",
+            "required": true,
+            "schema": {
+              "title": "Handle",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "category",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Category"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RadarItemList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "User Items"
       }
     }
   },

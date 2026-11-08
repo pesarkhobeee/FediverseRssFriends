@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 
 from fastapi.testclient import TestClient
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 SNAPSHOT = Path(__file__).parent / "snapshots" / "api_openapi.json"
 
@@ -109,12 +109,16 @@ def test_private_user_hidden_even_with_owner_session():
 
 def test_responses_never_contain_secret_fields():
     user = _seed("alice")
+    _seed_items()
     c = _client()
     bodies = [c.get(p).text for p in (
         "/api/v1/instance",
         "/api/v1/users/alice",
         "/api/v1/users/alice/categories",
         "/api/v1/users/alice/feeds",
+        "/api/v1/users/alice/items",
+        "/api/v1/users/alice/bookmarks",
+        "/api/v1/users/alice/activity",
     )]
     for body in bodies:
         for needle in ("email", "activity_secret", "ap_private_key", "note",
@@ -160,3 +164,158 @@ def test_openapi_schema_matches_snapshot():
         SNAPSHOT.parent.mkdir(exist_ok=True)
         SNAPSHOT.write_text(json.dumps(schema, indent=2, sort_keys=True) + "\n")
     assert schema == json.loads(SNAPSHOT.read_text())
+
+
+def _seed_items(handle: str = "alice", per_feed: int = 3) -> None:
+    """Items in both of the user's feeds. Two share a timestamp and one
+    has no published_at, to exercise the cursor's tie-break and fallback."""
+    from datetime import datetime, timedelta
+
+    from app.db import Feed, FeedItem, engine
+
+    base = datetime(2026, 1, 1, 12, 0)
+    with Session(engine) as db:
+        for feed in db.exec(select(Feed).where(Feed.url.startswith(f"https://{handle}."))).all():
+            for i in range(per_feed):
+                db.add(FeedItem(
+                    feed_id=feed.id, guid=f"{feed.id}-{i}", title=f"{feed.title} #{i}",
+                    link=f"https://{handle}.example/{feed.id}/{i}",
+                    published_at=None if i == 0 else base + timedelta(hours=i),
+                    fetched_at=base,
+                ))
+        db.commit()
+
+
+def _all_pages(client, path: str, limit: int) -> list[dict]:
+    items, cursor = [], None
+    while True:
+        params = {"limit": limit} | ({"cursor": cursor} if cursor else {})
+        page = client.get(path, params=params).json()
+        items += page["items"]
+        cursor = page["next"]
+        if cursor is None:
+            return items
+
+
+def test_items_newest_first_with_category():
+    _seed("alice")
+    _seed_items()
+    items = _client().get("/api/v1/users/alice/items").json()["items"]
+    assert len(items) == 6
+    dates = [i["published_at"] for i in items]
+    assert dates == sorted(dates, reverse=True)
+    assert {i["category"] for i in items} == {"Tech", "News"}
+    assert items[0]["feed_url"].endswith(".xml")
+
+    news = _client().get("/api/v1/users/alice/items", params={"category": "News"}).json()
+    assert {i["category"] for i in news["items"]} == {"News"}
+    assert _client().get("/api/v1/users/alice/items?category=Nope").status_code == 404
+
+
+def test_items_cursor_walks_every_item_once():
+    _seed("alice")
+    _seed_items(per_feed=5)
+    c = _client()
+    everything = c.get("/api/v1/users/alice/items", params={"limit": 100}).json()["items"]
+    paged = _all_pages(c, "/api/v1/users/alice/items", limit=3)
+    assert [i["id"] for i in paged] == [i["id"] for i in everything]
+    assert len(paged) == 10
+
+
+def test_items_cursor_stable_when_new_items_arrive():
+    from datetime import datetime
+
+    from app.db import Feed, FeedItem, engine
+
+    _seed("alice")
+    _seed_items()
+    c = _client()
+    first = c.get("/api/v1/users/alice/items", params={"limit": 2}).json()
+    with Session(engine) as db:
+        feed = db.exec(select(Feed)).first()
+        db.add(FeedItem(feed_id=feed.id, guid="new", title="Brand new",
+                        published_at=datetime(2030, 1, 1)))
+        db.commit()
+    second = c.get("/api/v1/users/alice/items",
+                   params={"limit": 2, "cursor": first["next"]}).json()
+    seen = {i["id"] for i in first["items"]}
+    assert not seen & {i["id"] for i in second["items"]}
+    assert "Brand new" not in [i["title"] for i in second["items"]]
+
+
+def test_bad_cursor_and_limit_rejected():
+    _seed("alice")
+    c = _client()
+    assert c.get("/api/v1/users/alice/items?cursor=not-a-cursor").status_code == 400
+    assert c.get("/api/v1/users/alice/items?limit=101").status_code == 422
+    assert c.get("/api/v1/users/alice/items?limit=0").status_code == 422
+
+
+def test_bookmarks_paged():
+    from datetime import datetime, timedelta
+
+    from app.db import Bookmark, FeedItem, User, engine
+
+    _seed("alice")
+    _seed_items()
+    with Session(engine) as db:
+        alice = db.exec(select(User).where(User.handle == "alice")).one()
+        for n, item in enumerate(db.exec(select(FeedItem)).all()):
+            db.add(Bookmark(user_id=alice.id, feed_item_id=item.id,
+                            created_at=datetime(2026, 2, 1) + timedelta(minutes=n)))
+        db.commit()
+    c = _client()
+    paged = _all_pages(c, "/api/v1/users/alice/bookmarks", limit=4)
+    assert len(paged) == 6
+    marks = [b["bookmarked_at"] for b in paged]
+    assert marks == sorted(marks, reverse=True)
+
+
+def test_activity_hides_follows_of_private_users():
+    from app.db import Activity, User, engine
+
+    _seed("alice")
+    _seed("pat", visibility="private")
+    _seed("bob")
+    with Session(engine) as db:
+        users = {u.handle: u for u in db.exec(select(User)).all()}
+        for target in ("pat", "bob"):
+            db.add(Activity(user_id=users["alice"].id, kind="followed", subject=f"@{target}",
+                            subject_url=f"/u/{target}", ref_type="user",
+                            ref_id=users[target].id))
+        db.add(Activity(user_id=users["alice"].id, kind="created_category", subject="Tech",
+                        ref_type="category", ref_id=1))
+        db.commit()
+    body = _client().get("/api/v1/users/alice/activity").json()
+    assert sorted(a["subject"] for a in body["items"]) == ["@bob", "Tech"]
+    assert "pat" not in json.dumps(body)
+
+
+def test_private_user_paged_endpoints_404():
+    _seed("pat", visibility="private")
+    c = _client()
+    for path in ("/items", "/bookmarks", "/activity"):
+        assert c.get(f"/api/v1/users/pat{path}").status_code == 404
+
+
+def test_collections_public_only():
+    from app.db import Collection, CollectionFeed, Feed, engine
+
+    with Session(engine) as db:
+        feed = Feed(url="https://berlin.example/feed.xml", title="Berlin")
+        shown = Collection(slug="berlin", name="Berlin", is_official=True)
+        hidden = Collection(slug="draft", name="Draft", is_public=False)
+        db.add_all([feed, shown, hidden])
+        db.commit()
+        db.add(CollectionFeed(collection_id=shown.id, feed_id=feed.id, note="city news"))
+        db.commit()
+    c = _client()
+    listing = c.get("/api/v1/collections").json()["items"]
+    assert [col["slug"] for col in listing] == ["berlin"]
+    assert listing[0]["feed_count"] == 1
+
+    detail = c.get("/api/v1/collections/berlin").json()
+    assert detail["feeds"][0]["url"] == "https://berlin.example/feed.xml"
+    assert detail["feeds"][0]["note"] == "city news"
+    assert c.get("/api/v1/collections/draft").status_code == 404
+    assert c.get("/api/v1/collections/nope").status_code == 404
