@@ -86,3 +86,16 @@ def test_invite_rejects_existing_blocked_and_invalid(monkeypatch):
         "/invite", data={"email": "nope"}).text
     with Session(engine) as db:
         assert db.exec(select(Invite)).all() == []
+
+
+def test_account_list_shows_everyone_recent_login_first():
+    admin = _login("root@example.com")
+    for n in range(35):
+        with Session(engine) as db:
+            db.add(User(email=f"old{n}@example.com", handle=f"old{n}"))
+            db.commit()
+    _login("returning@example.com")
+    body = admin.get("/invite").text
+    assert "All accounts (37)" in body
+    assert "@old0" in body and "@old34" in body
+    assert body.index("@returning") < body.index("@old0")

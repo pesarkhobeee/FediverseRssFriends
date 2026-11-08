@@ -36,7 +36,9 @@ def _page(request: Request, db: Session, user: User, **extra) -> HTMLResponse:
         u.email: u
         for u in db.exec(select(User).where(User.email.in_([i.email for i in invites]))).all()
     }
-    users = db.exec(select(User).order_by(User.created_at.desc()).limit(RECENT)).all()
+    users = db.exec(
+        select(User).order_by(User.last_login_at.desc().nulls_last(), User.created_at.desc())
+    ).all()
     response = templates.TemplateResponse(request, "invite.html", {
         "user": user,
         "invites": [(i, accounts.get(i.email)) for i in invites],

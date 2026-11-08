@@ -62,8 +62,12 @@
   </ul>
 {% endif %}
 
-<h2 class="section-title">Newest accounts</h2>
-<p class="muted">Logins are counted from 0.11.63 on; earlier ones weren't recorded.</p>
+<h2 class="section-title">All accounts ({{ users|length }})</h2>
+<p class="muted">
+  Most recent sign-in first. Logins are counted from 0.11.63 on;
+  earlier ones weren't recorded, so older accounts show 0 until they
+  sign in again.
+</p>
 <ul class="fav-list">
   {% for u in users %}
     <li class="fav-item">
