@@ -10,8 +10,10 @@
 <section class="help-toc login">
   <strong>On this page</strong>
   <ul>
+    <li><a href="#account">Sign in &amp; your account</a></li>
     <li><a href="#radar">Your radar</a></li>
     <li><a href="#categories">Categories &amp; feeds</a></li>
+    <li><a href="#bookmarks">Bookmarks</a></li>
     <li><a href="#follow">Follow vs subscribe</a></li>
     <li><a href="#category-follow">Follow one category</a></li>
     <li><a href="#friends">Friends vs My activity</a></li>
@@ -19,6 +21,7 @@
     <li><a href="#discover">Discover</a></li>
     <li><a href="#privacy">Public, unlisted, private</a></li>
     <li><a href="#opml-rss">OPML &amp; RSS in / out</a></li>
+    <li><a href="#api">Public API (curl / scripts)</a></li>
     <li><a href="#fork">Pick feeds &amp; copy radars</a></li>
     <li><a href="#mastodon">Be followed from the fediverse</a></li>
     <li><a href="#fediverse">Follow accounts from the fediverse</a></li>
@@ -30,6 +33,39 @@
 </section>
 
 <section class="help-block">
+  <h2 id="account">🔑 Sign in &amp; your account</h2>
+  <ul>
+    <li>
+      <strong>No passwords.</strong> Enter your email on the front page
+      and we send a one-time sign-in link. Your handle is taken from the
+      part before the <code>@</code>.
+    </li>
+    <li>
+      <strong>Rename your handle</strong> from
+      <a href="/dashboard?panel=account">Settings → 👤 Account</a>. Old
+      links (<code>/u/old-name</code>, its RSS and OPML) keep working and
+      redirect to the new name. One rename per 30 days.
+    </li>
+    <li>
+      <strong>Theme</strong> — the ☀️ button in the top bar cycles
+      light → dark → e-reader (black on white, no animations, for
+      e-ink screens). The choice is remembered per browser.
+    </li>
+    <li>
+      <strong>Delete your account</strong> from the bottom of
+      <a href="/dashboard?panel=account">Settings → 👤 Account</a>. This
+      can't be undone: your subscriptions, categories, bookmarks,
+      follows, followers and activity log are removed. Your handle
+      becomes free, so someone else can register it later — and people
+      who still have <code>/u/&lt;you&gt;.rss</code> in their reader would
+      then get <em>their</em> radar. Download your OPML from
+      <a href="/dashboard?panel=import">📥 Import / Export</a> first if
+      you want to keep your feed list.
+    </li>
+  </ul>
+</section>
+
+<section class="help-block">
   <h2 id="radar">🌟 Your radar</h2>
   <p>
     Your <strong>radar</strong> is your public page at
@@ -37,6 +73,25 @@
     RSS/Atom feed you subscribe to, grouped by category. Anyone can
     visit it (unless you set it to private).
   </p>
+  <ul>
+    <li>
+      <strong>Two views.</strong> <em>Feeds</em> shows one card per feed
+      with its latest items. <em>Stream</em> merges every feed into one
+      newest-first list; longer items show an excerpt with
+      <em>Read more</em>, and <strong>Load more</strong> at the bottom
+      fetches older items.
+    </li>
+    <li>
+      <strong>Category chips</strong> above the list filter both views
+      to one category.
+    </li>
+    <li>
+      <strong>Feed pages</strong> — every feed has its own shareable page
+      at <code>/f/&lt;id&gt;</code> (📄 Feed page on a card) with its
+      recent items and how many people here watch it. 🔗 Copy link puts
+      that URL on your clipboard.
+    </li>
+  </ul>
 </section>
 
 <section class="help-block">
@@ -53,6 +108,55 @@
     somewhere else, use the <strong>Import from OPML</strong> button —
     every RSS reader can export OPML.
   </p>
+  <ul>
+    <li>
+      <strong>You don't need the exact feed URL.</strong> Paste a
+      homepage, a YouTube channel, a GitHub profile or a subreddit and
+      we find the feed for you; if a page offers several, you pick one.
+    </li>
+    <li>
+      <strong>Per-feed actions</strong> on <a href="/dashboard">Settings →
+      📡 Feeds</a>: move to another category, fix the URL, 🔄 refresh now,
+      add a private 📝 note, or remove it.
+    </li>
+    <li>
+      <strong>Categories</strong> can be renamed inline and collapsed.
+      Deleting a category removes the subscriptions inside it.
+    </li>
+    <li>
+      <strong>Feeds refresh in the background</strong> every few
+      minutes. A feed that keeps failing gets a ⚠️ on the Settings
+      page (<em>stale</em>, or <em>doesn't look like a feed</em>) so you
+      can fix the URL or remove it.
+    </li>
+  </ul>
+</section>
+
+<section class="help-block">
+  <h2 id="bookmarks">⭐ Bookmarks</h2>
+  <p>
+    Tap the ☆ next to any item to bookmark it. Your bookmarks live at
+    <a href="/u/{{ user.handle if user else 'you' }}/bookmarks">/u/&lt;you&gt;/bookmarks</a>
+    (also in the footer as <em>My bookmarks</em>).
+  </p>
+  <ul>
+    <li>
+      <strong>Bookmarks are public</strong> on public and unlisted
+      radars: they show on your bookmarks page, in your activity log, on
+      your followers' Friends page, on the fediverse and in the
+      <a href="#api">API</a>. Don't bookmark something you wouldn't
+      want people who follow you to see.
+    </li>
+    <li>
+      Un-bookmarking removes it from your list but does not delete
+      copies already delivered to fediverse followers. Use ✕ on
+      <em>My activity</em> for that.
+    </li>
+    <li>
+      With <a href="#wallabag">Wallabag</a> connected, every bookmark is
+      also archived there.
+    </li>
+  </ul>
 </section>
 
 <section class="help-block">
@@ -125,6 +229,9 @@
       from their own external feeds (see below). It's a social signal,
       not a reader. Fresh items from your own subscribed feeds live on
       <a href="/u/{{ user.handle if user else 'you' }}">your radar</a> page.
+      Chips at the top filter to <em>All</em>, people on
+      {{ instance_name }}, or <em>🌐 Fediverse</em> accounts;
+      <strong>Load more</strong> pages back in time.
     </li>
     <li>
       <strong>My activity</strong> — your <em>own</em> log. Every
@@ -189,8 +296,9 @@
 <section class="help-block">
   <h2 id="discover">🔭 Discover</h2>
   <p>
-    <a href="/discover">Discover</a> lists new radars, popular feeds,
-    and most-copied curators — all public users only. There's a
+    <a href="/discover">Discover</a> lists recent radars, most-copied
+    curators, popular feeds and <a href="#collections">collections</a> —
+    public users only. There's a
     fuzzy search box at the top; type a handle (even with typos) to
     find someone.
   </p>
@@ -213,11 +321,32 @@
       view. Others see a "Send follow request" page.
     </li>
   </ul>
+  <p>For private radars:</p>
+  <ul>
+    <li>
+      New requests wait on <a href="/follow-requests">Follow requests</a>
+      (a badge on Settings shows how many). Approve or reject each one.
+    </li>
+    <li>
+      You can <strong>revoke</strong> an approved follower at any time
+      from your followers list. They lose access immediately, including
+      their signed RSS links and any of your categories they followed.
+    </li>
+    <li>
+      Approving someone gives them everything on your radar: feeds,
+      bookmarks and activity. Approve only people you'd hand that list
+      to directly.
+    </li>
+  </ul>
+  <p>
+    Everyone's <code>/u/&lt;handle&gt;/followers</code> and
+    <code>/following</code> pages list who they're connected with.
+  </p>
 </section>
 
 <section class="help-block">
   <h2 id="opml-rss">📥📤 OPML &amp; RSS in / out</h2>
-  <p>Every user has three subscribable URLs — plug them into any RSS reader:</p>
+  <p>Every radar has these subscribable URLs — plug them into any RSS reader:</p>
   <ul>
     <li>
       <code>/u/&lt;handle&gt;.opml</code> — the list of feeds you subscribe
@@ -233,6 +362,59 @@
       <code>/u/&lt;handle&gt;/activity.rss</code> — your activity feed
       (bookmarks, subscribes) as RSS. For private users, the URL
       includes a signed token so only approved followers can subscribe.
+    </li>
+    <li>
+      <code>/u/&lt;handle&gt;/c/&lt;category&gt;.rss</code> — one category's
+      items only.
+    </li>
+    <li>
+      <code>/collections/&lt;slug&gt;.rss</code> — every item from a
+      <a href="#collections">collection</a>.
+    </li>
+  </ul>
+  <p class="muted">
+    Treat the signed private-radar URL like a password: anyone you
+    paste it to (a shared reader account, a public dotfiles repo) can
+    read that radar until the owner revokes you.
+  </p>
+</section>
+
+<section class="help-block">
+  <h2 id="api">🧰 Public API (curl / scripts)</h2>
+  <p>
+    A read-only JSON API at <code>/api/v1</code> serves the same data
+    the public pages show, for scripts and the command line. No login,
+    no key. Interactive docs: <a href="/api/v1/docs">/api/v1/docs</a>.
+  </p>
+<pre><code>API={{ instance_base_url }}/api/v1
+
+# Feeds in one category
+curl -s "$API/users/&lt;handle&gt;/feeds?category=News" | jq -r '.items[].url'
+
+# Newest items, 20 at a time
+curl -s "$API/users/&lt;handle&gt;/items?limit=20" | jq -r '.items[] | "\(.title)\t\(.link)"'</code></pre>
+  <ul>
+    <li>
+      Endpoints: <code>/instance</code>, <code>/users/&lt;handle&gt;</code>
+      and its <code>/categories</code>, <code>/feeds</code>,
+      <code>/items</code>, <code>/bookmarks</code>, <code>/activity</code>,
+      plus <code>/collections</code> and <code>/collections/&lt;slug&gt;</code>.
+    </li>
+    <li>
+      <strong>Paging:</strong> lists return <code>{"items": […], "next": …}</code>.
+      Pass <code>next</code> back as <code>?cursor=</code> for the next
+      page; <code>limit</code> is 1–100 (default 50).
+    </li>
+    <li>
+      <strong>What it shows:</strong> public and unlisted radars, if you
+      know the handle. Unlisted only means "not on Discover" — anyone
+      with your handle can download your whole radar this way.
+    </li>
+    <li>
+      <strong>What it never shows:</strong> private radars (404, same as
+      a handle that doesn't exist), emails, private notes, Wallabag
+      settings, or follows of private users. Being signed in changes
+      nothing — the API ignores your login.
     </li>
   </ul>
 </section>
@@ -310,9 +492,9 @@
       (that'd require a Delete{Actor}) but new follows fail.
     </li>
     <li>
-      <strong>This instance is currently follow-in only.</strong>
-      You can follow accounts from Mastodon, Pleroma, Firefish or any
-      ActivityPub server — see the next section.
+      <strong>It works both ways.</strong> You can also follow
+      accounts on Mastodon, Pleroma, Firefish or any ActivityPub
+      server — see the next section.
     </li>
   </ul>
 </section>
@@ -345,7 +527,7 @@
     <li>
       Go to <a href="/follow/remote">Follow from the fediverse</a>
       (also linked in the site footer as
-      <strong>🐘 Follow from fediverse</strong>).
+      <strong>🌐 Follow from the fediverse</strong>, when signed in).
     </li>
     <li>
       Paste an <code>@user@host</code> handle (copy-paste from the
@@ -481,7 +663,7 @@
     </li>
     <li>
       In {{ instance_name }}, open <a href="/dashboard?panel=account">Settings →
-      Settings</a>, scroll to <strong>Wallabag</strong>, and paste:
+      👤 Account</a>, scroll to <strong>Wallabag</strong>, and paste:
       your instance URL, the client ID + secret you just minted, and
       your Wallabag username + password. Click <em>Connect to Wallabag</em>.
     </li>

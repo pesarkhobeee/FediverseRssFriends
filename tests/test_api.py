@@ -156,6 +156,12 @@ def test_footer_links_to_api_docs():
     assert '<a href="/api/v1/docs">API</a>' in r.text
 
 
+def test_help_documents_the_api():
+    r = _client().get("/help")
+    assert 'href="#api"' in r.text
+    assert 'id="api"' in r.text
+
+
 def test_openapi_schema_matches_snapshot():
     """Any change to the API's fields fails here until the snapshot is
     regenerated on purpose: RSSFRIENDS_UPDATE_SNAPSHOTS=1 uv run pytest tests/test_api.py"""
