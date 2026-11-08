@@ -151,6 +151,7 @@ A few more knobs worth knowing about, all in `.env`:
 | Knob | What it does |
 |---|---|
 | `RSSFRIENDS_OPEN_REGISTRATION=0` | Only existing users can log in; unknown emails get an "invite-only" error |
+| `RSSFRIENDS_BLOCKED_EMAIL_DOMAINS=spam.example,other.example` | These domains (and subdomains) can neither sign up nor sign in; existing accounts on them are locked out, not deleted |
 | `RSSFRIENDS_ADMIN_EMAIL=you@example.com` | Shown in footer + NodeInfo metadata |
 | `RSSFRIENDS_REFRESH_INTERVAL_MINUTES=15` | How often the background scheduler fetches new items |
 | `RSSFRIENDS_FEED_ITEM_KEEP=100` | Max items retained per feed |

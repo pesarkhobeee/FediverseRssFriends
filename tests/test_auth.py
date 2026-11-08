@@ -151,3 +151,59 @@ def test_rate_limit_blocks_rapid_second_link(monkeypatch):
     r2 = client.post("/login", data={"email": "eve@example.com"})
     assert r2.status_code == 200
     assert "please wait" in r2.text
+
+
+def _request_link(client, email: str):
+    r = client.post("/login", data={"email": email})
+    marker = "/auth/verify?token="
+    idx = r.text.find(marker)
+    if idx == -1:
+        return r, None
+    return r, r.text[idx:r.text.find('"', idx)].split("token=", 1)[1]
+
+
+def _block(monkeypatch, *domains):
+    import app.config
+    monkeypatch.setattr(app.config, "BLOCKED_EMAIL_DOMAINS", frozenset(domains))
+
+
+def test_blocked_domain_gets_no_link(monkeypatch):
+    from sqlmodel import Session, select
+
+    from app.db import MagicToken, engine
+
+    _block(monkeypatch, "spam.example")
+    for email in ("bot@spam.example", "Bot@SPAM.example", "bot@mx.spam.example"):
+        r, token = _request_link(_client(), email)
+        assert token is None
+        assert "is not accepted here" in r.text
+    with Session(engine) as db:
+        assert db.exec(select(MagicToken)).all() == []
+
+
+def test_lookalike_domain_not_blocked(monkeypatch):
+    _block(monkeypatch, "spam.example")
+    _, token = _request_link(_client(), "person@notspam.example")
+    assert token is not None
+
+
+def test_link_issued_before_block_stops_working(monkeypatch):
+    client = _client()
+    _, token = _request_link(client, "bot@spam.example")
+    assert token is not None
+
+    _block(monkeypatch, "spam.example")
+    r = client.post("/auth/verify", data={"token": token}, follow_redirects=False)
+    assert r.status_code == 200
+    assert client.get("/dashboard").status_code == 401
+
+
+def test_existing_account_on_blocked_domain_locked_out(monkeypatch):
+    client = _client()
+    _, token = _request_link(client, "bot@spam.example")
+    client.post("/auth/verify", data={"token": token})
+    assert _client().get("/u/bot").status_code == 200
+
+    _block(monkeypatch, "spam.example")
+    _, token = _request_link(_client(), "bot@spam.example")
+    assert token is None

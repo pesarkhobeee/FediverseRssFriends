@@ -92,3 +92,10 @@ INSTANCE_ADMIN_EMAIL: str = os.getenv("RSSFRIENDS_ADMIN_EMAIL", "")
 OPEN_REGISTRATION: bool = (
     os.getenv("RSSFRIENDS_OPEN_REGISTRATION", "1") != "0"
 )
+# Comma-separated email domains refused at sign-up AND sign-in (a
+# domain also covers its subdomains). For throwaway-mail spam waves.
+BLOCKED_EMAIL_DOMAINS: frozenset[str] = frozenset(
+    d.strip().lower().lstrip("@")
+    for d in os.getenv("RSSFRIENDS_BLOCKED_EMAIL_DOMAINS", "").split(",")
+    if d.strip()
+)

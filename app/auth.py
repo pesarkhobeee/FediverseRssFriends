@@ -26,6 +26,17 @@ def is_valid_email(email: str) -> bool:
     return bool(EMAIL_RE.match(email)) and len(email) <= 254
 
 
+def is_blocked_email(email: str) -> bool:
+    domain = email.rsplit("@", 1)[-1]
+    return any(
+        domain == blocked or domain.endswith("." + blocked)
+        for blocked in config.BLOCKED_EMAIL_DOMAINS
+    )
+
+
+BLOCKED_DETAIL = "This email address is not accepted here."
+
+
 def _slugify_handle(email: str) -> str:
     base = email.split("@", 1)[0].lower()
     base = re.sub(r"[^a-z0-9]+", "-", base).strip("-")
@@ -55,6 +66,8 @@ def issue_magic_link(db: Session, email: str) -> tuple[str, str]:
     email = normalize_email(email)
     if not is_valid_email(email):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "invalid email")
+    if is_blocked_email(email):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, BLOCKED_DETAIL)
 
     # Rate limit: reject if a fresh token was minted very recently.
     recent = db.exec(
@@ -107,6 +120,9 @@ def consume_token(db: Session, token: str) -> User:
 
     email = row.email
     db.delete(row)  # single-use
+    if is_blocked_email(email):
+        db.commit()
+        raise HTTPException(status.HTTP_403_FORBIDDEN, BLOCKED_DETAIL)
 
     user = db.exec(select(User).where(User.email == email)).first()
     if not user:

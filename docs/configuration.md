@@ -31,6 +31,10 @@ Every knob is an environment variable read at startup. Set them in `.env`
 - `RSSFRIENDS_MAGIC_LINK_TTL_MINUTES` — token lifetime (default `15`)
 - `RSSFRIENDS_MAGIC_LINK_MIN_INTERVAL` — min seconds between links per
   email (default `60`)
+- `RSSFRIENDS_BLOCKED_EMAIL_DOMAINS` — comma-separated domains that can
+  neither sign up nor sign in (subdomains included). Checked when a link
+  is requested and again when it's used, so links already sent stop
+  working. Existing accounts are locked out, not deleted.
 
 ## Email
 
