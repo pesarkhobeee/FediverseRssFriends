@@ -1,4 +1,14 @@
 {# ⚙️ Settings — handle, visibility, integrations, destructive actions. #}
+{% if is_admin %}
+<section class="card">
+  <h2 style="margin-top:0">Invite people</h2>
+  <p class="muted" style="margin:.25rem 0 .75rem">
+    Send someone a sign-in link, and see who joined and how often
+    members sign in. Admins only.
+  </p>
+  <a class="btn" href="/invite">Open invites →</a>
+</section>
+{% endif %}
 <section class="card">
   <h2 style="margin-top:0">Your handle</h2>
   <p class="muted" style="margin:.25rem 0 .75rem">

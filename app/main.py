@@ -21,6 +21,7 @@ from .db import User, get_session, init_db
 from .discover import router as discover_router
 from .feed_page import router as feed_page_router
 from .follow import router as follow_router
+from .invites import router as invites_router
 from .personal_feeds import router as personal_feeds_router
 from .public import router as public_router
 from .refresh import run_cycle
@@ -126,10 +127,12 @@ def login(
     # users can sign in) but refuse new emails with a clear message.
     if not config.OPEN_REGISTRATION:
         from sqlmodel import select as _sel
+
+        from .db import Invite
         existing = db.exec(
             _sel(User).where(User.email == email.strip().lower())
         ).first()
-        if not existing:
+        if not existing and not db.get(Invite, email.strip().lower()):
             msg = (
                 f"{config.INSTANCE_NAME} is invite-only. If you already "
                 "have an account, use the same email you signed up with."
@@ -186,6 +189,7 @@ app.include_router(dashboard_router)
 app.include_router(public_router)
 app.include_router(bookmarks_router)
 app.include_router(follow_router)
+app.include_router(invites_router)
 app.include_router(timeline_router)
 app.include_router(discover_router)
 app.include_router(collections_router)

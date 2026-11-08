@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Invite people · {{ instance_name }}{% endblock %}
+{% block content %}
+<section class="hero stack">
+  <h1>Invite people</h1>
+  <p class="muted" style="max-width:60ch">
+    Enter someone's email and we send them a sign-in link. Their account
+    is created the first time they use it, so an unaccepted invite never
+    shows up as a radar. Only admins see this page.
+  </p>
+  <p><a class="btn-ghost" href="/dashboard?panel=account">← Back to settings</a></p>
+</section>
+
+{% if open_registration %}
+  <p class="muted" style="margin:1rem 0">
+    Registration is currently <strong>open</strong> — anyone can sign up
+    without an invite. Set <code>RSSFRIENDS_OPEN_REGISTRATION=0</code> to
+    make {{ instance_name }} invite-only.
+  </p>
+{% endif %}
+
+{% if sent %}
+  <p class="cta-badge" style="margin:1rem 0">✓ Invite sent to {{ sent }}.</p>
+  {% if dev_link %}
+    <p class="muted">Dev mode (no email configured): <a href="{{ dev_link }}">{{ dev_link }}</a></p>
+  {% endif %}
+{% endif %}
+{% if error %}
+  <p class="cta-badge" style="margin:1rem 0">⚠️ {{ error }}</p>
+{% endif %}
+
+<form method="post" action="/invite" class="collection-admin-form">
+  <label>
+    <div class="collection-admin-label">Email</div>
+    <input class="input" type="email" name="email" required maxlength="254"
+           placeholder="friend@example.com" autocomplete="off" />
+  </label>
+  <div style="display:flex; gap:10px; margin-top:16px">
+    <button class="btn" type="submit">Send invite</button>
+  </div>
+</form>
+
+{% if invites %}
+  <h2 class="section-title">Invites</h2>
+  <ul class="fav-list">
+    {% for inv, account in invites %}
+      <li class="fav-item">
+        <div class="fav-head">
+          <span>{{ inv.email }}</span>
+          <span class="spacer"></span>
+          <span class="muted" style="font-size:.85rem">
+            {% if account %}
+              joined as <a href="/u/{{ account.handle }}">@{{ account.handle }}</a>
+            {% else %}
+              not signed in yet
+            {% endif %}
+            · invited {{ inv.created_at|relative_time }}
+          </span>
+        </div>
+      </li>
+    {% endfor %}
+  </ul>
+{% endif %}
+
+<h2 class="section-title">Newest accounts</h2>
+<p class="muted">Logins are counted from 0.11.63 on; earlier ones weren't recorded.</p>
+<ul class="fav-list">
+  {% for u in users %}
+    <li class="fav-item">
+      <div class="fav-head">
+        <a class="title" href="/u/{{ u.handle }}">@{{ u.handle }}</a>
+        <span class="muted">{{ u.email }}</span>
+        <span class="spacer"></span>
+        <span class="muted" style="font-size:.85rem">
+          {{ u.login_count }} login{{ '' if u.login_count == 1 else 's' }}
+          {% if u.last_login_at %}· last {{ u.last_login_at|relative_time }}{% endif %}
+          · joined {{ u.created_at|relative_time }}
+        </span>
+      </div>
+    </li>
+  {% endfor %}
+</ul>
+{% endblock %}

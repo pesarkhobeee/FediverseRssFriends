@@ -75,6 +75,16 @@ class MagicToken(SQLModel, table=True):
     expires_at: datetime
 
 
+class Invite(SQLModel, table=True):
+    """0.11.64: an admin let this email sign up while registration is
+    closed. No User row until the invitee first signs in, so an
+    unaccepted invite never shows up as a public radar."""
+
+    email: str = Field(primary_key=True)
+    invited_by: int | None = Field(default=None, foreign_key="user.id")
+    created_at: datetime = Field(default_factory=_now)
+
+
 class Category(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     user_id: int = Field(foreign_key="user.id", index=True)

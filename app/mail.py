@@ -104,6 +104,29 @@ def send_magic_link(email: str, url: str) -> None:
     send_email(email, subject, text, html)
 
 
+def send_invite(email: str, url: str, inviter_handle: str) -> None:
+    from html import escape
+
+    name = config.INSTANCE_NAME
+    base = config.BASE_URL.rstrip("/")
+    subject = f"@{inviter_handle} invited you to {name}"
+    text = (
+        f"@{inviter_handle} invited you to {name}, a social RSS radar.\n\n"
+        f"Sign in to accept:\n\n{url}\n\n"
+        f"This link expires in {config.MAGIC_LINK_TTL_MINUTES} minutes. If it has, "
+        f"go to {base} and enter this email address to get a fresh one — "
+        "the invite itself doesn't expire."
+    )
+    html = (
+        f"<p>@{escape(inviter_handle)} invited you to {escape(name)}, a social RSS radar.</p>"
+        f'<p><a href="{url}">Sign in to accept</a></p>'
+        f"<p>This link expires in {config.MAGIC_LINK_TTL_MINUTES} minutes. If it has, "
+        f'go to <a href="{base}">{escape(base)}</a> and enter this email address to '
+        "get a fresh one — the invite itself doesn't expire.</p>"
+    )
+    send_email(email, subject, text, html)
+
+
 def send_new_follower(followee_email: str, followee_handle: str,
                       follower_handle: str, approved: bool) -> None:
     """`approved=True` means auto-approved (public/unlisted followee);

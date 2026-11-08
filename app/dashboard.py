@@ -92,6 +92,7 @@ def _load_settings_context(db: Session, user: User) -> dict:
     from datetime import UTC, datetime, timedelta
 
     from . import wallabag as wb
+    from .collections import _is_admin
     from .public import RENAME_COOLDOWN_DAYS
 
     # Days remaining in the rename cooldown, 0 if the user can rename now.
@@ -111,6 +112,7 @@ def _load_settings_context(db: Session, user: User) -> dict:
         "wallabag_account": wb.get_account(db, user),
         "rename_cooldown_days": RENAME_COOLDOWN_DAYS,
         "rename_available_in_days": days_left,
+        "is_admin": _is_admin(db, user),
     }
 
 
